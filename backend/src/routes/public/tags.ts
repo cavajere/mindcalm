@@ -1,13 +1,13 @@
 import { Router, Request, Response } from 'express'
 import { validationResult } from 'express-validator'
 import { prisma } from '../../lib/prisma'
-import { authMiddleware } from '../../middleware/auth'
+import { appAuthMiddleware } from '../../middleware/auth'
 import { getBoolean, getSingleString } from '../../utils/request'
 import { tagFilterQuery } from '../../utils/validators'
 
 const router = Router()
 
-router.use(authMiddleware)
+router.use(appAuthMiddleware)
 
 router.get('/', tagFilterQuery, async (req: Request, res: Response) => {
   const errors = validationResult(req)

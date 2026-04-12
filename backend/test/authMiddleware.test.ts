@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { authMiddleware } from '../src/middleware/auth'
+import { adminAuthMiddleware, appAuthMiddleware, authMiddleware } from '../src/middleware/auth'
 import { config } from '../src/config'
 
 const { prismaUserFindUnique } = vi.hoisted(() => ({
@@ -71,6 +71,77 @@ describe('authMiddleware', () => {
       role: 'STANDARD',
     })
     expect(res.status).not.toHaveBeenCalled()
+  })
+
+  it('autorizza richieste admin con cookie admin valido', async () => {
+    prismaUserFindUnique.mockResolvedValue({
+      id: 'admin-1',
+      email: 'admin@example.com',
+      name: 'Admin',
+      role: 'ADMIN',
+      isActive: true,
+      sessionVersion: 4,
+    })
+
+    const token = jwt.sign(
+      {
+        id: 'admin-1',
+        email: 'admin@example.com',
+        name: 'Admin',
+        role: 'ADMIN',
+        sessionVersion: 4,
+      },
+      config.jwt.secret,
+      { expiresIn: '1h' },
+    )
+
+    const req: any = {
+      headers: {},
+      cookies: {
+        [config.jwt.adminCookieName]: token,
+      },
+    }
+    const res = createResponse()
+    const next = vi.fn()
+
+    await adminAuthMiddleware(req, res as any, next)
+
+    expect(next).toHaveBeenCalledOnce()
+    expect(req.adminUser).toEqual({
+      id: 'admin-1',
+      email: 'admin@example.com',
+      name: 'Admin',
+      role: 'ADMIN',
+    })
+  })
+
+  it('non accetta il cookie admin sulle rotte app', async () => {
+    const token = jwt.sign(
+      {
+        id: 'admin-1',
+        email: 'admin@example.com',
+        name: 'Admin',
+        role: 'ADMIN',
+        sessionVersion: 4,
+      },
+      config.jwt.secret,
+      { expiresIn: '1h' },
+    )
+
+    const req: any = {
+      headers: {},
+      cookies: {
+        [config.jwt.adminCookieName]: token,
+      },
+    }
+    const res = createResponse()
+    const next = vi.fn()
+
+    await appAuthMiddleware(req, res as any, next)
+
+    expect(next).not.toHaveBeenCalled()
+    expect(res.status).toHaveBeenCalledWith(401)
+    expect(res.json).toHaveBeenCalledWith({ error: 'Token mancante' })
   })
 
   it('rifiuta token con sessionVersion non più valida', async () => {
@@ -173,5 +244,28 @@ describe('authMiddleware', () => {
       code: 'LICENSE_EXPIRED',
       licenseExpiresAt: '2026-04-01T00:00:00.000Z',
     })
+  })
+
+  it('pulisce il cookie admin quando il token è invalido', async () => {
+    const req: any = {
+      headers: {},
+      cookies: {
+        [config.jwt.adminCookieName]: 'token-non-valido',
+      },
+    }
+    const res = createResponse()
+    const next = vi.fn()
+
+    await adminAuthMiddleware(req, res as any, next)
+
+    expect(next).not.toHaveBeenCalled()
+    expect(res.clearCookie).toHaveBeenCalledWith(config.jwt.adminCookieName, {
+      httpOnly: true,
+      sameSite: 'strict',
+      secure: config.isProduction,
+      path: '/api/v1',
+    })
+    expect(res.status).toHaveBeenCalledWith(401)
+    expect(res.json).toHaveBeenCalledWith({ error: 'Token non valido o scaduto' })
   })
 })

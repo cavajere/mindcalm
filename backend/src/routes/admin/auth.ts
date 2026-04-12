@@ -12,7 +12,7 @@ import {
   verifyRegistrationValidation,
 } from '../../utils/validators'
 import { comparePassword, generateToken } from '../../services/authService'
-import { authMiddleware, requireAdmin } from '../../middleware/auth'
+import { adminAuthMiddleware, appAuthMiddleware, requireAdmin } from '../../middleware/auth'
 import {
   inviteCodeValidationRateLimiter,
   loginRateLimiter,
@@ -49,6 +49,13 @@ const appCookieOptions = {
   path: '/',
 }
 
+const adminCookieOptions = {
+  httpOnly: true,
+  sameSite: 'strict' as const,
+  secure: config.isProduction,
+  path: '/api/v1',
+}
+
 function setAppAuthSession(
   res: Response,
   user: { id: string; email: string; name: string; role: UserRole; sessionVersion: number },
@@ -64,6 +71,21 @@ function setAppAuthSession(
   res.cookie(config.jwt.appCookieName, authToken, appCookieOptions)
 }
 
+function setAdminAuthSession(
+  res: Response,
+  user: { id: string; email: string; name: string; role: UserRole; sessionVersion: number },
+) {
+  const authToken = generateToken({
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    sessionVersion: user.sessionVersion,
+  })
+
+  res.cookie(config.jwt.adminCookieName, authToken, adminCookieOptions)
+}
+
 // POST /api/v1/auth/login
 router.post('/login', loginRateLimiter, loginValidation, async (req: Request, res: Response) => {
   const errors = validationResult(req)
@@ -76,6 +98,7 @@ router.post('/login', loginRateLimiter, loginValidation, async (req: Request, re
   const user = await prisma.user.findUnique({ where: { email } })
 
   if (!user || user.role !== UserRole.ADMIN || !user.isActive || !(await comparePassword(password, user.password))) {
+    res.clearCookie(config.jwt.adminCookieName, adminCookieOptions)
     await logAuditEventSafe({
       req,
       action: AuditAction.LOGIN_FAILED,
@@ -89,16 +112,9 @@ router.post('/login', loginRateLimiter, loginValidation, async (req: Request, re
     return
   }
 
-  const token = generateToken({
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    role: user.role,
-    sessionVersion: user.sessionVersion,
-  })
+  setAdminAuthSession(res, user)
 
   res.json({
-    token,
     user: { id: user.id, email: user.email, name: user.name, role: user.role },
   })
 
@@ -184,7 +200,7 @@ router.post('/app-login', loginRateLimiter, loginValidation, async (req: Request
 })
 
 // GET /api/v1/auth/me
-router.get('/me', authMiddleware, async (req: Request, res: Response) => {
+router.get('/me', adminAuthMiddleware, requireAdmin, async (req: Request, res: Response) => {
   const user = await prisma.user.findUnique({
     where: { id: req.adminUser!.id },
     select: { id: true, email: true, name: true, role: true, isActive: true },
@@ -199,7 +215,7 @@ router.get('/me', authMiddleware, async (req: Request, res: Response) => {
 })
 
 // GET /api/v1/auth/app-me
-router.get('/app-me', authMiddleware, async (req: Request, res: Response) => {
+router.get('/app-me', appAuthMiddleware, async (req: Request, res: Response) => {
   const user = await prisma.user.findUnique({
     where: { id: req.adminUser!.id },
     select: { id: true, email: true, name: true, role: true, isActive: true },
@@ -214,7 +230,7 @@ router.get('/app-me', authMiddleware, async (req: Request, res: Response) => {
 })
 
 // POST /api/v1/auth/logout
-router.post('/logout', authMiddleware, requireAdmin, async (req: Request, res: Response) => {
+router.post('/logout', adminAuthMiddleware, requireAdmin, async (req: Request, res: Response) => {
   await logAuditEventSafe({
     req,
     action: AuditAction.LOGOUT,
@@ -225,11 +241,12 @@ router.post('/logout', authMiddleware, requireAdmin, async (req: Request, res: R
     metadata: { channel: 'ADMIN_PORTAL' },
   })
 
+  res.clearCookie(config.jwt.adminCookieName, adminCookieOptions)
   res.json({ message: 'Logout effettuato' })
 })
 
 // POST /api/v1/auth/app-logout
-router.post('/app-logout', authMiddleware, async (req: Request, res: Response) => {
+router.post('/app-logout', appAuthMiddleware, async (req: Request, res: Response) => {
   await revokeAllPlaybackSessionsForUser(req.adminUser!.id)
 
   await logAuditEventSafe({
@@ -603,7 +620,7 @@ router.post('/verify-registration', registrationVerificationRateLimiter, verifyR
 })
 
 // POST /api/v1/auth/app-change-password
-router.post('/app-change-password', authMiddleware, changePasswordValidation, async (req: Request, res: Response) => {
+router.post('/app-change-password', appAuthMiddleware, changePasswordValidation, async (req: Request, res: Response) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
     res.status(400).json({ error: 'Dati non validi', details: errors.array() })

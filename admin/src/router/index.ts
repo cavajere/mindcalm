@@ -5,9 +5,9 @@ import LoginView from '../views/LoginView.vue'
 const router = createRouter({
   history: createWebHistory('/admin/'),
   routes: [
-    { path: '/login', component: LoginView },
-    { path: '/forgot-password', component: () => import('../views/ForgotPasswordView.vue') },
-    { path: '/reset-password', component: () => import('../views/ResetPasswordView.vue') },
+    { path: '/login', component: LoginView, meta: { publicOnly: true } },
+    { path: '/forgot-password', component: () => import('../views/ForgotPasswordView.vue'), meta: { publicOnly: true } },
+    { path: '/reset-password', component: () => import('../views/ResetPasswordView.vue'), meta: { publicOnly: true } },
     { path: '/', component: () => import('../views/DashboardView.vue'), meta: { requiresAuth: true } },
     { path: '/audio', component: () => import('../views/AudioListView.vue'), meta: { requiresAuth: true } },
     { path: '/audio/new', component: () => import('../views/AudioFormView.vue'), meta: { requiresAuth: true } },
@@ -29,17 +29,25 @@ const router = createRouter({
   ],
 })
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const auth = useAuthStore()
+
+  if (!auth.initialized) {
+    await auth.initialize()
+  }
+
   if (!to.matched.length) {
     return auth.isAuthenticated ? '/' : '/login'
   }
 
   if (to.meta.requiresAuth && !auth.isAuthenticated) {
-    return '/login'
+    return {
+      path: '/login',
+      query: to.fullPath !== '/' ? { redirect: to.fullPath } : {},
+    }
   }
 
-  if (to.path === '/login' && auth.isAuthenticated) {
+  if (to.meta.publicOnly && auth.isAuthenticated) {
     return '/'
   }
 })

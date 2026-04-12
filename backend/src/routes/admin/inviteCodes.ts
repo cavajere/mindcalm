@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express'
 import { AuditAction, AuditEntityType, AuditOutcome } from '@prisma/client'
 import { validationResult } from 'express-validator'
-import { authMiddleware, requireAdmin } from '../../middleware/auth'
+import { adminAuthMiddleware, requireAdmin } from '../../middleware/auth'
 import { paginationQuery, inviteCodeCreateValidation } from '../../utils/validators'
 import { getNumber, getSingleString } from '../../utils/request'
 import { createInviteCode, disableInviteCode, getInviteCodeById, listInviteCodes } from '../../services/inviteCodeService'
@@ -9,7 +9,7 @@ import { getAuditActorFromRequest, logAuditEventSafe } from '../../services/audi
 
 const router = Router()
 
-router.use(authMiddleware, requireAdmin)
+router.use(adminAuthMiddleware, requireAdmin)
 
 router.get('/', paginationQuery, async (req: Request, res: Response) => {
   const page = Math.max(parseInt((req.query.page as string) || '1', 10) || 1, 1)

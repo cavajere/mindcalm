@@ -1,14 +1,14 @@
 import { AuditAction, AuditEntityType, AuditOutcome, Prisma, UserRole } from '@prisma/client'
 import { Router, Request, Response } from 'express'
 import { validationResult } from 'express-validator'
-import { authMiddleware, requireAdmin } from '../../middleware/auth'
+import { adminAuthMiddleware, requireAdmin } from '../../middleware/auth'
 import { prisma } from '../../lib/prisma'
 import { getSingleString } from '../../utils/request'
 import { auditLogFilterQuery } from '../../utils/validators'
 
 const router = Router()
 
-router.use(authMiddleware, requireAdmin)
+router.use(adminAuthMiddleware, requireAdmin)
 
 function buildDateRange(dateFrom?: string, dateTo?: string): Prisma.DateTimeFilter | undefined {
   if (!dateFrom && !dateTo) return undefined

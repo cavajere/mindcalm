@@ -1,14 +1,14 @@
 import { Router, Request, Response } from 'express'
 import { AnalyticsEventType, Prisma, Status } from '@prisma/client'
 import { validationResult } from 'express-validator'
-import { authMiddleware, requireAdmin } from '../../middleware/auth'
+import { adminAuthMiddleware, requireAdmin } from '../../middleware/auth'
 import { analyticsOverviewQuery } from '../../utils/validators'
 import { getNumber, getSingleString } from '../../utils/request'
 import { prisma } from '../../lib/prisma'
 
 const router = Router()
 
-router.use(authMiddleware, requireAdmin)
+router.use(adminAuthMiddleware, requireAdmin)
 
 function startOfUtcDay(value: string) {
   const [year, month, day] = value.slice(0, 10).split('-').map(Number)

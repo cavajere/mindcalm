@@ -7,7 +7,7 @@ import { audioFilterQuery } from '../../utils/validators'
 import { config } from '../../config'
 import { getSingleString, getStringList } from '../../utils/request'
 import { prisma } from '../../lib/prisma'
-import { authMiddleware } from '../../middleware/auth'
+import { appAuthMiddleware } from '../../middleware/auth'
 import { getRankedPublishedAudioIds } from '../../services/searchService'
 import { mapAudioTags } from '../../services/tagService'
 import { getAudioFilePath } from '../../services/fileService'
@@ -27,7 +27,7 @@ import { playbackSessionRateLimiter } from '../../middleware/rateLimiter'
 
 const router = Router()
 
-router.use(authMiddleware)
+router.use(appAuthMiddleware)
 
 function setPrivateStreamingHeaders(res: Response) {
   res.setHeader('Cache-Control', 'private, no-store, max-age=0, must-revalidate')

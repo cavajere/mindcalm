@@ -11,49 +11,54 @@ interface AdminUser {
 }
 
 export const useAuthStore = defineStore('auth', () => {
-  const token = ref<string | null>(localStorage.getItem('mindcalm-admin-token'))
   const user = ref<AdminUser | null>(null)
+  const initialized = ref(false)
 
-  const isAuthenticated = computed(() => !!token.value)
+  const isAuthenticated = computed(() => !!user.value)
 
-  // Setup axios interceptor
-  axios.interceptors.request.use((config) => {
-    if (token.value) {
-      config.headers.Authorization = `Bearer ${token.value}`
-    }
-    return config
-  })
+  function clearLegacyToken() {
+    localStorage.removeItem('mindcalm-admin-token')
+  }
+
+  function clearSession() {
+    user.value = null
+    initialized.value = true
+    clearLegacyToken()
+  }
 
   async function login(email: string, password: string) {
     const { data } = await axios.post('/api/v1/auth/login', { email, password })
-    token.value = data.token
     user.value = data.user
-    localStorage.setItem('mindcalm-admin-token', data.token)
+    initialized.value = true
+    clearLegacyToken()
   }
 
   async function fetchMe() {
-    if (!token.value) return
     try {
       const { data } = await axios.get('/api/v1/auth/me')
       user.value = data
     } catch {
-      await logout()
+      clearSession()
+      return
+    } finally {
+      initialized.value = true
     }
+  }
+
+  async function initialize() {
+    if (initialized.value) return
+    await fetchMe()
   }
 
   async function logout() {
     try {
-      if (token.value) {
-        await axios.post('/api/v1/auth/logout')
-      }
+      await axios.post('/api/v1/auth/logout')
     } catch {
       // Il logout locale deve comunque completarsi anche se l'API non risponde.
     } finally {
-      token.value = null
-      user.value = null
-      localStorage.removeItem('mindcalm-admin-token')
+      clearSession()
     }
   }
 
-  return { token, user, isAuthenticated, login, fetchMe, logout }
+  return { user, initialized, isAuthenticated, login, fetchMe, initialize, logout, clearSession }
 })

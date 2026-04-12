@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express'
 import { AuditAction, AuditEntityType, AuditOutcome, UserRole } from '@prisma/client'
 import { validationResult } from 'express-validator'
-import { authMiddleware, requireAdmin } from '../../middleware/auth'
+import { adminAuthMiddleware, requireAdmin } from '../../middleware/auth'
 import { paginationQuery, userCreateValidation, userUpdateValidation } from '../../utils/validators'
 import { prisma } from '../../lib/prisma'
 import { getBoolean, getSingleString } from '../../utils/request'
@@ -102,7 +102,7 @@ function normalizeOptionalText(value: string | undefined) {
   return normalized ? normalized : null
 }
 
-router.use(authMiddleware, requireAdmin)
+router.use(adminAuthMiddleware, requireAdmin)
 
 router.get('/', paginationQuery, async (req: Request, res: Response) => {
   const page = parseInt(req.query.page as string) || 1

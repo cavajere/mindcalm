@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
 
 const auth = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 
 const isDev = import.meta.env.DEV
 
@@ -18,7 +19,7 @@ async function handleLogin() {
   loading.value = true
   try {
     await auth.login(email.value, password.value)
-    router.push('/')
+    await router.push(typeof route.query.redirect === 'string' ? route.query.redirect : '/')
   } catch (e: any) {
     error.value = e.response?.data?.error || 'Errore di connessione'
   } finally {

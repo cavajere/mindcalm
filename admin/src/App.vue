@@ -7,12 +7,6 @@ const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
 
-onMounted(async () => {
-  if (auth.isAuthenticated) {
-    await auth.fetchMe()
-  }
-})
-
 const publicUrl = import.meta.env.DEV ? 'http://localhost:5473' : '/'
 
 type NavLeafItem = {
@@ -208,7 +202,17 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div v-if="auth.isAuthenticated" class="min-h-screen bg-background text-text-primary">
+  <div v-if="!auth.initialized" class="flex min-h-screen items-center justify-center bg-background px-6">
+    <div class="w-full max-w-sm rounded-3xl border border-slate-200 bg-white px-6 py-8 text-center shadow-sm">
+      <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-sm font-semibold text-white">
+        MC
+      </div>
+      <p class="text-sm font-medium text-slate-900">Verifica sessione in corso</p>
+      <p class="mt-2 text-sm text-slate-500">Controllo autenticazione admin...</p>
+    </div>
+  </div>
+
+  <div v-else-if="auth.isAuthenticated" class="min-h-screen bg-background text-text-primary">
     <div v-if="mobileSidebarOpen" class="fixed inset-0 z-40 bg-text-primary/35 lg:hidden" @click="closeMobileSidebar" />
 
     <aside

@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express'
 import { AuditAction, AuditEntityType } from '@prisma/client'
 import { validationResult } from 'express-validator'
-import { authMiddleware, requireAdmin } from '../../middleware/auth'
+import { adminAuthMiddleware, requireAdmin } from '../../middleware/auth'
 import { smtpSettingsValidation } from '../../utils/validators'
 import { getBoolean, getNumber, getSingleString } from '../../utils/request'
 import { getSmtpSettingsForAdmin, saveSmtpSettings, sendTestMail } from '../../services/smtpService'
@@ -9,7 +9,7 @@ import { getAuditActorFromRequest, logAuditEventSafe } from '../../services/audi
 
 const router = Router()
 
-router.use(authMiddleware, requireAdmin)
+router.use(adminAuthMiddleware, requireAdmin)
 
 router.get('/smtp', async (_req: Request, res: Response) => {
   const settings = await getSmtpSettingsForAdmin()

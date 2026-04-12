@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express'
 import { AuditAction, AuditEntityType, Prisma, Status } from '@prisma/client'
 import { validationResult } from 'express-validator'
 import path from 'path'
-import { authMiddleware, requireAdmin } from '../../middleware/auth'
+import { adminAuthMiddleware, requireAdmin } from '../../middleware/auth'
 import { uploadImage } from '../../middleware/upload'
 import { articleValidation, statusValidation, paginationQuery } from '../../utils/validators'
 import { extractPlainText, sanitizeBody } from '../../utils/sanitize'
@@ -14,7 +14,7 @@ import { MAX_TAGS_PER_CONTENT, createTagSlug, ensureTagsExist, mapArticleTags, p
 
 const router = Router()
 
-router.use(authMiddleware, requireAdmin)
+router.use(adminAuthMiddleware, requireAdmin)
 
 // GET /api/v1/admin/articles
 router.get('/', paginationQuery, async (req: Request, res: Response) => {

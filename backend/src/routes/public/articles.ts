@@ -4,14 +4,14 @@ import { validationResult } from 'express-validator'
 import path from 'path'
 import { getSingleString, getStringList } from '../../utils/request'
 import { prisma } from '../../lib/prisma'
-import { authMiddleware } from '../../middleware/auth'
+import { appAuthMiddleware } from '../../middleware/auth'
 import { articleFilterQuery } from '../../utils/validators'
 import { getRankedPublishedArticleIds } from '../../services/searchService'
 import { mapArticleTags } from '../../services/tagService'
 
 const router = Router()
 
-router.use(authMiddleware)
+router.use(appAuthMiddleware)
 
 function mapArticleListItem(article: {
   id: string

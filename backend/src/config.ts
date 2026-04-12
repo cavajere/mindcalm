@@ -9,6 +9,7 @@ export const config = {
     secret: process.env.JWT_SECRET || 'dev-secret-change-me',
     expiresIn: process.env.JWT_EXPIRES_IN || '1h',
     appCookieName: process.env.APP_AUTH_COOKIE_NAME || 'mindcalm_app_session',
+    adminCookieName: process.env.ADMIN_AUTH_COOKIE_NAME || 'mindcalm_admin_session',
   },
 
   security: {

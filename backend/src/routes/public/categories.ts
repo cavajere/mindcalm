@@ -1,10 +1,10 @@
 import { Router, Request, Response } from 'express'
 import { prisma } from '../../lib/prisma'
-import { authMiddleware } from '../../middleware/auth'
+import { appAuthMiddleware } from '../../middleware/auth'
 
 const router = Router()
 
-router.use(authMiddleware)
+router.use(appAuthMiddleware)
 
 // GET /api/v1/categories — elenco categorie
 router.get('/', async (_req: Request, res: Response) => {

@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express'
 import { AuditAction, AuditEntityType } from '@prisma/client'
 import { validationResult } from 'express-validator'
-import { authMiddleware, requireAdmin } from '../../middleware/auth'
+import { adminAuthMiddleware, requireAdmin } from '../../middleware/auth'
 import { tagValidation } from '../../utils/validators'
 import { prisma } from '../../lib/prisma'
 import { getBoolean, getNumber, getSingleString } from '../../utils/request'
@@ -15,7 +15,7 @@ import { getAuditActorFromRequest, logAuditEventSafe } from '../../services/audi
 
 const router = Router()
 
-router.use(authMiddleware, requireAdmin)
+router.use(adminAuthMiddleware, requireAdmin)
 
 router.get('/', async (req: Request, res: Response) => {
   const search = getSingleString(req.query.search)?.trim()

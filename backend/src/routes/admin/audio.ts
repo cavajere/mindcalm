@@ -4,7 +4,7 @@ import { validationResult } from 'express-validator'
 import path from 'path'
 import fs from 'fs'
 import { v4 as uuidv4 } from 'uuid'
-import { authMiddleware, requireAdmin } from '../../middleware/auth'
+import { adminAuthMiddleware, requireAdmin } from '../../middleware/auth'
 import { uploadAudioFiles } from '../../middleware/upload'
 import { audioValidation, statusValidation, paginationQuery } from '../../utils/validators'
 import { getAudioDuration, getAudioFormat } from '../../services/audioService'
@@ -35,7 +35,7 @@ function validateAudioUploadSizes(files?: { [fieldname: string]: Express.Multer.
   return null
 }
 
-router.use(authMiddleware, requireAdmin)
+router.use(adminAuthMiddleware, requireAdmin)
 
 // GET /api/v1/admin/audio — elenco tutti gli audio (incluse bozze)
 router.get('/', paginationQuery, async (req: Request, res: Response) => {

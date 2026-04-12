@@ -4,11 +4,11 @@ import { validationResult } from 'express-validator'
 import { analyticsEventValidation } from '../../utils/validators'
 import { prisma } from '../../lib/prisma'
 import { getSingleString } from '../../utils/request'
-import { authMiddleware } from '../../middleware/auth'
+import { appAuthMiddleware } from '../../middleware/auth'
 
 const router = Router()
 
-router.use(authMiddleware)
+router.use(appAuthMiddleware)
 
 router.post('/events', analyticsEventValidation, async (req: Request, res: Response) => {
   const errors = validationResult(req)
