@@ -10,7 +10,7 @@ LANGUAGE SQL
 IMMUTABLE
 PARALLEL SAFE
 AS $$
-  SELECT unaccent('public.unaccent', input)
+  SELECT public.unaccent('public.unaccent'::regdictionary, input)
 $$;
 
 -- CreateEnum
@@ -23,16 +23,22 @@ CREATE TYPE "Status" AS ENUM ('DRAFT', 'PUBLISHED');
 CREATE TYPE "UserRole" AS ENUM ('ADMIN', 'STANDARD');
 
 -- CreateEnum
+CREATE TYPE "InviteCodeStatus" AS ENUM ('ACTIVE', 'REDEEMED', 'EXPIRED', 'DISABLED');
+
+-- CreateEnum
+CREATE TYPE "PendingRegistrationStatus" AS ENUM ('PENDING', 'VERIFIED', 'CANCELLED', 'EXPIRED');
+
+-- CreateEnum
 CREATE TYPE "StreamingFormat" AS ENUM ('DIRECT', 'HLS');
 
 -- CreateEnum
 CREATE TYPE "AudioProcessingStatus" AS ENUM ('PENDING', 'READY', 'FAILED');
 
 -- CreateEnum
-CREATE TYPE "AuditAction" AS ENUM ('LOGIN_SUCCEEDED', 'LOGIN_FAILED', 'LOGOUT', 'PASSWORD_RESET_REQUESTED', 'PASSWORD_RESET_COMPLETED', 'PASSWORD_CHANGED', 'INVITE_SENT', 'INVITE_ACCEPTED', 'USER_CREATED', 'USER_UPDATED', 'USER_DELETED', 'USER_INVITE_RESENT', 'AUDIO_CREATED', 'AUDIO_UPDATED', 'AUDIO_DELETED', 'AUDIO_STATUS_CHANGED', 'ARTICLE_CREATED', 'ARTICLE_UPDATED', 'ARTICLE_DELETED', 'ARTICLE_STATUS_CHANGED', 'CATEGORY_CREATED', 'CATEGORY_UPDATED', 'CATEGORY_DELETED', 'CATEGORY_ORDER_UPDATED', 'TAG_CREATED', 'TAG_UPDATED', 'TAG_DELETED', 'TAG_STATUS_CHANGED', 'SMTP_SETTINGS_UPDATED', 'SMTP_TEST_SENT');
+CREATE TYPE "AuditAction" AS ENUM ('LOGIN_SUCCEEDED', 'LOGIN_FAILED', 'LOGOUT', 'PASSWORD_RESET_REQUESTED', 'PASSWORD_RESET_COMPLETED', 'PASSWORD_CHANGED', 'INVITE_SENT', 'INVITE_ACCEPTED', 'USER_CREATED', 'USER_UPDATED', 'USER_DELETED', 'USER_INVITE_RESENT', 'INVITE_CODE_CREATED', 'INVITE_CODE_DISABLED', 'INVITE_CODE_REDEEMED', 'REGISTRATION_STARTED', 'REGISTRATION_VERIFICATION_SENT', 'REGISTRATION_VERIFIED', 'REGISTRATION_FAILED', 'AUDIO_CREATED', 'AUDIO_UPDATED', 'AUDIO_DELETED', 'AUDIO_STATUS_CHANGED', 'ARTICLE_CREATED', 'ARTICLE_UPDATED', 'ARTICLE_DELETED', 'ARTICLE_STATUS_CHANGED', 'CATEGORY_CREATED', 'CATEGORY_UPDATED', 'CATEGORY_DELETED', 'CATEGORY_ORDER_UPDATED', 'TAG_CREATED', 'TAG_UPDATED', 'TAG_DELETED', 'TAG_STATUS_CHANGED', 'SMTP_SETTINGS_UPDATED', 'SMTP_TEST_SENT');
 
 -- CreateEnum
-CREATE TYPE "AuditEntityType" AS ENUM ('AUTH', 'USER', 'AUDIO', 'ARTICLE', 'CATEGORY', 'TAG', 'SETTINGS');
+CREATE TYPE "AuditEntityType" AS ENUM ('AUTH', 'USER', 'INVITE_CODE', 'REGISTRATION', 'AUDIO', 'ARTICLE', 'CATEGORY', 'TAG', 'SETTINGS');
 
 -- CreateEnum
 CREATE TYPE "AuditOutcome" AS ENUM ('SUCCESS', 'FAILURE');
@@ -55,6 +61,7 @@ CREATE TABLE "admin_users" (
     "notes" TEXT,
     "role" "UserRole" NOT NULL DEFAULT 'STANDARD',
     "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "licenseExpiresAt" TIMESTAMP(3),
     "sessionVersion" INTEGER NOT NULL DEFAULT 0,
     "inviteTokenHash" TEXT,
     "inviteExpiresAt" TIMESTAMP(3),
@@ -65,6 +72,44 @@ CREATE TABLE "admin_users" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "admin_users_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "invite_codes" (
+    "id" TEXT NOT NULL,
+    "code" TEXT NOT NULL,
+    "licenseDurationDays" INTEGER NOT NULL,
+    "maxRedemptions" INTEGER NOT NULL DEFAULT 1,
+    "redemptionsCount" INTEGER NOT NULL DEFAULT 0,
+    "status" "InviteCodeStatus" NOT NULL DEFAULT 'ACTIVE',
+    "expiresAt" TIMESTAMP(3),
+    "redeemedAt" TIMESTAMP(3),
+    "redeemedByUserId" TEXT,
+    "createdByUserId" TEXT,
+    "notes" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "invite_codes_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "pending_registrations" (
+    "id" TEXT NOT NULL,
+    "inviteCodeId" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "passwordHash" TEXT NOT NULL,
+    "firstName" TEXT NOT NULL,
+    "lastName" TEXT NOT NULL,
+    "phone" TEXT NOT NULL,
+    "verificationTokenHash" TEXT NOT NULL,
+    "verificationExpiresAt" TIMESTAMP(3) NOT NULL,
+    "verifiedAt" TIMESTAMP(3),
+    "status" "PendingRegistrationStatus" NOT NULL DEFAULT 'PENDING',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "pending_registrations_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -239,6 +284,24 @@ CREATE UNIQUE INDEX "admin_users_email_key" ON "admin_users"("email");
 CREATE INDEX "admin_users_role_idx" ON "admin_users"("role");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "invite_codes_code_key" ON "invite_codes"("code");
+
+-- CreateIndex
+CREATE INDEX "invite_codes_status_createdAt_idx" ON "invite_codes"("status", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "invite_codes_expiresAt_idx" ON "invite_codes"("expiresAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "pending_registrations_verificationTokenHash_key" ON "pending_registrations"("verificationTokenHash");
+
+-- CreateIndex
+CREATE INDEX "pending_registrations_email_status_idx" ON "pending_registrations"("email", "status");
+
+-- CreateIndex
+CREATE INDEX "pending_registrations_verificationExpiresAt_idx" ON "pending_registrations"("verificationExpiresAt");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "categories_name_key" ON "categories"("name");
 
 -- CreateIndex
@@ -336,6 +399,15 @@ CREATE INDEX "playback_sessions_audioId_expiresAt_idx" ON "playback_sessions"("a
 
 -- CreateIndex
 CREATE INDEX "playback_sessions_userId_revokedAt_expiresAt_idx" ON "playback_sessions"("userId", "revokedAt", "expiresAt");
+
+-- AddForeignKey
+ALTER TABLE "invite_codes" ADD CONSTRAINT "invite_codes_redeemedByUserId_fkey" FOREIGN KEY ("redeemedByUserId") REFERENCES "admin_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "invite_codes" ADD CONSTRAINT "invite_codes_createdByUserId_fkey" FOREIGN KEY ("createdByUserId") REFERENCES "admin_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "pending_registrations" ADD CONSTRAINT "pending_registrations_inviteCodeId_fkey" FOREIGN KEY ("inviteCodeId") REFERENCES "invite_codes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "audio" ADD CONSTRAINT "audio_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "categories"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

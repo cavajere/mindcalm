@@ -45,7 +45,7 @@ mindcalm/
 ├── docker/
 │   ├── development/                  # docker-compose solo PostgreSQL
 │   ├── production/                   # Dockerfile multi-stage + entrypoint
-│   └── production-synology/          # docker-compose per deploy NAS
+│   └── production-notraefik/         # docker-compose per deploy VM dietro gateway esterno
 ├── .env.example
 ├── CLAUDE.md
 └── package.json                      # Workspace root
@@ -265,7 +265,7 @@ Traefik ricarica automaticamente il file (watch: true). Il certificato SSL viene
 Sulla VM Proxmox, dalla directory del progetto:
 
 ```bash
-cd docker/production-synology
+cd docker/production-notraefik
 cp .env.example .env
 ```
 
@@ -286,7 +286,7 @@ docker compose up -d --build
 Al primo avvio:
 - PostgreSQL viene inizializzato
 - L'entrypoint esegue `prisma migrate deploy` (applica le migrazioni)
-- L'app si avvia su porta 3000 interna, esposta come 3003 sul NAS
+- L'app si avvia su porta 3000 interna, esposta come 3003 sulla VM
 
 ### 5. Seed iniziale
 
@@ -299,7 +299,7 @@ docker compose exec api npx tsx prisma/seed.ts
 ### Aggiornamento
 
 ```bash
-cd docker/production-synology
+cd docker/production-notraefik
 docker compose build --pull
 docker compose up -d
 ```

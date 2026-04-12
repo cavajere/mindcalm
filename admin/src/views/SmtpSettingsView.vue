@@ -1,13 +1,29 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import axios from 'axios'
 import { useAuthStore } from '../stores/authStore'
+
+const SMTP_MASKED_PASSWORD = '••••••••'
+
+interface AltavoloTenantSmtpConfigFile {
+  exportedAt: string
+  source: 'tenant'
+  config: {
+    host: string
+    port?: number | null
+    secure?: boolean | null
+    authUser?: string | null
+    authPass?: string | null
+    fromAddress?: string | null
+  }
+}
 
 const auth = useAuthStore()
 const loading = ref(false)
 const testing = ref(false)
 const success = ref('')
 const error = ref('')
+const importFileRef = ref<HTMLInputElement | null>(null)
 const form = ref({
   host: '',
   port: 587,
@@ -18,8 +34,11 @@ const form = ref({
   fromName: '',
   hasPassword: false,
 })
+const canExport = computed(() => Boolean(form.value.host.trim()))
 
 async function fetchSettings() {
+  success.value = ''
+  error.value = ''
   const { data } = await axios.get('/api/v1/admin/settings/smtp')
   if (!data) return
 
@@ -58,6 +77,105 @@ async function saveSettings() {
   }
 }
 
+function exportSettings() {
+  if (!canExport.value) {
+    error.value = 'Nessuna configurazione SMTP da esportare'
+    success.value = ''
+    return
+  }
+
+  const payload: AltavoloTenantSmtpConfigFile = {
+    exportedAt: new Date().toISOString(),
+    source: 'tenant',
+    config: {
+      host: form.value.host,
+      port: form.value.port,
+      secure: form.value.secure,
+      authUser: form.value.username || null,
+      authPass: form.value.hasPassword ? SMTP_MASKED_PASSWORD : null,
+      fromAddress: form.value.fromEmail || null,
+    },
+  }
+
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = 'smtp-config.json'
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+function triggerImport() {
+  importFileRef.value?.click()
+}
+
+async function handleImportFile(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+
+  success.value = ''
+  error.value = ''
+
+  try {
+    const text = await file.text()
+    const parsed = JSON.parse(text) as Partial<AltavoloTenantSmtpConfigFile>
+    const cfg = parsed.config
+
+    if (!cfg?.host) {
+      throw new Error('File SMTP non valido')
+    }
+
+    const fromEmail = cfg.fromAddress || form.value.fromEmail
+    if (!fromEmail) {
+      throw new Error('Il file SMTP non contiene un indirizzo mittente valido')
+    }
+
+    const payload: {
+      host: string
+      port: number
+      secure: boolean
+      username: string | null
+      password?: string | null
+      fromEmail: string
+      fromName: string | null
+    } = {
+      host: cfg.host,
+      port: typeof cfg.port === 'number' ? cfg.port : 587,
+      secure: Boolean(cfg.secure),
+      username: cfg.authUser || null,
+      fromEmail,
+      fromName: form.value.fromName || null,
+    }
+
+    if (cfg.authPass && cfg.authPass !== SMTP_MASKED_PASSWORD) {
+      payload.password = cfg.authPass
+    }
+
+    const { data } = await axios.put('/api/v1/admin/settings/smtp', payload)
+
+    form.value.host = data.host
+    form.value.port = data.port
+    form.value.secure = data.secure
+    form.value.username = data.username || ''
+    form.value.password = ''
+    form.value.fromEmail = data.fromEmail
+    form.value.fromName = data.fromName || form.value.fromName || ''
+    form.value.hasPassword = data.hasPassword
+
+    success.value = 'Configurazione SMTP importata'
+  } catch (e: any) {
+    if (e instanceof SyntaxError) {
+      error.value = 'File SMTP non valido'
+    } else {
+      error.value = e.response?.data?.error || e.message || 'Import configurazione SMTP fallito'
+    }
+  } finally {
+    input.value = ''
+  }
+}
+
 async function sendTestEmail() {
   success.value = ''
   error.value = ''
@@ -86,11 +204,28 @@ onMounted(fetchSettings)
     </div>
 
     <form @submit.prevent="saveSettings" class="card space-y-4">
+      <input
+        ref="importFileRef"
+        type="file"
+        accept=".json,application/json"
+        class="hidden"
+        @change="handleImportFile"
+      />
+
       <div v-if="success" class="bg-green-50 text-green-700 text-sm px-4 py-3 rounded-lg">
         {{ success }}
       </div>
       <div v-if="error" class="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg">
         {{ error }}
+      </div>
+
+      <div class="flex flex-wrap items-center gap-3">
+        <button type="button" :disabled="!canExport" class="btn-secondary" @click="exportSettings">
+          Export configurazione
+        </button>
+        <button type="button" class="btn-secondary" @click="triggerImport">
+          Import configurazione
+        </button>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
