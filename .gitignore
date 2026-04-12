@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+*.log
+.DS_Store
+backend/storage/audio/*
+backend/storage/images/*
+!backend/storage/audio/.gitkeep
+!backend/storage/images/.gitkeep
+docker/production-synology/data/
+.devserver-pids.json

@@ -1,0 +1,140 @@
+<script setup lang="ts">
+import { computed, ref } from 'vue'
+import axios from 'axios'
+import { useAuthStore } from '../stores/authStore'
+
+const auth = useAuthStore()
+
+const currentPassword = ref('')
+const newPassword = ref('')
+const confirmPassword = ref('')
+const loading = ref(false)
+const error = ref('')
+const success = ref('')
+
+const isFormValid = computed(() =>
+  currentPassword.value.trim().length > 0 &&
+  newPassword.value.length >= 8 &&
+  confirmPassword.value === newPassword.value,
+)
+
+async function handleChangePassword() {
+  error.value = ''
+  success.value = ''
+
+  if (newPassword.value !== confirmPassword.value) {
+    error.value = 'Le nuove password non coincidono'
+    return
+  }
+
+  loading.value = true
+
+  try {
+    const { data } = await axios.post('/api/v1/auth/app-change-password', {
+      currentPassword: currentPassword.value,
+      newPassword: newPassword.value,
+    })
+
+    currentPassword.value = ''
+    newPassword.value = ''
+    confirmPassword.value = ''
+    success.value = data.message || 'Password aggiornata'
+  } catch (e: any) {
+    error.value = e.response?.data?.error || 'Errore di connessione'
+  } finally {
+    loading.value = false
+  }
+}
+</script>
+
+<template>
+  <div class="page-container max-w-2xl space-y-6">
+    <div class="card p-6">
+      <h1 class="text-2xl font-bold text-text-primary mb-2">Il tuo account</h1>
+      <p class="text-text-secondary mb-6">Informazioni del profilo usato per accedere a MindCalm.</p>
+
+      <div class="space-y-4">
+        <div>
+          <p class="text-sm text-text-secondary">Nome</p>
+          <p class="text-text-primary font-medium">{{ auth.user?.name }}</p>
+        </div>
+        <div>
+          <p class="text-sm text-text-secondary">Email</p>
+          <p class="text-text-primary font-medium">{{ auth.user?.email }}</p>
+        </div>
+        <div>
+          <p class="text-sm text-text-secondary">Ruolo</p>
+          <p class="text-text-primary font-medium">{{ auth.user?.role === 'ADMIN' ? 'Admin' : 'Standard' }}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card p-6">
+      <div class="flex items-start justify-between gap-4 mb-6">
+        <div>
+          <h2 class="text-xl font-semibold text-text-primary">Cambia password</h2>
+          <p class="text-text-secondary text-sm mt-1">Aggiorna la password del tuo account senza passare dall’email.</p>
+        </div>
+
+        <router-link to="/forgot-password" class="text-sm text-primary hover:underline whitespace-nowrap">
+          Password dimenticata?
+        </router-link>
+      </div>
+
+      <form @submit.prevent="handleChangePassword" class="space-y-4">
+        <div v-if="error" class="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg">
+          {{ error }}
+        </div>
+
+        <div v-if="success" class="bg-green-50 text-green-700 text-sm px-4 py-3 rounded-lg">
+          {{ success }}
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-text-primary mb-1">Password attuale</label>
+          <input
+            v-model="currentPassword"
+            type="password"
+            autocomplete="current-password"
+            required
+            class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+            placeholder="Inserisci la password attuale"
+          />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-text-primary mb-1">Nuova password</label>
+          <input
+            v-model="newPassword"
+            type="password"
+            autocomplete="new-password"
+            minlength="8"
+            required
+            class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+            placeholder="Minimo 8 caratteri"
+          />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-text-primary mb-1">Conferma nuova password</label>
+          <input
+            v-model="confirmPassword"
+            type="password"
+            autocomplete="new-password"
+            minlength="8"
+            required
+            class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+            placeholder="Ripeti la nuova password"
+          />
+          <p v-if="confirmPassword && confirmPassword !== newPassword" class="mt-2 text-sm text-red-600">
+            Le nuove password non coincidono.
+          </p>
+        </div>
+
+        <button type="submit" :disabled="loading || !isFormValid" class="btn-primary">
+          {{ loading ? 'Aggiornamento...' : 'Aggiorna password' }}
+        </button>
+      </form>
+    </div>
+  </div>
+</template>

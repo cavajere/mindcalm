@@ -1,0 +1,111 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary text-white px-4 py-2 rounded-lg font-medium text-sm
+           hover:bg-primary-dark transition-colors disabled:opacity-50;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-text-primary border border-gray-200 px-4 py-2 rounded-lg font-medium text-sm
+           hover:bg-gray-50 transition-colors;
+  }
+
+  .btn-danger {
+    @apply bg-red-500 text-white px-4 py-2 rounded-lg font-medium text-sm
+           hover:bg-red-600 transition-colors;
+  }
+
+  .input-field {
+    @apply w-full px-3 py-2 border border-gray-200 rounded-lg bg-white
+           focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary
+           text-sm transition-all;
+  }
+
+  .label {
+    @apply block text-sm font-medium text-text-primary mb-1;
+  }
+
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-gray-100 p-6;
+  }
+
+  .table-container {
+    @apply overflow-x-auto rounded-xl border border-gray-100;
+  }
+
+  .table-actions-header {
+    @apply text-center;
+  }
+
+  .table-actions-cell {
+    @apply px-4 py-3;
+  }
+
+  .table-actions-group {
+    @apply flex items-center justify-center gap-1;
+  }
+
+  .icon-action-button {
+    @apply inline-flex items-center justify-center p-1.5 rounded-lg transition-colors;
+  }
+
+  .icon-action-button-neutral {
+    @apply hover:bg-gray-100;
+  }
+
+  .icon-action-button-warning {
+    @apply hover:bg-amber-50;
+  }
+
+  .icon-action-button-danger {
+    @apply hover:bg-red-50;
+  }
+}
+
+/* Tiptap editor styles */
+.tiptap-editor .ProseMirror {
+  @apply min-h-[200px] p-4 outline-none;
+}
+
+.tiptap-editor .ProseMirror h2 {
+  @apply text-xl font-bold mb-2;
+}
+
+.tiptap-editor .ProseMirror h3 {
+  @apply text-lg font-semibold mb-2;
+}
+
+.tiptap-editor .ProseMirror p {
+  @apply mb-2;
+}
+
+.tiptap-editor .ProseMirror ul {
+  @apply list-disc pl-6 mb-2;
+}
+
+.tiptap-editor .ProseMirror ol {
+  @apply list-decimal pl-6 mb-2;
+}
+
+.tiptap-editor .ProseMirror blockquote {
+  @apply border-l-4 border-gray-300 pl-4 italic my-2;
+}
+
+.tiptap-editor .ProseMirror img {
+  @apply max-w-full rounded-lg my-2;
+}
+
+.tiptap-editor .ProseMirror a {
+  @apply text-primary underline;
+}
+
+.tiptap-editor .ProseMirror p.is-editor-empty:first-child::before {
+  @apply text-gray-400;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}

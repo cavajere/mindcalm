@@ -1,0 +1,90 @@
+name: mindcalm-production
+
+# =============================================================================
+# MindCalm - Docker Compose per PRODUZIONE (VM Proxmox / Ubuntu Server)
+# =============================================================================
+# Stack MindCalm senza Traefik integrato. Il reverse proxy e i certificati SSL
+# sono gestiti dal Traefik Gateway centralizzato (traefik-gateway) sul NAS.
+#
+# L'API espone la porta 3003 sulla VM Proxmox/Ubuntu. Il Traefik Gateway
+# instrada il traffico da mindcalm.datagestio.com verso 192.168.0.123:3003.
+#
+# PREREQUISITI:
+#   1. Il traefik-gateway deve essere gia' in esecuzione sul NAS
+#   2. Copia .env.example in .env e configura le variabili
+#   3. Configura il record DNS:
+#        - mindcalm.datagestio.com -> IP pubblico
+#
+# UTILIZZO:
+#   cd docker/production-synology
+#   docker compose up -d
+#
+# AGGIORNAMENTO:
+#   docker compose build --pull
+#   docker compose up -d
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL - Database
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: mindcalm_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-mindcalm}
+    volumes:
+      - ${POSTGRES_DATA_PATH:-./data/postgres}:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # No porte esposte: accessibile solo dalla rete interna
+
+  # ---------------------------------------------------------------------------
+  # MindCalm API - Backend + Frontend (routing via Traefik Gateway)
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: ../..
+      dockerfile: docker/production/Dockerfile
+    container_name: mindcalm_api
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-mindcalm}?schema=public
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1h}
+      AUDIO_STORAGE_PATH: /data/audio
+      HLS_STORAGE_PATH: /data/hls
+      IMAGES_STORAGE_PATH: /data/images
+      MAX_AUDIO_SIZE_MB: ${MAX_AUDIO_SIZE_MB:-100}
+      MAX_IMAGE_SIZE_MB: ${MAX_IMAGE_SIZE_MB:-5}
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://mindcalm.datagestio.com}
+      RATE_LIMIT_PUBLIC: ${RATE_LIMIT_PUBLIC:-100}
+      RATE_LIMIT_LOGIN: ${RATE_LIMIT_LOGIN:-30}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@mindcalm.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+    volumes:
+      - audio-storage:/data/audio
+      - hls-storage:/data/hls
+      - image-storage:/data/images
+    ports:
+      # Espone porta 3003 sulla VM Proxmox/Ubuntu. Traefik Gateway instrada mindcalm.datagestio.com -> 192.168.0.123:3003
+      - "${API_PORT:-3003}:3000"
+
+volumes:
+  audio-storage:
+    name: mindcalm_audio
+  hls-storage:
+    name: mindcalm_hls
+  image-storage:
+    name: mindcalm_images

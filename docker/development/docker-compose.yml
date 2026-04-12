@@ -1,0 +1,39 @@
+name: mindcalm-dev
+
+# =============================================================================
+# MindCalm - Docker Compose per SVILUPPO
+# =============================================================================
+# Solo i servizi infrastrutturali. L'app si avvia con npm run dev.
+#
+# UTILIZZO:
+#   cd docker/development
+#   docker compose up -d
+#   cd ../..
+#   npm install
+#   cp .env.example .env  (e configura DATABASE_URL)
+#   cd backend && npx prisma migrate dev && npx tsx prisma/seed.ts
+#   cd .. && npm run dev
+# =============================================================================
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: mindcalm_dev_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mindcalm
+      POSTGRES_PASSWORD: mindcalm
+      POSTGRES_DB: mindcalm
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5435}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mindcalm"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
+    name: mindcalm_dev_pgdata

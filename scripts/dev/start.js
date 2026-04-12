@@ -1,0 +1,107 @@
+const { spawn } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const { exec } = require('child_process');
+
+const PID_FILE = path.resolve(__dirname, '../../.devserver-pids.json');
+const ROOT = path.resolve(__dirname, '../..');
+const isWin = process.platform === 'win32';
+
+const PORTS = [3300, 5473, 5474];
+
+const services = [
+  { name: 'api', cmd: 'npm', args: ['run', 'dev', '-w', 'backend'] },
+  { name: 'frontend', cmd: 'npm', args: ['run', 'dev', '-w', 'frontend'] },
+  { name: 'admin', cmd: 'npm', args: ['run', 'dev', '-w', 'admin'] },
+];
+
+function killExistingProcesses() {
+  return new Promise((resolve) => {
+    console.log('[MindCalm] Checking for existing dev processes...');
+
+    if (fs.existsSync(PID_FILE)) {
+      console.log('[MindCalm] Found existing dev stack, stopping it...');
+      try {
+        const data = JSON.parse(fs.readFileSync(PID_FILE, 'utf8'));
+        (data.children || []).forEach(c => {
+          try { process.kill(c.pid, 'SIGTERM'); } catch {}
+        });
+      } catch {}
+      try { fs.unlinkSync(PID_FILE); } catch {}
+    }
+
+    const portList = PORTS.join(',');
+    const killCommands = [
+      `pkill -f "vite.*mindcalm" 2>/dev/null || true`,
+      `pkill -f "tsx.*mindcalm" 2>/dev/null || true`,
+      `lsof -ti :${portList} 2>/dev/null | xargs -r kill -9 2>/dev/null || true`,
+    ];
+
+    let completed = 0;
+    killCommands.forEach(cmd => {
+      exec(cmd, () => {
+        completed++;
+        if (completed === killCommands.length) {
+          console.log('[MindCalm] Cleanup completed, starting fresh...');
+          setTimeout(resolve, 1000);
+        }
+      });
+    });
+  });
+}
+
+async function start() {
+  await killExistingProcesses();
+
+  const children = [];
+
+  function shutdownAll() {
+    console.log('\n[MindCalm] Shutting down all services...');
+    children.forEach(c => {
+      try { process.kill(c.pid, 'SIGTERM'); } catch {}
+    });
+    try { fs.unlinkSync(PID_FILE); } catch {}
+    setTimeout(() => process.exit(0), 1000);
+  }
+
+  process.on('SIGINT', shutdownAll);
+  process.on('SIGTERM', shutdownAll);
+
+  services.forEach(svc => {
+    const child = spawn(svc.cmd, svc.args, {
+      cwd: ROOT,
+      stdio: 'inherit',
+      shell: isWin,
+      env: { ...process.env, FORCE_COLOR: '1' },
+    });
+    children.push({ name: svc.name, pid: child.pid });
+
+    child.on('exit', (code) => {
+      if (code !== null && code !== 0) {
+        console.error(`[${svc.name}] exited with code ${code}`);
+        shutdownAll();
+      }
+    });
+  });
+
+  fs.writeFileSync(PID_FILE, JSON.stringify({
+    manager: process.pid,
+    children: children.map(c => ({ name: c.name, pid: c.pid })),
+  }, null, 2));
+
+  console.log(`
+╔══════════════════════════════════════════════╗
+║           MindCalm Dev Stack                 ║
+╠══════════════════════════════════════════════╣
+║  API:       http://localhost:3300            ║
+║  Frontend:  http://localhost:5473            ║
+║  Admin:     http://localhost:5474/admin/     ║
+║  Postgres:  localhost:5435                   ║
+╚══════════════════════════════════════════════╝
+  `);
+}
+
+start().catch(err => {
+  console.error('[MindCalm] Failed to start dev stack:', err);
+  process.exit(1);
+});

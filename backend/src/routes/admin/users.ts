@@ -1,0 +1,514 @@
+import { Router, Request, Response } from 'express'
+import { AuditAction, AuditEntityType, AuditOutcome, UserRole } from '@prisma/client'
+import { validationResult } from 'express-validator'
+import { authMiddleware, requireAdmin } from '../../middleware/auth'
+import { paginationQuery, userCreateValidation, userUpdateValidation } from '../../utils/validators'
+import { prisma } from '../../lib/prisma'
+import { getBoolean, getSingleString } from '../../utils/request'
+import { hashPassword } from '../../services/authService'
+import { getAdminUsersCount, sendUserInvite } from '../../services/userService'
+import { generateRandomToken } from '../../services/cryptoService'
+import { getAuditActorFromRequest, logAuditEventSafe } from '../../services/auditLogService'
+
+function serializeUser(user: {
+  id: string
+  email: string
+  name: string
+  firstName: string | null
+  lastName: string | null
+  phone: string | null
+  notes: string | null
+  role: UserRole
+  isActive: boolean
+  createdAt: Date
+  updatedAt: Date
+  invitedAt: Date | null
+  inviteTokenHash: string | null
+}) {
+  const fallbackName = user.name.trim().replace(/\s+/g, ' ')
+  const { firstName, lastName } = getResolvedNameParts(user)
+  const fullName = `${firstName} ${lastName}`.trim() || fallbackName
+
+  return {
+    id: user.id,
+    email: user.email,
+    name: fullName,
+    firstName,
+    lastName,
+    phone: user.phone || '',
+    notes: user.notes || '',
+    role: user.role,
+    isActive: user.isActive,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+    invitedAt: user.invitedAt,
+    hasPendingInvite: Boolean(user.inviteTokenHash),
+  }
+}
+
+const router = Router()
+const userSelect = {
+  id: true,
+  email: true,
+  name: true,
+  firstName: true,
+  lastName: true,
+  phone: true,
+  notes: true,
+  role: true,
+  isActive: true,
+  createdAt: true,
+  updatedAt: true,
+  invitedAt: true,
+  inviteTokenHash: true,
+} as const
+
+function normalizeNamePart(value: string) {
+  return value.trim().replace(/\s+/g, ' ')
+}
+
+function splitFullName(fullName: string) {
+  const normalized = fullName.trim().replace(/\s+/g, ' ')
+  if (!normalized) {
+    return { firstName: '', lastName: '' }
+  }
+
+  const [firstName, ...lastNameParts] = normalized.split(' ')
+  return {
+    firstName,
+    lastName: lastNameParts.join(' '),
+  }
+}
+
+function getResolvedNameParts(user: { name: string; firstName: string | null; lastName: string | null }) {
+  const fallback = splitFullName(user.name)
+
+  return {
+    firstName: user.firstName?.trim() || fallback.firstName,
+    lastName: user.lastName?.trim() || fallback.lastName,
+  }
+}
+
+function buildFullName(firstName: string, lastName: string) {
+  return `${normalizeNamePart(firstName)} ${normalizeNamePart(lastName)}`.trim()
+}
+
+function normalizeOptionalText(value: string | undefined) {
+  const normalized = value?.trim()
+  return normalized ? normalized : null
+}
+
+router.use(authMiddleware, requireAdmin)
+
+router.get('/', paginationQuery, async (req: Request, res: Response) => {
+  const page = parseInt(req.query.page as string) || 1
+  const limit = parseInt(req.query.limit as string) || 20
+  const skip = (page - 1) * limit
+
+  const [users, total] = await Promise.all([
+    prisma.user.findMany({
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
+      select: userSelect,
+    }),
+    prisma.user.count(),
+  ])
+
+  res.json({
+    data: users.map(serializeUser),
+    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+  })
+})
+
+router.get('/:id', async (req: Request, res: Response) => {
+  const userId = getSingleString(req.params.id)
+  if (!userId) {
+    res.status(400).json({ error: 'ID utente non valido' })
+    return
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: userSelect,
+  })
+
+  if (!user) {
+    res.status(404).json({ error: 'Utente non trovato' })
+    return
+  }
+
+  res.json(serializeUser(user))
+})
+
+router.post('/', userCreateValidation, async (req: Request, res: Response) => {
+  const errors = validationResult(req)
+  if (!errors.isEmpty()) {
+    res.status(400).json({ error: 'Dati non validi', details: errors.array() })
+    return
+  }
+
+  const email = getSingleString(req.body.email)!
+  const firstName = normalizeNamePart(getSingleString(req.body.firstName)!)
+  const lastName = normalizeNamePart(getSingleString(req.body.lastName)!)
+  const phone = normalizeNamePart(getSingleString(req.body.phone)!)
+  const notes = normalizeOptionalText(getSingleString(req.body.notes))
+  const role = (getSingleString(req.body.role) as UserRole | undefined) || UserRole.STANDARD
+  const password = getSingleString(req.body.password)
+  const isActive = getBoolean(req.body.isActive) ?? true
+  const sendInvite = getBoolean(req.body.sendInvite) ?? false
+  const inviteBaseUrl = getSingleString(req.body.inviteBaseUrl)
+
+  if (sendInvite && password) {
+    res.status(400).json({ error: 'Scegli se impostare una password o inviare un invito, non entrambi' })
+    return
+  }
+
+  if (!sendInvite && !password) {
+    res.status(400).json({ error: 'Password obbligatoria se non invii un invito' })
+    return
+  }
+
+  if (sendInvite && !inviteBaseUrl) {
+    res.status(400).json({ error: 'URL invito mancante' })
+    return
+  }
+
+  if (sendInvite && !isActive) {
+    res.status(400).json({ error: 'L’utente deve essere attivo per poter ricevere un invito' })
+    return
+  }
+
+  const existing = await prisma.user.findUnique({ where: { email } })
+  if (existing) {
+    res.status(409).json({ error: 'Email già utilizzata' })
+    return
+  }
+
+  const user = await prisma.user.create({
+    data: {
+      email,
+      name: buildFullName(firstName, lastName),
+      firstName,
+      lastName,
+      phone,
+      notes,
+      role,
+      isActive,
+      password: await hashPassword(password || generateRandomToken()),
+    },
+    select: userSelect,
+  })
+
+  if (sendInvite) {
+    try {
+      await sendUserInvite(user, inviteBaseUrl!)
+      const refreshedUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: userSelect,
+      })
+
+      await logAuditEventSafe({
+        req,
+        action: AuditAction.USER_CREATED,
+        entityType: AuditEntityType.USER,
+        entityId: user.id,
+        entityLabel: user.email,
+        ...getAuditActorFromRequest(req),
+        metadata: {
+          role: user.role,
+          isActive: user.isActive,
+          sendInvite: true,
+        },
+      })
+
+      await logAuditEventSafe({
+        req,
+        action: AuditAction.INVITE_SENT,
+        entityType: AuditEntityType.USER,
+        entityId: user.id,
+        entityLabel: user.email,
+        ...getAuditActorFromRequest(req),
+        metadata: {
+          via: 'USER_CREATE',
+        },
+      })
+
+      res.status(201).json(serializeUser(refreshedUser!))
+      return
+    } catch (error) {
+      await prisma.user.delete({ where: { id: user.id } })
+      await logAuditEventSafe({
+        req,
+        action: AuditAction.USER_CREATED,
+        entityType: AuditEntityType.USER,
+        entityId: user.id,
+        entityLabel: user.email,
+        ...getAuditActorFromRequest(req),
+        outcome: AuditOutcome.FAILURE,
+        metadata: {
+          role,
+          isActive,
+          sendInvite: true,
+          error: (error as Error).message,
+        },
+      })
+      res.status(400).json({ error: (error as Error).message })
+      return
+    }
+  }
+
+  await logAuditEventSafe({
+    req,
+    action: AuditAction.USER_CREATED,
+    entityType: AuditEntityType.USER,
+    entityId: user.id,
+    entityLabel: user.email,
+    ...getAuditActorFromRequest(req),
+    metadata: {
+      role: user.role,
+      isActive: user.isActive,
+      sendInvite: false,
+    },
+  })
+
+  res.status(201).json(serializeUser(user))
+})
+
+router.put('/:id', userUpdateValidation, async (req: Request, res: Response) => {
+  const errors = validationResult(req)
+  if (!errors.isEmpty()) {
+    res.status(400).json({ error: 'Dati non validi', details: errors.array() })
+    return
+  }
+
+  const userId = getSingleString(req.params.id)
+  if (!userId) {
+    res.status(400).json({ error: 'ID utente non valido' })
+    return
+  }
+
+  const existing = await prisma.user.findUnique({ where: { id: userId } })
+  if (!existing) {
+    res.status(404).json({ error: 'Utente non trovato' })
+    return
+  }
+
+  const email = getSingleString(req.body.email)
+  const firstName = getSingleString(req.body.firstName)
+  const lastName = getSingleString(req.body.lastName)
+  const phone = getSingleString(req.body.phone)
+  const notes = Object.prototype.hasOwnProperty.call(req.body, 'notes')
+    ? normalizeOptionalText(getSingleString(req.body.notes))
+    : undefined
+  const role = getSingleString(req.body.role) as UserRole | undefined
+  const password = getSingleString(req.body.password)
+  const isActive = getBoolean(req.body.isActive)
+
+  if (email && email !== existing.email) {
+    const emailInUse = await prisma.user.findUnique({ where: { email } })
+    if (emailInUse) {
+      res.status(409).json({ error: 'Email già utilizzata' })
+      return
+    }
+  }
+
+  const wouldRemoveAdminPrivileges =
+    existing.role === UserRole.ADMIN &&
+    ((role === UserRole.STANDARD) || (isActive === false))
+
+  if (existing.role === UserRole.ADMIN && role === UserRole.STANDARD && existing.id === req.adminUser!.id) {
+    res.status(400).json({ error: 'Non puoi rimuovere il tuo ruolo admin' })
+    return
+  }
+
+  if (wouldRemoveAdminPrivileges) {
+    const adminCount = await getAdminUsersCount()
+    const wouldDisableLastAdmin = adminCount <= 1
+
+    if (wouldDisableLastAdmin) {
+      res.status(400).json({ error: 'Deve rimanere almeno un admin attivo' })
+      return
+    }
+  }
+
+  const currentNames = getResolvedNameParts(existing)
+
+  const changedFields = [
+    email !== undefined && email !== existing.email ? 'email' : null,
+    firstName !== undefined && normalizeNamePart(firstName) !== currentNames.firstName ? 'firstName' : null,
+    lastName !== undefined && normalizeNamePart(lastName) !== currentNames.lastName ? 'lastName' : null,
+    phone !== undefined && normalizeNamePart(phone) !== (existing.phone ?? '') ? 'phone' : null,
+    notes !== undefined && notes !== (existing.notes ?? null) ? 'notes' : null,
+    role !== undefined && role !== existing.role ? 'role' : null,
+    isActive !== undefined && isActive !== existing.isActive ? 'isActive' : null,
+    password ? 'password' : null,
+  ].filter((field): field is string => Boolean(field))
+
+  const nextFirstName = firstName !== undefined ? normalizeNamePart(firstName) : currentNames.firstName
+  const nextLastName = lastName !== undefined ? normalizeNamePart(lastName) : currentNames.lastName
+
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      email: email ?? undefined,
+      name: (firstName !== undefined || lastName !== undefined) ? buildFullName(nextFirstName, nextLastName) : undefined,
+      firstName: firstName !== undefined ? nextFirstName : undefined,
+      lastName: lastName !== undefined ? nextLastName : undefined,
+      phone: phone !== undefined ? normalizeNamePart(phone) : undefined,
+      notes,
+      role: role ?? undefined,
+      isActive: isActive ?? undefined,
+      password: password ? await hashPassword(password) : undefined,
+      sessionVersion: (password || isActive === false) ? { increment: 1 } : undefined,
+      inviteTokenHash: (password || isActive === false) ? null : undefined,
+      inviteExpiresAt: (password || isActive === false) ? null : undefined,
+      invitedAt: (password || isActive === false) ? null : undefined,
+      resetPasswordTokenHash: (password || isActive === false) ? null : undefined,
+      resetPasswordExpiresAt: (password || isActive === false) ? null : undefined,
+    },
+    select: userSelect,
+  })
+
+  await logAuditEventSafe({
+    req,
+    action: AuditAction.USER_UPDATED,
+    entityType: AuditEntityType.USER,
+    entityId: updated.id,
+    entityLabel: updated.email,
+    ...getAuditActorFromRequest(req),
+    metadata: {
+      changedFields,
+      previousRole: existing.role,
+      nextRole: updated.role,
+      previousIsActive: existing.isActive,
+      nextIsActive: updated.isActive,
+    },
+  })
+
+  res.json(serializeUser(updated))
+})
+
+router.post('/:id/resend-invite', async (req: Request, res: Response) => {
+  const userId = getSingleString(req.params.id)
+  const inviteBaseUrl = getSingleString(req.body.inviteBaseUrl)
+
+  if (!userId) {
+    res.status(400).json({ error: 'ID utente non valido' })
+    return
+  }
+
+  if (!inviteBaseUrl) {
+    res.status(400).json({ error: 'URL invito mancante' })
+    return
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: userSelect,
+  })
+
+  if (!user) {
+    res.status(404).json({ error: 'Utente non trovato' })
+    return
+  }
+
+  if (!user.isActive) {
+    res.status(400).json({ error: 'Non puoi invitare un utente disattivato' })
+    return
+  }
+
+  try {
+    await sendUserInvite(user, inviteBaseUrl)
+    const refreshedUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: userSelect,
+    })
+
+    await logAuditEventSafe({
+      req,
+      action: AuditAction.USER_INVITE_RESENT,
+      entityType: AuditEntityType.USER,
+      entityId: user.id,
+      entityLabel: user.email,
+      ...getAuditActorFromRequest(req),
+      metadata: {
+        hadPendingInvite: Boolean(user.inviteTokenHash),
+      },
+    })
+
+    await logAuditEventSafe({
+      req,
+      action: AuditAction.INVITE_SENT,
+      entityType: AuditEntityType.USER,
+      entityId: user.id,
+      entityLabel: user.email,
+      ...getAuditActorFromRequest(req),
+      metadata: {
+        via: 'USER_RESEND_INVITE',
+      },
+    })
+
+    res.json({ message: 'Invito inviato', user: serializeUser(refreshedUser!) })
+  } catch (error) {
+    await logAuditEventSafe({
+      req,
+      action: AuditAction.USER_INVITE_RESENT,
+      entityType: AuditEntityType.USER,
+      entityId: user.id,
+      entityLabel: user.email,
+      ...getAuditActorFromRequest(req),
+      outcome: AuditOutcome.FAILURE,
+      metadata: {
+        error: (error as Error).message,
+      },
+    })
+    res.status(400).json({ error: (error as Error).message })
+  }
+})
+
+router.delete('/:id', async (req: Request, res: Response) => {
+  const userId = getSingleString(req.params.id)
+  if (!userId) {
+    res.status(400).json({ error: 'ID utente non valido' })
+    return
+  }
+
+  const existing = await prisma.user.findUnique({ where: { id: userId } })
+  if (!existing) {
+    res.status(404).json({ error: 'Utente non trovato' })
+    return
+  }
+
+  if (existing.id === req.adminUser!.id) {
+    res.status(400).json({ error: 'Non puoi eliminare il tuo account' })
+    return
+  }
+
+  if (existing.role === UserRole.ADMIN) {
+    const adminCount = await getAdminUsersCount()
+    if (adminCount <= 1) {
+      res.status(400).json({ error: 'Deve rimanere almeno un admin attivo' })
+      return
+    }
+  }
+
+  await prisma.user.delete({ where: { id: userId } })
+
+  await logAuditEventSafe({
+    req,
+    action: AuditAction.USER_DELETED,
+    entityType: AuditEntityType.USER,
+    entityId: existing.id,
+    entityLabel: existing.email,
+    ...getAuditActorFromRequest(req),
+    metadata: {
+      deletedRole: existing.role,
+      deletedIsActive: existing.isActive,
+    },
+  })
+
+  res.json({ message: 'Utente eliminato' })
+})
+
+export default router
