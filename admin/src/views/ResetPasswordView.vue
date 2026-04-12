@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
+import { getApiErrorMessage } from '../utils/apiMessages'
 
 const route = useRoute()
 const router = useRouter()
@@ -37,7 +38,7 @@ async function handleSubmit() {
     success.value = 'Password aggiornata. Verrai reindirizzato al login.'
     setTimeout(() => router.push('/login'), 1200)
   } catch (e: any) {
-    error.value = e.response?.data?.error || 'Reset password non riuscito'
+    error.value = getApiErrorMessage(e, 'Reset password non riuscito')
   } finally {
     loading.value = false
   }
@@ -62,12 +63,12 @@ async function handleSubmit() {
 
         <div>
           <label class="label">Nuova password</label>
-          <input v-model="password" type="password" minlength="8" required class="input-field" placeholder="Minimo 8 caratteri" />
+          <input v-model="password" type="password" autocomplete="new-password" minlength="8" required class="input-field" placeholder="Minimo 8 caratteri" />
         </div>
 
         <div>
           <label class="label">Conferma password</label>
-          <input v-model="confirmPassword" type="password" minlength="8" required class="input-field" placeholder="Ripeti la password" />
+          <input v-model="confirmPassword" type="password" autocomplete="new-password" minlength="8" required class="input-field" placeholder="Ripeti la password" />
         </div>
 
         <button type="submit" :disabled="loading" class="btn-primary w-full">

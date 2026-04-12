@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
+import { getApiErrorMessage } from '../utils/apiMessages'
 
 const PHONE_REGEX = /^\+?[0-9\s().-]{7,20}$/
 
@@ -56,7 +57,7 @@ async function handleSubmit() {
     })
     await router.push('/')
   } catch (e: any) {
-    error.value = e.response?.data?.error || 'Configurazione iniziale non riuscita'
+    error.value = getApiErrorMessage(e, 'Configurazione iniziale non riuscita')
   } finally {
     loading.value = false
   }
@@ -110,11 +111,11 @@ async function handleSubmit() {
         <div class="grid gap-4 md:grid-cols-2">
           <div>
             <label class="label">Password</label>
-            <input v-model="form.password" type="password" minlength="8" required class="input-field" placeholder="Minimo 8 caratteri" />
+            <input v-model="form.password" type="password" autocomplete="new-password" minlength="8" required class="input-field" placeholder="Minimo 8 caratteri" />
           </div>
           <div>
             <label class="label">Conferma password</label>
-            <input v-model="form.confirmPassword" type="password" minlength="8" required class="input-field" placeholder="Ripeti la password" />
+            <input v-model="form.confirmPassword" type="password" autocomplete="new-password" minlength="8" required class="input-field" placeholder="Ripeti la password" />
           </div>
         </div>
 

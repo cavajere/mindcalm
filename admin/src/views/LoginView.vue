@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
+import { getApiErrorMessage } from '../utils/apiMessages'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -22,7 +23,7 @@ async function handleLogin() {
     const redirectPath = typeof route.query.redirect === 'string' ? route.query.redirect : auth.getDefaultRoute()
     await router.push(redirectPath)
   } catch (e: any) {
-    error.value = e.response?.data?.error || 'Errore di connessione'
+    error.value = getApiErrorMessage(e, 'Errore di connessione')
   } finally {
     loading.value = false
   }
@@ -70,7 +71,7 @@ async function handleLogin() {
 
         <div>
           <label class="label">Password</label>
-          <input v-model="password" type="password" required class="input-field" placeholder="Password" />
+          <input v-model="password" type="password" autocomplete="current-password" required class="input-field" placeholder="Password" />
         </div>
 
         <div class="text-right">

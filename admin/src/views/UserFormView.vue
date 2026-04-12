@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import PageHeader from '../components/PageHeader.vue'
+import { getApiErrorMessage } from '../utils/apiMessages'
 
 const PHONE_REGEX = /^\+?[0-9\s().-]{7,20}$/
 const MAX_NOTES_LENGTH = 5000
@@ -137,7 +138,7 @@ async function handleSubmit() {
 
     router.push('/users')
   } catch (e: any) {
-    error.value = e.response?.data?.error || 'Errore di salvataggio'
+    error.value = getApiErrorMessage(e, 'Errore di salvataggio')
   } finally {
     loading.value = false
   }
@@ -159,7 +160,7 @@ async function resendInvite() {
     userMeta.value.hasPendingInvite = data.user?.hasPendingInvite ?? true
     userMeta.value.invitedAt = data.user?.invitedAt || new Date().toISOString()
   } catch (e: any) {
-    error.value = e.response?.data?.error || 'Invio invito non riuscito'
+    error.value = getApiErrorMessage(e, 'Invio invito non riuscito')
   } finally {
     resendingInvite.value = false
   }
@@ -292,6 +293,7 @@ onMounted(fetchUser)
             v-model="form.password"
             required
             type="password"
+            autocomplete="new-password"
             minlength="8"
             class="input-field"
             placeholder="Minimo 8 caratteri"
@@ -304,6 +306,7 @@ onMounted(fetchUser)
         <input
           v-model="form.password"
           type="password"
+          autocomplete="new-password"
           minlength="8"
           class="input-field"
           placeholder="Lascia vuoto per mantenerla"
