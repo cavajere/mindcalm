@@ -29,7 +29,7 @@ mindcalm/
 │   │   │   └── admin/                # Auth + CRUD sessioni, articoli, categorie
 │   │   ├── services/                 # authService, fileService, audioService
 │   │   └── utils/                    # validators, sanitize
-│   └── storage/                      # File audio e immagini (UUID)
+│   └── storage/                      # File audio, immagini e output HLS runtime
 ├── frontend/                         # PWA pubblica
 │   ├── src/
 │   │   ├── views/                    # Home, Sessions, Articles, Downloads
@@ -154,7 +154,31 @@ cd backend && npx prisma migrate reset
 
 # Prisma Studio (GUI database)
 cd backend && npx prisma studio
+
+# Ricognizione storage orfano (dry-run)
+cd backend && npm run storage:cleanup
+
+# Pulizia storage orfano
+cd backend && npm run storage:cleanup -- --apply
 ```
+
+### Manutenzione storage
+
+Il flusso applicativo elimina gia' gli asset principali quando un audio o un articolo viene aggiornato o cancellato. In condizioni normali non serve un garbage collector sempre attivo dentro il backend.
+
+In produzione e' comunque consigliato schedulare una riconciliazione periodica dello storage per rimuovere:
+- directory HLS orfane
+- directory temporanee HLS lasciate da crash o deploy interrotti
+- file audio o immagini non piu' referenziati nel database
+
+Il comando consigliato e':
+
+```bash
+cd backend
+npm run storage:cleanup -- --apply --min-age-hours=24 --tmp-min-age-hours=2
+```
+
+Usalo da `cron`, `systemd timer` o scheduler del container una volta al giorno. La soglia temporale evita di toccare upload o transcodifiche recenti ancora in corso.
 
 ---
 
