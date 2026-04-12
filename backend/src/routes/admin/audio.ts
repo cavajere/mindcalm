@@ -148,7 +148,7 @@ router.post('/',
         data: {
           id: audioId,
           title: title!,
-          description: description!,
+          description: description ?? '',
           categoryId: categoryId!,
           level: (level as Level | undefined) || 'BEGINNER',
           durationSec,
@@ -257,7 +257,7 @@ router.put('/:id',
       data.title = title
       if (title !== existing.title) changedFields.push('title')
     }
-    if (description) {
+    if (description !== undefined) {
       data.description = description
       if (description !== existing.description) changedFields.push('description')
     }

@@ -216,8 +216,8 @@ onMounted(async () => {
       </div>
 
       <div>
-        <label class="label">Descrizione *</label>
-        <textarea v-model="form.description" required rows="4" class="input-field"></textarea>
+        <label class="label">Descrizione</label>
+        <textarea v-model="form.description" rows="4" class="input-field"></textarea>
       </div>
 
       <div class="grid grid-cols-2 gap-4">

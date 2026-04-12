@@ -118,7 +118,7 @@ export const changePasswordValidation = [
 
 export const audioValidation = [
   body('title').trim().notEmpty().withMessage('Titolo obbligatorio'),
-  body('description').trim().notEmpty().withMessage('Descrizione obbligatoria'),
+  body('description').optional({ values: 'falsy' }).trim(),
   body('categoryId').isUUID().withMessage('Categoria non valida'),
   body('level').optional().isIn(['BEGINNER', 'INTERMEDIATE', 'ADVANCED']).withMessage('Livello non valido'),
 ]
