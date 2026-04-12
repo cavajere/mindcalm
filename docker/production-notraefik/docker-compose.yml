@@ -67,11 +67,12 @@ services:
       IMAGES_STORAGE_PATH: /data/images
       MAX_AUDIO_SIZE_MB: ${MAX_AUDIO_SIZE_MB:-100}
       MAX_IMAGE_SIZE_MB: ${MAX_IMAGE_SIZE_MB:-5}
-      CORS_ORIGIN: ${CORS_ORIGIN:-https://mindcalm.datagestio.com}
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://mindcalm.example.com}
       RATE_LIMIT_PUBLIC: ${RATE_LIMIT_PUBLIC:-100}
       RATE_LIMIT_LOGIN: ${RATE_LIMIT_LOGIN:-30}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@mindcalm.com}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-bootstrap-admin@example.invalid}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      ADMIN_NAME: ${ADMIN_NAME:-MindCalm Bootstrap}
     volumes:
       - ./data/audio:/data/audio
       - ./data/hls:/data/hls

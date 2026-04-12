@@ -33,6 +33,7 @@ axios.interceptors.response.use(
     if ((status === 401 || status === 403) && !isPublicAuthRequest) {
       const auth = useAuthStore(pinia)
       auth.clearSession()
+      await auth.fetchSession().catch(() => undefined)
 
       if (!router.currentRoute.value.meta.publicOnly) {
         await router.push({

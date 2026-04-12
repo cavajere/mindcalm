@@ -57,7 +57,9 @@ nano .env
 |---|---|
 | `POSTGRES_PASSWORD` | Password sicura a scelta |
 | `JWT_SECRET` | `openssl rand -base64 32` |
-| `ADMIN_PASSWORD` | Password sicura a scelta |
+| `ADMIN_PASSWORD` | Password bootstrap sicura a scelta |
+| `ADMIN_EMAIL` | Email dedicata al bootstrap admin |
+| `CORS_ORIGIN` | Dominio pubblico reale dell'istanza |
 
 ## 3. Creare le directory dati
 
@@ -74,6 +76,23 @@ mkdir -p ./data/postgres ./data/audio ./data/hls ./data/images
 L'entrypoint del container API esegue automaticamente:
 - `prisma migrate deploy` (migrazioni database)
 - Setup permessi directory storage (`/data/audio`, `/data/hls`, `/data/images`)
+
+## 4.1 Primo accesso admin
+
+Con il nuovo flusso non viene eseguito alcun seed admin in produzione.
+
+Il login iniziale usa il **bootstrap admin** configurato in `.env`:
+
+- `ADMIN_NAME`
+- `ADMIN_EMAIL`
+- `ADMIN_PASSWORD`
+
+Comportamento:
+
+- se non esiste alcun admin attivo nel database, puoi accedere a `/admin/login` con le credenziali bootstrap
+- dopo il login verrai reindirizzato a `/admin/setup`
+- da lì crei il primo admin reale nel database
+- appena esiste almeno un admin attivo, il bootstrap admin da ENV smette di funzionare
 
 ### Deploy automatico con script
 
@@ -218,13 +237,13 @@ docker compose build --no-cache && docker compose up -d
 docker compose exec api sh
 
 # Accesso diretto al database
-docker compose exec postgres psql -U mindcalm_demo -d mindcalm_demo
+docker compose exec postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"
 
 # Backup database
-docker compose exec postgres pg_dump -U mindcalm_demo mindcalm_demo > backup_$(date +%Y%m%d).sql
+docker compose exec postgres pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" > backup_$(date +%Y%m%d).sql
 
 # Restore database
-docker compose exec -T postgres psql -U mindcalm_demo -d mindcalm_demo < backup.sql
+docker compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" < backup.sql
 ```
 
 ---

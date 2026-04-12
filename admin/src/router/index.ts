@@ -8,6 +8,7 @@ const router = createRouter({
     { path: '/login', component: LoginView, meta: { publicOnly: true } },
     { path: '/forgot-password', component: () => import('../views/ForgotPasswordView.vue'), meta: { publicOnly: true } },
     { path: '/reset-password', component: () => import('../views/ResetPasswordView.vue'), meta: { publicOnly: true } },
+    { path: '/setup', component: () => import('../views/BootstrapSetupView.vue'), meta: { requiresBootstrap: true } },
     { path: '/', component: () => import('../views/DashboardView.vue'), meta: { requiresAuth: true } },
     { path: '/audio', component: () => import('../views/AudioListView.vue'), meta: { requiresAuth: true } },
     { path: '/audio/new', component: () => import('../views/AudioFormView.vue'), meta: { requiresAuth: true } },
@@ -37,10 +38,18 @@ router.beforeEach(async (to) => {
   }
 
   if (!to.matched.length) {
-    return auth.isAuthenticated ? '/' : '/login'
+    return auth.isAuthenticated ? auth.getDefaultRoute() : '/login'
   }
 
-  if (to.meta.requiresAuth && !auth.isAuthenticated) {
+  if (to.meta.requiresBootstrap && !auth.isBootstrapMode) {
+    return auth.isAuthenticated ? auth.getDefaultRoute() : '/login'
+  }
+
+  if (to.meta.requiresAuth && !auth.isAdminMode) {
+    if (auth.isBootstrapMode) {
+      return '/setup'
+    }
+
     return {
       path: '/login',
       query: to.fullPath !== '/' ? { redirect: to.fullPath } : {},
@@ -48,7 +57,7 @@ router.beforeEach(async (to) => {
   }
 
   if (to.meta.publicOnly && auth.isAuthenticated) {
-    return '/'
+    return auth.getDefaultRoute()
   }
 })
 

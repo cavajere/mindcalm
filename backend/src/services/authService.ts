@@ -19,6 +19,7 @@ export function generateToken(payload: {
   name: string
   role: UserRole
   sessionVersion: number
+  bootstrap?: boolean
 }): string {
   return jwt.sign(payload, config.jwt.secret, {
     expiresIn: config.jwt.expiresIn,

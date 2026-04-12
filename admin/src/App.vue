@@ -212,7 +212,7 @@ onBeforeUnmount(() => {
     </div>
   </div>
 
-  <div v-else-if="auth.isAuthenticated" class="min-h-screen bg-background text-text-primary">
+  <div v-else-if="auth.isAdminMode" class="min-h-screen bg-background text-text-primary">
     <div v-if="mobileSidebarOpen" class="fixed inset-0 z-40 bg-text-primary/35 lg:hidden" @click="closeMobileSidebar" />
 
     <aside

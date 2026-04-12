@@ -12,6 +12,12 @@ export const config = {
     adminCookieName: process.env.ADMIN_AUTH_COOKIE_NAME || 'mindcalm_admin_session',
   },
 
+  bootstrapAdmin: {
+    email: process.env.ADMIN_EMAIL?.trim() || '',
+    password: process.env.ADMIN_PASSWORD?.trim() || '',
+    name: process.env.ADMIN_NAME?.trim() || 'Bootstrap Admin',
+  },
+
   security: {
     encryptionSecret: process.env.APP_SECRET || process.env.JWT_SECRET || 'dev-secret-change-me',
   },

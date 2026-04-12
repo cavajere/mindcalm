@@ -6,7 +6,7 @@ import path from 'path'
 import { config } from './config'
 import { publicRateLimiter } from './middleware/rateLimiter'
 import { errorHandler } from './middleware/errorHandler'
-import { authMiddleware } from './middleware/auth'
+import { authMiddleware, clearAuthCookie, resolveAdminRequest } from './middleware/auth'
 import audioPublicRouter from './routes/public/audio'
 import articlesPublicRouter from './routes/public/articles'
 import categoriesPublicRouter from './routes/public/categories'
@@ -76,14 +76,54 @@ app.use('/api/v1/files/images', authMiddleware, express.static(config.storage.im
 if (config.isProduction) {
   const publicDir = path.resolve(__dirname, 'public')
   const adminDir = path.resolve(__dirname, 'public/admin')
+  const adminPublicRoutes = new Set([
+    '/admin/login',
+    '/admin/forgot-password',
+    '/admin/reset-password',
+  ])
 
-  // Admin SPA (must be before frontend catch-all)
-  app.get('/admin', (_req, res) => {
-    console.info(`[Admin] Redirect ${_req.method} ${_req.originalUrl} -> /admin/`)
-    res.redirect(301, '/admin/')
-  })
-  app.use('/admin', express.static(adminDir))
-  app.get('/admin/*', (_req, res) => {
+  function getAdminAppPath(requestPath: string) {
+    const normalized = requestPath === '/admin' ? '/admin/' : requestPath
+    const appPath = normalized.slice('/admin'.length) || '/'
+    return appPath.startsWith('/') ? appPath : `/${appPath}`
+  }
+
+  app.use('/admin', express.static(adminDir, { index: false }))
+
+  app.get(['/admin', '/admin/*'], async (req, res) => {
+    if (path.extname(req.path)) {
+      res.status(404).end()
+      return
+    }
+
+    const appPath = getAdminAppPath(req.path)
+    const isPublicRoute = adminPublicRoutes.has(req.path)
+    const authResult = await resolveAdminRequest(req)
+
+    if (authResult.kind !== 'authenticated' && authResult.clearCookieName) {
+      clearAuthCookie(res, authResult.clearCookieName)
+    }
+
+    if (authResult.kind === 'authenticated') {
+      if (authResult.principal.isBootstrap) {
+        if (appPath !== '/setup') {
+          res.redirect(302, '/admin/setup')
+          return
+        }
+      } else if (isPublicRoute || appPath === '/setup') {
+        res.redirect(302, '/admin/')
+        return
+      }
+    } else if (!isPublicRoute) {
+      if (authResult.clearCookieName) {
+        clearAuthCookie(res, authResult.clearCookieName)
+      }
+
+      const redirectParam = appPath !== '/' ? `?redirect=${encodeURIComponent(appPath)}` : ''
+      res.redirect(302, `/admin/login${redirectParam}`)
+      return
+    }
+
     res.sendFile(path.join(adminDir, 'index.html'))
   })
 

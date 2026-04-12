@@ -3,14 +3,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { adminAuthMiddleware, appAuthMiddleware, authMiddleware } from '../src/middleware/auth'
 import { config } from '../src/config'
 
-const { prismaUserFindUnique } = vi.hoisted(() => ({
+const { prismaUserFindUnique, prismaUserCount } = vi.hoisted(() => ({
   prismaUserFindUnique: vi.fn(),
+  prismaUserCount: vi.fn(),
 }))
 
 vi.mock('../src/lib/prisma', () => ({
   prisma: {
     user: {
       findUnique: prismaUserFindUnique,
+      count: prismaUserCount,
     },
   },
 }))
@@ -28,6 +30,11 @@ function createResponse() {
 describe('authMiddleware', () => {
   beforeEach(() => {
     prismaUserFindUnique.mockReset()
+    prismaUserCount.mockReset()
+    prismaUserCount.mockResolvedValue(1)
+    config.bootstrapAdmin.email = ''
+    config.bootstrapAdmin.password = ''
+    config.bootstrapAdmin.name = 'Bootstrap Admin'
   })
 
   it('autorizza richieste con cookie valido e sessionVersion corretta', async () => {
@@ -69,6 +76,7 @@ describe('authMiddleware', () => {
       email: 'utente@example.com',
       name: 'Utente',
       role: 'STANDARD',
+      isBootstrap: false,
     })
     expect(res.status).not.toHaveBeenCalled()
   })
@@ -112,6 +120,7 @@ describe('authMiddleware', () => {
       email: 'admin@example.com',
       name: 'Admin',
       role: 'ADMIN',
+      isBootstrap: false,
     })
   })
 
@@ -263,9 +272,48 @@ describe('authMiddleware', () => {
       httpOnly: true,
       sameSite: 'strict',
       secure: config.isProduction,
-      path: '/api/v1',
+      path: '/',
     })
     expect(res.status).toHaveBeenCalledWith(401)
     expect(res.json).toHaveBeenCalledWith({ error: 'Token non valido o scaduto' })
+  })
+
+  it('autorizza la sessione bootstrap admin quando non esistono admin attivi', async () => {
+    config.bootstrapAdmin.email = 'bootstrap@example.com'
+    config.bootstrapAdmin.password = 'bootstrap-secret'
+    prismaUserCount.mockResolvedValue(0)
+
+    const token = jwt.sign(
+      {
+        id: 'bootstrap-admin',
+        email: 'bootstrap@example.com',
+        name: 'Bootstrap Admin',
+        role: 'ADMIN',
+        sessionVersion: 0,
+        bootstrap: true,
+      },
+      config.jwt.secret,
+      { expiresIn: '1h' },
+    )
+
+    const req: any = {
+      headers: {},
+      cookies: {
+        [config.jwt.adminCookieName]: token,
+      },
+    }
+    const res = createResponse()
+    const next = vi.fn()
+
+    await adminAuthMiddleware(req, res as any, next)
+
+    expect(next).toHaveBeenCalledOnce()
+    expect(req.adminUser).toEqual({
+      id: 'bootstrap-admin',
+      email: 'bootstrap@example.com',
+      name: 'Bootstrap Admin',
+      role: 'ADMIN',
+      isBootstrap: true,
+    })
   })
 })

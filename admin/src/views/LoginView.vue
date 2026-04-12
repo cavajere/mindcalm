@@ -19,7 +19,8 @@ async function handleLogin() {
   loading.value = true
   try {
     await auth.login(email.value, password.value)
-    await router.push(typeof route.query.redirect === 'string' ? route.query.redirect : '/')
+    const redirectPath = typeof route.query.redirect === 'string' ? route.query.redirect : auth.getDefaultRoute()
+    await router.push(redirectPath)
   } catch (e: any) {
     error.value = e.response?.data?.error || 'Errore di connessione'
   } finally {
@@ -38,7 +39,13 @@ async function handleLogin() {
           </svg>
         </div>
         <h1 class="text-2xl font-bold text-text-primary">MindCalm Admin</h1>
-        <p class="text-text-secondary text-sm mt-1">Accedi al pannello di gestione</p>
+        <p class="text-text-secondary text-sm mt-1">
+          {{ !auth.hasActiveAdmin && auth.bootstrapEnabled ? 'Accedi con le credenziali bootstrap per creare il primo admin.' : 'Accedi al pannello di gestione' }}
+        </p>
+      </div>
+
+      <div v-if="!auth.hasActiveAdmin && !auth.bootstrapEnabled" class="bg-red-50 border border-red-200 rounded-xl p-4 mb-4 text-sm text-red-700">
+        Nessun admin attivo e bootstrap ENV non configurato. Il backend non può autorizzare accessi admin finché non viene configurato un bootstrap admin.
       </div>
 
       <div v-if="isDev" class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
@@ -72,8 +79,8 @@ async function handleLogin() {
           </router-link>
         </div>
 
-        <button type="submit" :disabled="loading" class="btn-primary w-full">
-          {{ loading ? 'Accesso...' : 'Accedi' }}
+        <button type="submit" :disabled="loading || (!auth.hasActiveAdmin && !auth.bootstrapEnabled)" class="btn-primary w-full">
+          {{ !auth.hasActiveAdmin && !auth.bootstrapEnabled ? 'Bootstrap non configurato' : (loading ? 'Accesso...' : 'Accedi') }}
         </button>
       </form>
     </div>

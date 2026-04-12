@@ -167,6 +167,22 @@ export const userCreateValidation = [
   body('inviteBaseUrl').optional({ values: 'falsy' }).isURL({ require_protocol: true }).withMessage('URL invito non valido'),
 ]
 
+export const bootstrapAdminSetupValidation = [
+  body('email').isEmail().withMessage('Email non valida'),
+  body('firstName').trim().notEmpty().withMessage('Nome obbligatorio'),
+  body('lastName').trim().notEmpty().withMessage('Cognome obbligatorio'),
+  body('phone')
+    .trim()
+    .notEmpty()
+    .withMessage('Telefono obbligatorio')
+    .bail()
+    .custom(isValidPhoneNumber)
+    .withMessage('Numero di telefono non valido'),
+  body('password')
+    .isLength({ min: 8 })
+    .withMessage('Password minima 8 caratteri'),
+]
+
 export const userUpdateValidation = [
   body('email').optional().isEmail().withMessage('Email non valida'),
   body('firstName').optional().trim().notEmpty().withMessage('Nome obbligatorio'),

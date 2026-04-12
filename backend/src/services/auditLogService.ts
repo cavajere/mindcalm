@@ -81,7 +81,7 @@ function sanitizeAuditMetadata(value: unknown, depth = 0): Prisma.InputJsonValue
 
 export function getAuditActorFromRequest(req: Request): AuditActorSnapshot {
   return {
-    actorUserId: req.adminUser?.id ?? null,
+    actorUserId: req.adminUser?.isBootstrap ? null : (req.adminUser?.id ?? null),
     actorEmail: req.adminUser?.email ?? null,
     actorName: req.adminUser?.name ?? null,
     actorRole: req.adminUser?.role ?? null,
@@ -111,7 +111,7 @@ export async function logAuditEvent({
       entityId: entityId ?? null,
       entityLabel: entityLabel ?? null,
       outcome,
-      actorUserId: actorUserId ?? req?.adminUser?.id ?? null,
+      actorUserId: actorUserId ?? (req?.adminUser?.isBootstrap ? null : (req?.adminUser?.id ?? null)),
       actorEmail: actorEmail ?? req?.adminUser?.email ?? null,
       actorName: actorName ?? req?.adminUser?.name ?? null,
       actorRole: actorRole ?? req?.adminUser?.role ?? null,
