@@ -18,6 +18,7 @@ const router = createRouter({
     { path: '/categories', component: () => import('../views/CategoriesView.vue'), meta: { requiresAuth: true } },
     { path: '/tags', component: () => import('../views/TagsView.vue'), meta: { requiresAuth: true } },
     { path: '/analytics', component: () => import('../views/AnalyticsView.vue'), meta: { requiresAuth: true } },
+    { path: '/invite-codes', component: () => import('../views/InviteCodesView.vue'), meta: { requiresAuth: true } },
     { path: '/audit-logs', component: () => import('../views/AuditLogsView.vue'), meta: { requiresAuth: true } },
     { path: '/profile', component: () => import('../views/ProfileView.vue'), meta: { requiresAuth: true } },
     { path: '/users', component: () => import('../views/UsersListView.vue'), meta: { requiresAuth: true } },

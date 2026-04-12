@@ -18,6 +18,7 @@ model User {
   notes                  String?
   role                   UserRole  @default(STANDARD)
   isActive               Boolean   @default(true)
+  licenseExpiresAt       DateTime?
   sessionVersion         Int       @default(0)
   inviteTokenHash        String?
   inviteExpiresAt        DateTime?
@@ -29,9 +30,55 @@ model User {
   analyticsEvents        AnalyticsEvent[]
   auditLogs              AuditLog[] @relation("AuditLogActor")
   playbackSessions       PlaybackSession[]
+  createdInviteCodes     InviteCode[] @relation("InviteCodeCreator")
+  redeemedInviteCodes    InviteCode[] @relation("InviteCodeRedeemer")
 
   @@index([role])
   @@map("admin_users")
+}
+
+model InviteCode {
+  id                   String                  @id @default(uuid())
+  code                 String                  @unique
+  licenseDurationDays  Int
+  maxRedemptions       Int                     @default(1)
+  redemptionsCount     Int                     @default(0)
+  status               InviteCodeStatus        @default(ACTIVE)
+  expiresAt            DateTime?
+  redeemedAt           DateTime?
+  redeemedByUserId     String?
+  redeemedByUser       User?                   @relation("InviteCodeRedeemer", fields: [redeemedByUserId], references: [id], onDelete: SetNull)
+  createdByUserId      String?
+  createdByUser        User?                   @relation("InviteCodeCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  notes                String?
+  pendingRegistrations PendingRegistration[]
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+
+  @@index([status, createdAt])
+  @@index([expiresAt])
+  @@map("invite_codes")
+}
+
+model PendingRegistration {
+  id                    String                    @id @default(uuid())
+  inviteCodeId          String
+  inviteCode            InviteCode                @relation(fields: [inviteCodeId], references: [id], onDelete: Restrict)
+  email                 String
+  passwordHash          String
+  firstName             String
+  lastName              String
+  phone                 String
+  verificationTokenHash String                    @unique
+  verificationExpiresAt DateTime
+  verifiedAt            DateTime?
+  status                PendingRegistrationStatus @default(PENDING)
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+
+  @@index([email, status])
+  @@index([verificationExpiresAt])
+  @@map("pending_registrations")
 }
 
 model SmtpSettings {
@@ -252,6 +299,20 @@ enum UserRole {
   STANDARD
 }
 
+enum InviteCodeStatus {
+  ACTIVE
+  REDEEMED
+  EXPIRED
+  DISABLED
+}
+
+enum PendingRegistrationStatus {
+  PENDING
+  VERIFIED
+  CANCELLED
+  EXPIRED
+}
+
 enum StreamingFormat {
   DIRECT
   HLS
@@ -276,6 +337,13 @@ enum AuditAction {
   USER_UPDATED
   USER_DELETED
   USER_INVITE_RESENT
+  INVITE_CODE_CREATED
+  INVITE_CODE_DISABLED
+  INVITE_CODE_REDEEMED
+  REGISTRATION_STARTED
+  REGISTRATION_VERIFICATION_SENT
+  REGISTRATION_VERIFIED
+  REGISTRATION_FAILED
   AUDIO_CREATED
   AUDIO_UPDATED
   AUDIO_DELETED
@@ -299,6 +367,8 @@ enum AuditAction {
 enum AuditEntityType {
   AUTH
   USER
+  INVITE_CODE
+  REGISTRATION
   AUDIO
   ARTICLE
   CATEGORY

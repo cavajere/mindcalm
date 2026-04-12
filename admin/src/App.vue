@@ -36,6 +36,7 @@ const primaryNavItems: NavLeafItem[] = [
   { path: '/articles', label: 'Articoli', shortLabel: 'Articoli' },
   { path: '/analytics', label: 'Analytics', shortLabel: 'Analytics' },
   { path: '/users', label: 'Utenti', shortLabel: 'Utenti' },
+  { path: '/invite-codes', label: 'Codici invito', shortLabel: 'CI' },
 ]
 
 const adminNavItems: NavLeafItem[] = [
@@ -157,6 +158,7 @@ function toggleGroup(item: NavGroupItem) {
 }
 
 function openMobileSidebar() {
+  sidebarCollapsed.value = false
   mobileSidebarOpen.value = true
 }
 
@@ -228,17 +230,6 @@ onBeforeUnmount(() => {
             <p class="truncate text-lg font-semibold text-white">Admin Portal</p>
           </div>
         </div>
-        <button
-          v-if="!sidebarCollapsed"
-          type="button"
-          class="hidden rounded-xl border border-white/10 p-2 text-slate-300 transition hover:border-white/20 hover:bg-white/5 hover:text-white lg:inline-flex"
-          @click="toggleSidebar"
-          aria-label="Collassa sidebar"
-        >
-          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
       </div>
 
       <div class="px-4 py-4">
@@ -318,18 +309,6 @@ onBeforeUnmount(() => {
       </nav>
 
       <div class="border-t border-white/10 p-3">
-        <button
-          v-if="sidebarCollapsed"
-          type="button"
-          class="hidden w-full items-center justify-center rounded-2xl border border-white/10 px-3 py-3 text-slate-300 transition hover:border-white/20 hover:bg-white/5 hover:text-white lg:flex"
-          @click="toggleSidebar"
-          aria-label="Espandi sidebar"
-        >
-          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
-
         <div
           :class="[
             'mt-0 overflow-hidden rounded-2xl border border-white/10 bg-white/5',

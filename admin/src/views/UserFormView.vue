@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 
@@ -26,6 +26,7 @@ const form = ref({
   phone: '',
   notes: '',
   role: 'STANDARD',
+  licenseExpiresAt: '',
   password: '',
   isActive: true,
   sendInvite: true,
@@ -52,6 +53,31 @@ function isPhoneValid(phone: string) {
   return PHONE_REGEX.test(normalized) && digitsOnly.length >= 7 && digitsOnly.length <= 15
 }
 
+function formatDateForInput(value: string | null | undefined) {
+  if (!value) return ''
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return ''
+
+  const year = parsed.getFullYear()
+  const month = String(parsed.getMonth() + 1).padStart(2, '0')
+  const day = String(parsed.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function getLicenseExpiresAtPayload() {
+  if (form.value.role !== 'STANDARD') {
+    return null
+  }
+
+  if (!form.value.licenseExpiresAt) {
+    return null
+  }
+
+  const endOfDay = new Date(`${form.value.licenseExpiresAt}T23:59:59.999`)
+  return endOfDay.toISOString()
+}
+
 async function fetchUser() {
   if (!isEdit.value) return
 
@@ -63,6 +89,7 @@ async function fetchUser() {
   form.value.phone = data.phone || ''
   form.value.notes = data.notes || ''
   form.value.role = data.role
+  form.value.licenseExpiresAt = formatDateForInput(data.licenseExpiresAt)
   form.value.isActive = data.isActive
   userMeta.value.hasPendingInvite = data.hasPendingInvite
   userMeta.value.invitedAt = data.invitedAt || ''
@@ -92,6 +119,7 @@ async function handleSubmit() {
       phone: form.value.phone,
       notes: form.value.notes,
       role: form.value.role,
+      licenseExpiresAt: getLicenseExpiresAtPayload(),
       isActive: form.value.isActive,
       password: isEdit.value
         ? (form.value.password || undefined)
@@ -135,6 +163,15 @@ async function resendInvite() {
     resendingInvite.value = false
   }
 }
+
+watch(
+  () => form.value.role,
+  (role) => {
+    if (role === 'ADMIN') {
+      form.value.licenseExpiresAt = ''
+    }
+  },
+)
 
 onMounted(fetchUser)
 </script>
@@ -225,6 +262,18 @@ onMounted(fetchUser)
           <option value="STANDARD">Standard</option>
           <option value="ADMIN">Admin</option>
         </select>
+      </div>
+
+      <div v-if="form.role === 'STANDARD'">
+        <label class="label">Scadenza licenza</label>
+        <input
+          v-model="form.licenseExpiresAt"
+          type="date"
+          class="input-field"
+        />
+        <p class="text-xs text-text-secondary mt-1">
+          Lascia vuoto per una licenza senza scadenza. La licenza resta valida fino alla fine del giorno selezionato.
+        </p>
       </div>
 
       <template v-if="!isEdit">

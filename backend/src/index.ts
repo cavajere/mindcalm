@@ -21,6 +21,7 @@ import settingsAdminRouter from './routes/admin/settings'
 import analyticsPublicRouter from './routes/public/analytics'
 import analyticsAdminRouter from './routes/admin/analytics'
 import auditLogsAdminRouter from './routes/admin/auditLogs'
+import inviteCodesAdminRouter from './routes/admin/inviteCodes'
 
 const app = express()
 
@@ -66,6 +67,7 @@ app.use('/api/v1/admin/users', usersAdminRouter)
 app.use('/api/v1/admin/settings', settingsAdminRouter)
 app.use('/api/v1/admin/analytics', analyticsAdminRouter)
 app.use('/api/v1/admin/audit-logs', auditLogsAdminRouter)
+app.use('/api/v1/admin/invite-codes', inviteCodesAdminRouter)
 
 // Serve uploaded files
 app.use('/api/v1/files/images', authMiddleware, express.static(config.storage.imagesPath))

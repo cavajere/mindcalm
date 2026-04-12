@@ -7,9 +7,12 @@ const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/login', component: LoginView, meta: { publicOnly: true, hideChrome: true } },
+    { path: '/register', component: () => import('../views/RegisterView.vue'), meta: { publicOnly: true, hideChrome: true } },
     { path: '/forgot-password', component: () => import('../views/ForgotPasswordView.vue'), meta: { hideChrome: true } },
     { path: '/reset-password', component: () => import('../views/ResetPasswordView.vue'), meta: { hideChrome: true } },
+    { path: '/verify-registration', component: () => import('../views/VerifyRegistrationView.vue'), meta: { publicOnly: true, hideChrome: true } },
     { path: '/accept-invite', component: () => import('../views/AcceptInviteView.vue'), meta: { publicOnly: true, hideChrome: true } },
+    { path: '/license-expired', component: () => import('../views/LicenseExpiredView.vue'), meta: { hideChrome: true } },
     { path: '/', component: HomeView, meta: { requiresAuth: true } },
     { path: '/audio', component: () => import('../views/AudioView.vue'), meta: { requiresAuth: true } },
     { path: '/audio/:id', component: () => import('../views/AudioDetailView.vue'), meta: { requiresAuth: true } },
@@ -26,6 +29,10 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
   await auth.initialize()
+
+  if (to.meta.requiresAuth && auth.isLicenseExpired) {
+    return auth.getLicenseExpiredRouteLocation()
+  }
 
   if (to.meta.requiresAuth && !auth.isAuthenticated) {
     return '/login'

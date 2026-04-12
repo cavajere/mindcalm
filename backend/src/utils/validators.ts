@@ -13,6 +13,13 @@ const auditActions = [
   'USER_UPDATED',
   'USER_DELETED',
   'USER_INVITE_RESENT',
+  'INVITE_CODE_CREATED',
+  'INVITE_CODE_DISABLED',
+  'INVITE_CODE_REDEEMED',
+  'REGISTRATION_STARTED',
+  'REGISTRATION_VERIFICATION_SENT',
+  'REGISTRATION_VERIFIED',
+  'REGISTRATION_FAILED',
   'AUDIO_CREATED',
   'AUDIO_UPDATED',
   'AUDIO_DELETED',
@@ -33,8 +40,9 @@ const auditActions = [
   'SMTP_TEST_SENT',
 ]
 
-const auditEntityTypes = ['AUTH', 'USER', 'AUDIO', 'ARTICLE', 'CATEGORY', 'TAG', 'SETTINGS']
+const auditEntityTypes = ['AUTH', 'USER', 'INVITE_CODE', 'REGISTRATION', 'AUDIO', 'ARTICLE', 'CATEGORY', 'TAG', 'SETTINGS']
 const phonePattern = /^\+?[0-9\s().-]{7,20}$/
+const inviteCodePattern = /^[A-NP-Z1-9]{7}$/
 
 function isValidPhoneNumber(value: string) {
   const normalized = value.trim()
@@ -65,6 +73,40 @@ export const acceptInviteValidation = [
   body('password')
     .isLength({ min: 8 })
     .withMessage('Password minima 8 caratteri'),
+]
+
+export const inviteCodeLookupValidation = [
+  body('code')
+    .trim()
+    .matches(inviteCodePattern)
+    .withMessage('Codice invito non valido'),
+]
+
+export const registerWithInviteCodeValidation = [
+  body('code')
+    .trim()
+    .matches(inviteCodePattern)
+    .withMessage('Codice invito non valido'),
+  body('email').isEmail().withMessage('Email non valida'),
+  body('firstName').trim().notEmpty().withMessage('Nome obbligatorio'),
+  body('lastName').trim().notEmpty().withMessage('Cognome obbligatorio'),
+  body('phone')
+    .trim()
+    .notEmpty()
+    .withMessage('Telefono obbligatorio')
+    .bail()
+    .custom(isValidPhoneNumber)
+    .withMessage('Numero di telefono non valido'),
+  body('password')
+    .isLength({ min: 8 })
+    .withMessage('Password minima 8 caratteri'),
+  body('verificationBaseUrl')
+    .isURL({ require_protocol: true })
+    .withMessage('URL verifica non valido'),
+]
+
+export const verifyRegistrationValidation = [
+  body('token').trim().notEmpty().withMessage('Token verifica obbligatorio'),
 ]
 
 export const changePasswordValidation = [
@@ -120,6 +162,7 @@ export const userCreateValidation = [
   body('role').isIn(['ADMIN', 'STANDARD']).withMessage('Ruolo non valido'),
   body('password').optional({ values: 'falsy' }).isLength({ min: 8 }).withMessage('Password minima 8 caratteri'),
   body('isActive').optional().isBoolean().withMessage('isActive non valido'),
+  body('licenseExpiresAt').optional({ values: 'falsy' }).isISO8601().withMessage('Data scadenza licenza non valida'),
   body('sendInvite').optional().isBoolean().withMessage('sendInvite non valido'),
   body('inviteBaseUrl').optional({ values: 'falsy' }).isURL({ require_protocol: true }).withMessage('URL invito non valido'),
 ]
@@ -140,6 +183,21 @@ export const userUpdateValidation = [
   body('role').optional().isIn(['ADMIN', 'STANDARD']).withMessage('Ruolo non valido'),
   body('password').optional({ values: 'falsy' }).isLength({ min: 8 }).withMessage('Password minima 8 caratteri'),
   body('isActive').optional().isBoolean().withMessage('isActive non valido'),
+  body('licenseExpiresAt').optional({ values: 'falsy' }).isISO8601().withMessage('Data scadenza licenza non valida'),
+]
+
+export const inviteCodeCreateValidation = [
+  body('licenseDurationDays')
+    .isInt({ min: 1, max: 3650 })
+    .withMessage('Durata licenza non valida'),
+  body('expiresAt')
+    .optional({ values: 'falsy' })
+    .isISO8601()
+    .withMessage('Data scadenza codice non valida'),
+  body('notes')
+    .optional({ values: 'falsy' })
+    .isLength({ max: 500 })
+    .withMessage('Note max 500 caratteri'),
 ]
 
 export const smtpSettingsValidation = [

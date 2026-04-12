@@ -9,6 +9,7 @@ import { hashPassword } from '../../services/authService'
 import { getAdminUsersCount, sendUserInvite } from '../../services/userService'
 import { generateRandomToken } from '../../services/cryptoService'
 import { getAuditActorFromRequest, logAuditEventSafe } from '../../services/auditLogService'
+import { parseLicenseExpiresAtInput } from '../../services/licenseService'
 
 function serializeUser(user: {
   id: string
@@ -20,6 +21,7 @@ function serializeUser(user: {
   notes: string | null
   role: UserRole
   isActive: boolean
+  licenseExpiresAt: Date | null
   createdAt: Date
   updatedAt: Date
   invitedAt: Date | null
@@ -39,6 +41,7 @@ function serializeUser(user: {
     notes: user.notes || '',
     role: user.role,
     isActive: user.isActive,
+    licenseExpiresAt: user.licenseExpiresAt,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
     invitedAt: user.invitedAt,
@@ -57,6 +60,7 @@ const userSelect = {
   notes: true,
   role: true,
   isActive: true,
+  licenseExpiresAt: true,
   createdAt: true,
   updatedAt: true,
   invitedAt: true,
@@ -156,8 +160,10 @@ router.post('/', userCreateValidation, async (req: Request, res: Response) => {
   const role = (getSingleString(req.body.role) as UserRole | undefined) || UserRole.STANDARD
   const password = getSingleString(req.body.password)
   const isActive = getBoolean(req.body.isActive) ?? true
+  const licenseExpiresAtInput = getSingleString(req.body.licenseExpiresAt)
   const sendInvite = getBoolean(req.body.sendInvite) ?? false
   const inviteBaseUrl = getSingleString(req.body.inviteBaseUrl)
+  const licenseExpiresAt = role === UserRole.STANDARD ? parseLicenseExpiresAtInput(licenseExpiresAtInput) ?? null : null
 
   if (sendInvite && password) {
     res.status(400).json({ error: 'Scegli se impostare una password o inviare un invito, non entrambi' })
@@ -195,6 +201,7 @@ router.post('/', userCreateValidation, async (req: Request, res: Response) => {
       notes,
       role,
       isActive,
+      licenseExpiresAt,
       password: await hashPassword(password || generateRandomToken()),
     },
     select: userSelect,
@@ -304,6 +311,8 @@ router.put('/:id', userUpdateValidation, async (req: Request, res: Response) => 
   const role = getSingleString(req.body.role) as UserRole | undefined
   const password = getSingleString(req.body.password)
   const isActive = getBoolean(req.body.isActive)
+  const hasLicenseExpiresAtInput = Object.prototype.hasOwnProperty.call(req.body, 'licenseExpiresAt')
+  const licenseExpiresAtInput = hasLicenseExpiresAtInput ? getSingleString(req.body.licenseExpiresAt) : undefined
 
   if (email && email !== existing.email) {
     const emailInUse = await prisma.user.findUnique({ where: { email } })
@@ -333,6 +342,16 @@ router.put('/:id', userUpdateValidation, async (req: Request, res: Response) => 
   }
 
   const currentNames = getResolvedNameParts(existing)
+  const nextRole = role ?? existing.role
+  const nextLicenseExpiresAt =
+    nextRole === UserRole.STANDARD
+      ? (hasLicenseExpiresAtInput ? parseLicenseExpiresAtInput(licenseExpiresAtInput) : existing.licenseExpiresAt)
+      : null
+  const existingLicenseExpiresAt = existing.licenseExpiresAt?.getTime() ?? null
+  const updatedLicenseExpiresAt = nextLicenseExpiresAt?.getTime() ?? null
+  const licenseExpiresAtChanged = existingLicenseExpiresAt !== updatedLicenseExpiresAt
+  const roleChanged = role !== undefined && role !== existing.role
+  const shouldInvalidateSession = Boolean(password) || isActive === false || roleChanged || licenseExpiresAtChanged
 
   const changedFields = [
     email !== undefined && email !== existing.email ? 'email' : null,
@@ -342,6 +361,7 @@ router.put('/:id', userUpdateValidation, async (req: Request, res: Response) => 
     notes !== undefined && notes !== (existing.notes ?? null) ? 'notes' : null,
     role !== undefined && role !== existing.role ? 'role' : null,
     isActive !== undefined && isActive !== existing.isActive ? 'isActive' : null,
+    licenseExpiresAtChanged ? 'licenseExpiresAt' : null,
     password ? 'password' : null,
   ].filter((field): field is string => Boolean(field))
 
@@ -359,8 +379,9 @@ router.put('/:id', userUpdateValidation, async (req: Request, res: Response) => 
       notes,
       role: role ?? undefined,
       isActive: isActive ?? undefined,
+      licenseExpiresAt: hasLicenseExpiresAtInput || nextRole !== existing.role ? nextLicenseExpiresAt : undefined,
       password: password ? await hashPassword(password) : undefined,
-      sessionVersion: (password || isActive === false) ? { increment: 1 } : undefined,
+      sessionVersion: shouldInvalidateSession ? { increment: 1 } : undefined,
       inviteTokenHash: (password || isActive === false) ? null : undefined,
       inviteExpiresAt: (password || isActive === false) ? null : undefined,
       invitedAt: (password || isActive === false) ? null : undefined,
@@ -383,6 +404,8 @@ router.put('/:id', userUpdateValidation, async (req: Request, res: Response) => 
       nextRole: updated.role,
       previousIsActive: existing.isActive,
       nextIsActive: updated.isActive,
+      previousLicenseExpiresAt: existing.licenseExpiresAt,
+      nextLicenseExpiresAt: updated.licenseExpiresAt,
     },
   })
 

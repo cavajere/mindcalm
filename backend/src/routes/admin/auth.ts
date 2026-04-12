@@ -5,12 +5,20 @@ import {
   acceptInviteValidation,
   changePasswordValidation,
   forgotPasswordValidation,
+  inviteCodeLookupValidation,
   loginValidation,
+  registerWithInviteCodeValidation,
   resetPasswordValidation,
+  verifyRegistrationValidation,
 } from '../../utils/validators'
 import { comparePassword, generateToken } from '../../services/authService'
 import { authMiddleware, requireAdmin } from '../../middleware/auth'
-import { loginRateLimiter } from '../../middleware/rateLimiter'
+import {
+  inviteCodeValidationRateLimiter,
+  loginRateLimiter,
+  registrationRateLimiter,
+  registrationVerificationRateLimiter,
+} from '../../middleware/rateLimiter'
 import { prisma } from '../../lib/prisma'
 import { getSingleString } from '../../utils/request'
 import {
@@ -24,6 +32,13 @@ import { sendMail } from '../../services/smtpService'
 import { config } from '../../config'
 import { getAuditActorFromRequest, logAuditEventSafe } from '../../services/auditLogService'
 import { revokeAllPlaybackSessionsForUser } from '../../services/playbackSessionService'
+import { getLicenseExpiredPayload, isLicenseExpired } from '../../services/licenseService'
+import { getPublicInviteCodeDetails } from '../../services/inviteCodeService'
+import {
+  completeInviteCodeRegistration,
+  getRegistrationVerificationDetails,
+  startInviteCodeRegistration,
+} from '../../services/registrationService'
 
 const router = Router()
 
@@ -32,6 +47,21 @@ const appCookieOptions = {
   sameSite: 'lax' as const,
   secure: config.isProduction,
   path: '/',
+}
+
+function setAppAuthSession(
+  res: Response,
+  user: { id: string; email: string; name: string; role: UserRole; sessionVersion: number },
+) {
+  const authToken = generateToken({
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    sessionVersion: user.sessionVersion,
+  })
+
+  res.cookie(config.jwt.appCookieName, authToken, appCookieOptions)
 }
 
 // POST /api/v1/auth/login
@@ -111,15 +141,29 @@ router.post('/app-login', loginRateLimiter, loginValidation, async (req: Request
     return
   }
 
-  const token = generateToken({
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    role: user.role,
-    sessionVersion: user.sessionVersion,
-  })
+  if (isLicenseExpired(user)) {
+    await logAuditEventSafe({
+      req,
+      action: AuditAction.LOGIN_FAILED,
+      entityType: AuditEntityType.AUTH,
+      entityId: user.id,
+      entityLabel: user.email,
+      outcome: AuditOutcome.FAILURE,
+      actorUserId: user.id,
+      actorEmail: user.email,
+      actorName: user.name,
+      actorRole: user.role,
+      metadata: {
+        channel: 'APP',
+        reason: 'LICENSE_EXPIRED',
+        licenseExpiresAt: user.licenseExpiresAt,
+      },
+    })
+    res.status(403).json(getLicenseExpiredPayload(user.licenseExpiresAt!))
+    return
+  }
 
-  res.cookie(config.jwt.appCookieName, token, appCookieOptions)
+  setAppAuthSession(res, user)
 
   res.json({
     user: { id: user.id, email: user.email, name: user.name, role: user.role },
@@ -349,15 +393,7 @@ router.post('/accept-invite', acceptInviteValidation, async (req: Request, res: 
 
   try {
     const user = await acceptUserInvite(token!, password!)
-    const authToken = generateToken({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      sessionVersion: user.sessionVersion,
-    })
-
-    res.cookie(config.jwt.appCookieName, authToken, appCookieOptions)
+    setAppAuthSession(res, user)
     res.json({
       message: 'Invito accettato',
       user: { id: user.id, email: user.email, name: user.name, role: user.role },
@@ -388,6 +424,184 @@ router.post('/accept-invite', acceptInviteValidation, async (req: Request, res: 
   }
 })
 
+// POST /api/v1/auth/validate-invite-code
+router.post('/validate-invite-code', inviteCodeValidationRateLimiter, inviteCodeLookupValidation, async (req: Request, res: Response) => {
+  const errors = validationResult(req)
+  if (!errors.isEmpty()) {
+    res.status(400).json({ error: 'Dati non validi', details: errors.array() })
+    return
+  }
+
+  const code = getSingleString(req.body.code)
+
+  try {
+    const inviteCode = await getPublicInviteCodeDetails(code!)
+    res.json({
+      valid: true,
+      licenseDurationDays: inviteCode.licenseDurationDays,
+    })
+  } catch (error) {
+    res.status(400).json({ error: (error as Error).message })
+  }
+})
+
+// POST /api/v1/auth/register-with-invite-code
+router.post('/register-with-invite-code', registrationRateLimiter, registerWithInviteCodeValidation, async (req: Request, res: Response) => {
+  const errors = validationResult(req)
+  if (!errors.isEmpty()) {
+    res.status(400).json({ error: 'Dati non validi', details: errors.array() })
+    return
+  }
+
+  const code = getSingleString(req.body.code)
+  const email = getSingleString(req.body.email)
+  const firstName = getSingleString(req.body.firstName)
+  const lastName = getSingleString(req.body.lastName)
+  const phone = getSingleString(req.body.phone)
+  const password = getSingleString(req.body.password)
+  const verificationBaseUrl = getSingleString(req.body.verificationBaseUrl)
+
+  try {
+    const registration = await startInviteCodeRegistration({
+      code: code!,
+      email: email!,
+      firstName: firstName!,
+      lastName: lastName!,
+      phone: phone!,
+      password: password!,
+      verificationBaseUrl: verificationBaseUrl!,
+    })
+
+    await logAuditEventSafe({
+      req,
+      action: AuditAction.REGISTRATION_STARTED,
+      entityType: AuditEntityType.REGISTRATION,
+      entityLabel: registration.email,
+      actorEmail: registration.email,
+      metadata: {
+        channel: 'SELF_SERVICE',
+      },
+    })
+
+    await logAuditEventSafe({
+      req,
+      action: AuditAction.REGISTRATION_VERIFICATION_SENT,
+      entityType: AuditEntityType.REGISTRATION,
+      entityLabel: registration.email,
+      actorEmail: registration.email,
+      metadata: {
+        channel: 'SELF_SERVICE',
+        verificationExpiresAt: registration.verificationExpiresAt,
+        licenseDurationDays: registration.licenseDurationDays,
+      },
+    })
+
+    res.json({ message: 'Controlla la tua email per completare la registrazione' })
+  } catch (error) {
+    await logAuditEventSafe({
+      req,
+      action: AuditAction.REGISTRATION_FAILED,
+      entityType: AuditEntityType.REGISTRATION,
+      entityLabel: email ?? 'Registrazione',
+      outcome: AuditOutcome.FAILURE,
+      actorEmail: email ?? null,
+      metadata: {
+        channel: 'SELF_SERVICE',
+        stage: 'REGISTRATION_START',
+        error: (error as Error).message,
+      },
+    })
+    res.status(400).json({ error: (error as Error).message })
+  }
+})
+
+// GET /api/v1/auth/registration-verification-details
+router.get('/registration-verification-details', async (req: Request, res: Response) => {
+  const token = getSingleString(req.query.token)
+  if (!token) {
+    res.status(400).json({ error: 'Token verifica mancante' })
+    return
+  }
+
+  try {
+    const registration = await getRegistrationVerificationDetails(token)
+    res.json(registration)
+  } catch (error) {
+    res.status(400).json({ error: (error as Error).message })
+  }
+})
+
+// POST /api/v1/auth/verify-registration
+router.post('/verify-registration', registrationVerificationRateLimiter, verifyRegistrationValidation, async (req: Request, res: Response) => {
+  const errors = validationResult(req)
+  if (!errors.isEmpty()) {
+    res.status(400).json({ error: 'Dati non validi', details: errors.array() })
+    return
+  }
+
+  const token = getSingleString(req.body.token)
+
+  try {
+    const result = await completeInviteCodeRegistration(token!)
+    setAppAuthSession(res, result.user)
+
+    res.json({
+      message: 'Registrazione confermata',
+      user: {
+        id: result.user.id,
+        email: result.user.email,
+        name: result.user.name,
+        role: result.user.role,
+      },
+    })
+
+    await logAuditEventSafe({
+      req,
+      action: AuditAction.REGISTRATION_VERIFIED,
+      entityType: AuditEntityType.REGISTRATION,
+      entityId: result.user.id,
+      entityLabel: result.user.email,
+      actorUserId: result.user.id,
+      actorEmail: result.user.email,
+      actorName: result.user.name,
+      actorRole: result.user.role,
+      metadata: {
+        channel: 'APP',
+        licenseExpiresAt: result.licenseExpiresAt,
+      },
+    })
+
+    await logAuditEventSafe({
+      req,
+      action: AuditAction.INVITE_CODE_REDEEMED,
+      entityType: AuditEntityType.INVITE_CODE,
+      entityId: result.inviteCode.id,
+      entityLabel: result.inviteCode.code,
+      actorUserId: result.user.id,
+      actorEmail: result.user.email,
+      actorName: result.user.name,
+      actorRole: result.user.role,
+      metadata: {
+        channel: 'APP',
+      },
+    })
+  } catch (error) {
+    await logAuditEventSafe({
+      req,
+      action: AuditAction.REGISTRATION_FAILED,
+      entityType: AuditEntityType.REGISTRATION,
+      entityLabel: 'Verifica registrazione',
+      outcome: AuditOutcome.FAILURE,
+      metadata: {
+        channel: 'SELF_SERVICE',
+        stage: 'REGISTRATION_VERIFY',
+        error: (error as Error).message,
+      },
+    })
+    res.status(400).json({ error: (error as Error).message })
+  }
+})
+
 // POST /api/v1/auth/app-change-password
 router.post('/app-change-password', authMiddleware, changePasswordValidation, async (req: Request, res: Response) => {
   const errors = validationResult(req)
@@ -401,15 +615,7 @@ router.post('/app-change-password', authMiddleware, changePasswordValidation, as
 
   try {
     const user = await changeUserPassword(req.adminUser!.id, currentPassword!, newPassword!)
-    const token = generateToken({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      sessionVersion: user.sessionVersion,
-    })
-
-    res.cookie(config.jwt.appCookieName, token, appCookieOptions)
+    setAppAuthSession(res, user)
     res.json({ message: 'Password aggiornata' })
 
     await logAuditEventSafe({

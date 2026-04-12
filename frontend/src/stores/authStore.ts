@@ -19,10 +19,16 @@ interface AppUser {
 
 const USER_SNAPSHOT_STORAGE_KEY = 'mindcalm-app-user'
 
+function isLicenseExpiredError(error: unknown): error is { response: { data?: { code?: string; licenseExpiresAt?: string } } } {
+  return axios.isAxiosError(error) && error.response?.data?.code === 'LICENSE_EXPIRED'
+}
+
 export const useAuthStore = defineStore('app-auth', () => {
   const user = ref<AppUser | null>(null)
   const initialized = ref(false)
+  const licenseExpiredAt = ref<string | null>(null)
   const isAuthenticated = computed(() => !!user.value)
+  const isLicenseExpired = computed(() => !!licenseExpiredAt.value)
 
   function saveUserSnapshot(nextUser: AppUser) {
     localStorage.setItem(USER_SNAPSHOT_STORAGE_KEY, JSON.stringify(nextUser))
@@ -42,6 +48,17 @@ export const useAuthStore = defineStore('app-auth', () => {
 
   function clearUserSnapshot() {
     localStorage.removeItem(USER_SNAPSHOT_STORAGE_KEY)
+  }
+
+  function clearLicenseExpired() {
+    licenseExpiredAt.value = null
+  }
+
+  function getLicenseExpiredRouteLocation() {
+    return {
+      path: '/license-expired',
+      query: licenseExpiredAt.value ? { expiresAt: licenseExpiredAt.value } : {},
+    }
   }
 
   async function syncProtectedOfflineState(nextUser: AppUser | null) {
@@ -69,20 +86,38 @@ export const useAuthStore = defineStore('app-auth', () => {
     }
   }
 
-  async function login(email: string, password: string) {
-    const { data } = await axios.post('/api/v1/auth/app-login', { email, password })
-    user.value = data.user
-    await syncProtectedOfflineState(user.value)
+  async function handleLicenseExpired(nextExpiresAt?: string | null) {
+    licenseExpiredAt.value = nextExpiresAt || null
+    user.value = null
+    await syncProtectedOfflineState(null)
     initialized.value = true
+  }
+
+  async function login(email: string, password: string) {
+    try {
+      const { data } = await axios.post('/api/v1/auth/app-login', { email, password })
+      clearLicenseExpired()
+      user.value = data.user
+      await syncProtectedOfflineState(user.value)
+      initialized.value = true
+    } catch (error) {
+      if (isLicenseExpiredError(error)) {
+        await handleLicenseExpired(error.response?.data?.licenseExpiresAt)
+      }
+      throw error
+    }
   }
 
   async function fetchMe() {
     try {
       const { data } = await axios.get('/api/v1/auth/app-me')
+      clearLicenseExpired()
       user.value = data
       await syncProtectedOfflineState(user.value)
     } catch (error) {
-      if (axios.isAxiosError(error) && !error.response) {
+      if (isLicenseExpiredError(error)) {
+        await handleLicenseExpired(error.response?.data?.licenseExpiresAt)
+      } else if (axios.isAxiosError(error) && !error.response) {
         user.value = loadUserSnapshot()
       } else {
         user.value = null
@@ -102,11 +137,25 @@ export const useAuthStore = defineStore('app-auth', () => {
     try {
       await axios.post('/api/v1/auth/app-logout')
     } finally {
+      clearLicenseExpired()
       user.value = null
       await syncProtectedOfflineState(null)
       initialized.value = true
     }
   }
 
-  return { user, initialized, isAuthenticated, login, fetchMe, initialize, logout }
+  return {
+    user,
+    initialized,
+    licenseExpiredAt,
+    isAuthenticated,
+    isLicenseExpired,
+    login,
+    fetchMe,
+    initialize,
+    logout,
+    handleLicenseExpired,
+    clearLicenseExpired,
+    getLicenseExpiredRouteLocation,
+  }
 })

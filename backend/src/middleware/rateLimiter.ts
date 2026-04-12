@@ -6,6 +6,10 @@ function getRequestKey(req: Request) {
   return req.adminUser?.id ?? req.ip ?? 'anonymous'
 }
 
+function getIpKey(req: Request) {
+  return req.ip ?? 'anonymous'
+}
+
 export const publicRateLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: config.rateLimit.public,
@@ -20,6 +24,33 @@ export const loginRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Troppi tentativi di login, riprova tra poco' },
+})
+
+export const inviteCodeValidationRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: config.rateLimit.inviteCodeValidation,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: getIpKey,
+  message: { error: 'Troppi tentativi di verifica codice, riprova tra poco' },
+})
+
+export const registrationRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: config.rateLimit.registration,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: getIpKey,
+  message: { error: 'Troppi tentativi di registrazione, riprova tra poco' },
+})
+
+export const registrationVerificationRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: config.rateLimit.registrationVerification,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: getIpKey,
+  message: { error: 'Troppi tentativi di conferma registrazione, riprova tra poco' },
 })
 
 export const playbackSessionRateLimiter = rateLimit({

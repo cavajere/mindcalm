@@ -3,6 +3,7 @@ import { UserRole } from '@prisma/client'
 import jwt from 'jsonwebtoken'
 import { config } from '../config'
 import { prisma } from '../lib/prisma'
+import { getLicenseExpiredPayload, isLicenseExpired } from '../services/licenseService'
 
 export interface AuthPayload {
   id: string
@@ -37,11 +38,25 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
 
     const user = await prisma.user.findUnique({
       where: { id: payload.id },
-      select: { id: true, email: true, name: true, role: true, isActive: true, sessionVersion: true },
+      select: { id: true, email: true, name: true, role: true, isActive: true, licenseExpiresAt: true, sessionVersion: true },
     })
 
     if (!user || !user.isActive || user.sessionVersion !== tokenSessionVersion) {
       res.status(401).json({ error: 'Utente non autorizzato' })
+      return
+    }
+
+    if (isLicenseExpired(user)) {
+      if (cookieToken) {
+        res.clearCookie(config.jwt.appCookieName, {
+          httpOnly: true,
+          sameSite: 'lax',
+          secure: config.isProduction,
+          path: '/',
+        })
+      }
+
+      res.status(403).json(getLicenseExpiredPayload(user.licenseExpiresAt!))
       return
     }
 

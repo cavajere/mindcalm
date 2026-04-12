@@ -21,6 +21,11 @@ async function handleLogin() {
     await auth.login(email.value, password.value)
     router.push('/')
   } catch (e: any) {
+    if (auth.isLicenseExpired) {
+      await router.push(auth.getLicenseExpiredRouteLocation())
+      return
+    }
+
     error.value = e.response?.data?.error || 'Errore di connessione'
   } finally {
     loading.value = false
@@ -75,6 +80,12 @@ async function handleLogin() {
         <button type="submit" :disabled="loading" class="btn-primary w-full">
           {{ loading ? 'Accesso...' : 'Accedi' }}
         </button>
+
+        <div class="text-center text-sm">
+          <router-link to="/register" class="text-primary hover:underline">
+            Hai un codice invito? Registrati
+          </router-link>
+        </div>
       </form>
     </div>
   </div>

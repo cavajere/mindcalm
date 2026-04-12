@@ -19,6 +19,7 @@ function createResponse() {
   const res = {
     status: vi.fn().mockReturnThis(),
     json: vi.fn().mockReturnThis(),
+    clearCookie: vi.fn().mockReturnThis(),
   }
 
   return res
@@ -123,5 +124,54 @@ describe('authMiddleware', () => {
     expect(next).not.toHaveBeenCalled()
     expect(res.status).toHaveBeenCalledWith(401)
     expect(res.json).toHaveBeenCalledWith({ error: 'Token mancante' })
+  })
+
+  it('rifiuta utenti standard con licenza scaduta e pulisce il cookie app', async () => {
+    prismaUserFindUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'utente@example.com',
+      name: 'Utente',
+      role: 'STANDARD',
+      isActive: true,
+      licenseExpiresAt: new Date('2026-04-01T00:00:00.000Z'),
+      sessionVersion: 2,
+    })
+
+    const token = jwt.sign(
+      {
+        id: 'user-1',
+        email: 'utente@example.com',
+        name: 'Utente',
+        role: 'STANDARD',
+        sessionVersion: 2,
+      },
+      config.jwt.secret,
+      { expiresIn: '1h' },
+    )
+
+    const req: any = {
+      headers: {},
+      cookies: {
+        [config.jwt.appCookieName]: token,
+      },
+    }
+    const res = createResponse()
+    const next = vi.fn()
+
+    await authMiddleware(req, res as any, next)
+
+    expect(next).not.toHaveBeenCalled()
+    expect(res.clearCookie).toHaveBeenCalledWith(config.jwt.appCookieName, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: config.isProduction,
+      path: '/',
+    })
+    expect(res.status).toHaveBeenCalledWith(403)
+    expect(res.json).toHaveBeenCalledWith({
+      error: 'Licenza scaduta',
+      code: 'LICENSE_EXPIRED',
+      licenseExpiresAt: '2026-04-01T00:00:00.000Z',
+    })
   })
 })

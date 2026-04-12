@@ -1,0 +1,272 @@
+import { InviteCodeStatus, PendingRegistrationStatus, Prisma, UserRole } from '@prisma/client'
+import { prisma } from '../lib/prisma'
+import { config } from '../config'
+import { hashPassword } from './authService'
+import { hashToken, generateRandomToken } from './cryptoService'
+import { sendMail } from './smtpService'
+import { calculateLicenseExpiresAtFromActivation } from './licenseService'
+import { getPublicInviteCodeDetails, normalizeInviteCode } from './inviteCodeService'
+
+function normalizeNamePart(value: string) {
+  return value.trim().replace(/\s+/g, ' ')
+}
+
+function buildFullName(firstName: string, lastName: string) {
+  return `${normalizeNamePart(firstName)} ${normalizeNamePart(lastName)}`.trim()
+}
+
+function normalizeEmail(email: string) {
+  return email.trim()
+}
+
+function normalizePhone(phone: string) {
+  return phone.trim().replace(/\s+/g, ' ')
+}
+
+function getVerificationExpiresAt() {
+  return new Date(Date.now() + config.registration.verificationExpiresInHours * 60 * 60 * 1000)
+}
+
+const verificationDetailsSelect = {
+  id: true,
+  email: true,
+  firstName: true,
+  lastName: true,
+  verificationExpiresAt: true,
+  status: true,
+  inviteCode: {
+    select: {
+      code: true,
+      licenseDurationDays: true,
+    },
+  },
+} satisfies Prisma.PendingRegistrationSelect
+
+export async function startInviteCodeRegistration(input: {
+  code: string
+  email: string
+  firstName: string
+  lastName: string
+  phone: string
+  password: string
+  verificationBaseUrl: string
+}) {
+  const email = normalizeEmail(input.email)
+  const firstName = normalizeNamePart(input.firstName)
+  const lastName = normalizeNamePart(input.lastName)
+  const phone = normalizePhone(input.phone)
+  const inviteCode = await getPublicInviteCodeDetails(input.code)
+  const existingUser = await prisma.user.findUnique({ where: { email } })
+
+  if (existingUser) {
+    throw new Error('Esiste già un account con questa email')
+  }
+
+  const token = generateRandomToken()
+  const verificationTokenHash = hashToken(token)
+  const verificationExpiresAt = getVerificationExpiresAt()
+  const passwordHash = await hashPassword(input.password)
+
+  const pendingRegistration = await prisma.$transaction(async (tx) => {
+    await tx.pendingRegistration.updateMany({
+      where: {
+        email,
+        status: PendingRegistrationStatus.PENDING,
+      },
+      data: {
+        status: PendingRegistrationStatus.CANCELLED,
+      },
+    })
+
+    return tx.pendingRegistration.create({
+      data: {
+        inviteCodeId: inviteCode.id,
+        email,
+        passwordHash,
+        firstName,
+        lastName,
+        phone,
+        verificationTokenHash,
+        verificationExpiresAt,
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        verificationExpiresAt: true,
+      },
+    })
+  })
+
+  const verificationUrl = `${input.verificationBaseUrl.replace(/\/$/, '')}/verify-registration?token=${encodeURIComponent(token)}`
+
+  try {
+    await sendMail({
+      to: email,
+      subject: 'Conferma la registrazione a MindCalm',
+      text:
+        `Ciao ${firstName},\n\n` +
+        `conferma la tua registrazione a MindCalm entro ${config.registration.verificationExpiresInHours} ore usando questo link:\n${verificationUrl}\n\n` +
+        `Dopo la conferma, la tua licenza di ${inviteCode.licenseDurationDays} giorni verra' attivata automaticamente.`,
+      html:
+        `<p>Ciao ${firstName},</p>` +
+        `<p>Conferma la tua registrazione a <strong>MindCalm</strong> entro <strong>${config.registration.verificationExpiresInHours} ore</strong>.</p>` +
+        `<p><a href="${verificationUrl}">${verificationUrl}</a></p>` +
+        `<p>Dopo la conferma, la tua licenza di <strong>${inviteCode.licenseDurationDays} giorni</strong> verra' attivata automaticamente.</p>` +
+        `<p>Scadenza link: ${verificationExpiresAt.toLocaleString('it-IT')}</p>`,
+    })
+  } catch (error) {
+    await prisma.pendingRegistration.update({
+      where: { id: pendingRegistration.id },
+      data: { status: PendingRegistrationStatus.CANCELLED },
+    })
+    throw error
+  }
+
+  return {
+    email: pendingRegistration.email,
+    firstName: pendingRegistration.firstName,
+    lastName: pendingRegistration.lastName,
+    verificationExpiresAt: pendingRegistration.verificationExpiresAt,
+    licenseDurationDays: inviteCode.licenseDurationDays,
+  }
+}
+
+export async function getRegistrationVerificationDetails(token: string) {
+  const verificationTokenHash = hashToken(token)
+  const registration = await prisma.pendingRegistration.findFirst({
+    where: {
+      verificationTokenHash,
+      status: PendingRegistrationStatus.PENDING,
+      verificationExpiresAt: { gt: new Date() },
+    },
+    select: verificationDetailsSelect,
+  })
+
+  if (!registration) {
+    throw new Error('Registrazione non valida o scaduta')
+  }
+
+  return {
+    email: registration.email,
+    firstName: registration.firstName,
+    lastName: registration.lastName,
+    verificationExpiresAt: registration.verificationExpiresAt,
+    code: registration.inviteCode.code,
+    licenseDurationDays: registration.inviteCode.licenseDurationDays,
+  }
+}
+
+export async function completeInviteCodeRegistration(token: string) {
+  const verificationTokenHash = hashToken(token)
+  const now = new Date()
+
+  return prisma.$transaction(async (tx) => {
+    const registration = await tx.pendingRegistration.findFirst({
+      where: {
+        verificationTokenHash,
+        status: PendingRegistrationStatus.PENDING,
+        verificationExpiresAt: { gt: now },
+      },
+      include: {
+        inviteCode: true,
+      },
+    })
+
+    if (!registration) {
+      throw new Error('Registrazione non valida o scaduta')
+    }
+
+    const claimedRegistration = await tx.pendingRegistration.updateMany({
+      where: {
+        id: registration.id,
+        status: PendingRegistrationStatus.PENDING,
+      },
+      data: {
+        status: PendingRegistrationStatus.VERIFIED,
+        verifiedAt: now,
+      },
+    })
+
+    if (claimedRegistration.count !== 1) {
+      throw new Error('Registrazione non valida o scaduta')
+    }
+
+    const claimedCode = await tx.inviteCode.updateMany({
+      where: {
+        id: registration.inviteCodeId,
+        code: normalizeInviteCode(registration.inviteCode.code),
+        status: InviteCodeStatus.ACTIVE,
+        redemptionsCount: 0,
+        OR: [
+          { expiresAt: null },
+          { expiresAt: { gt: now } },
+        ],
+      },
+      data: {
+        redemptionsCount: { increment: 1 },
+        status: InviteCodeStatus.REDEEMED,
+        redeemedAt: now,
+      },
+    })
+
+    if (claimedCode.count !== 1) {
+      throw new Error('Codice invito non valido o scaduto')
+    }
+
+    const existingUser = await tx.user.findUnique({
+      where: { email: registration.email },
+      select: { id: true },
+    })
+
+    if (existingUser) {
+      throw new Error('Esiste già un account con questa email')
+    }
+
+    const licenseExpiresAt = calculateLicenseExpiresAtFromActivation(now, registration.inviteCode.licenseDurationDays)
+    const user = await tx.user.create({
+      data: {
+        email: registration.email,
+        name: buildFullName(registration.firstName, registration.lastName),
+        firstName: registration.firstName,
+        lastName: registration.lastName,
+        phone: registration.phone,
+        role: UserRole.STANDARD,
+        isActive: true,
+        licenseExpiresAt,
+        password: registration.passwordHash,
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        sessionVersion: true,
+      },
+    })
+
+    await tx.inviteCode.update({
+      where: { id: registration.inviteCodeId },
+      data: {
+        redeemedByUserId: user.id,
+      },
+    })
+
+    await tx.pendingRegistration.updateMany({
+      where: {
+        email: registration.email,
+        status: PendingRegistrationStatus.PENDING,
+      },
+      data: {
+        status: PendingRegistrationStatus.CANCELLED,
+      },
+    })
+
+    return {
+      user,
+      inviteCode: registration.inviteCode,
+      licenseExpiresAt,
+    }
+  })
+}

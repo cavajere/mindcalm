@@ -44,6 +44,9 @@ export const config = {
   rateLimit: {
     public: parseInt(process.env.RATE_LIMIT_PUBLIC || '100', 10),
     login: parseInt(process.env.RATE_LIMIT_LOGIN || '30', 10),
+    inviteCodeValidation: parseInt(process.env.RATE_LIMIT_INVITE_CODE_VALIDATION || '20', 10),
+    registration: parseInt(process.env.RATE_LIMIT_REGISTRATION || '10', 10),
+    registrationVerification: parseInt(process.env.RATE_LIMIT_REGISTRATION_VERIFICATION || '20', 10),
   },
 
   resetPassword: {
@@ -52,5 +55,9 @@ export const config = {
 
   invitation: {
     expiresInHours: parseInt(process.env.INVITATION_EXPIRES_IN_HOURS || '72', 10),
+  },
+
+  registration: {
+    verificationExpiresInHours: parseInt(process.env.REGISTRATION_VERIFICATION_EXPIRES_IN_HOURS || '24', 10),
   },
 }

@@ -42,6 +42,29 @@ function formatDate(value: string) {
   return new Date(value).toLocaleDateString('it-IT')
 }
 
+function getLicenseStatus(user: any) {
+  if (user.role !== 'STANDARD') {
+    return { label: 'Non applicabile', className: 'bg-gray-100 text-text-secondary' }
+  }
+
+  if (!user.licenseExpiresAt) {
+    return { label: 'Nessuna scadenza', className: 'bg-sky-100 text-sky-700' }
+  }
+
+  const expiresAt = new Date(user.licenseExpiresAt)
+  if (expiresAt.getTime() <= Date.now()) {
+    return {
+      label: `Scaduta il ${expiresAt.toLocaleDateString('it-IT')}`,
+      className: 'bg-red-100 text-red-700',
+    }
+  }
+
+  return {
+    label: `Scade il ${expiresAt.toLocaleDateString('it-IT')}`,
+    className: 'bg-emerald-100 text-emerald-700',
+  }
+}
+
 onMounted(fetchUsers)
 </script>
 
@@ -63,16 +86,17 @@ onMounted(fetchUsers)
             <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Email</th>
             <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Ruolo</th>
             <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Stato</th>
+            <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Licenza</th>
             <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Creato</th>
             <th class="table-actions-header px-4 py-3 text-xs font-medium text-text-secondary uppercase">Azioni</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-50">
           <tr v-if="loading">
-            <td colspan="6" class="px-4 py-8 text-center text-text-secondary">Caricamento...</td>
+            <td colspan="7" class="px-4 py-8 text-center text-text-secondary">Caricamento...</td>
           </tr>
           <tr v-else-if="!users.length">
-            <td colspan="6" class="px-4 py-8 text-center text-text-secondary">Nessun utente</td>
+            <td colspan="7" class="px-4 py-8 text-center text-text-secondary">Nessun utente</td>
           </tr>
           <tr v-for="user in users" :key="user.id" class="hover:bg-gray-50/50">
             <td class="px-4 py-3 text-sm font-medium text-text-primary">{{ user.name }}</td>
@@ -91,6 +115,11 @@ onMounted(fetchUsers)
                   Invito pendente
                 </span>
               </div>
+            </td>
+            <td class="px-4 py-3 text-sm">
+              <span :class="['inline-flex px-2 py-1 rounded-full text-xs font-medium', getLicenseStatus(user).className]">
+                {{ getLicenseStatus(user).label }}
+              </span>
             </td>
             <td class="px-4 py-3 text-sm text-text-secondary">{{ formatDate(user.createdAt) }}</td>
             <td class="table-actions-cell">
