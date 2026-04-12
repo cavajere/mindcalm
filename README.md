@@ -59,6 +59,7 @@ mindcalm/
 
 - Node.js 20 LTS
 - Docker e Docker Compose
+- Le dipendenze npm del backend includono un fallback locale per `ffmpeg`; se vuoi usare un binario di sistema o un path custom, imposta `FFMPEG_PATH`
 
 ### 1. Avvia il database
 
@@ -85,6 +86,11 @@ cp .env.example .env
 ```
 
 I valori di default nel `.env.example` sono gia' configurati per lo sviluppo locale. Verifica solo che `DATABASE_URL` punti a `localhost:5435`.
+
+Per la pipeline audio HLS:
+- Se `ffmpeg` e' nel `PATH`, il backend usa quello
+- Se non e' presente, usa automaticamente il binario fornito da `ffmpeg-static` dopo `npm install`
+- Se vuoi forzare un binario specifico, imposta `FFMPEG_PATH=/percorso/di/ffmpeg`
 
 ### 4. Inizializza il database
 

@@ -8,6 +8,7 @@ const HLS_MASTER_MANIFEST = 'master.m3u8'
 const HLS_VARIANT_MANIFEST = 'audio.m3u8'
 const HLS_SEGMENT_PATTERN = 'segment_%03d.ts'
 const ALLOWED_HLS_EXTENSIONS = new Set(['.m3u8', '.ts'])
+let bundledFfmpegPath: string | null | undefined
 
 function buildMasterManifest(): string {
   return [
@@ -19,9 +20,28 @@ function buildMasterManifest(): string {
   ].join('\n')
 }
 
-async function runFfmpeg(args: string[]) {
+function getBundledFfmpegPath(): string | null {
+  if (bundledFfmpegPath !== undefined) {
+    return bundledFfmpegPath
+  }
+
+  try {
+    bundledFfmpegPath = require('ffmpeg-static') as string | null
+  } catch {
+    bundledFfmpegPath = null
+  }
+
+  return bundledFfmpegPath
+}
+
+function buildFfmpegUnavailableMessage(executablePath: string, error: NodeJS.ErrnoException) {
+  const location = executablePath === 'ffmpeg' ? 'nel PATH di sistema' : `nel percorso configurato (${executablePath})`
+  return `FFmpeg non disponibile ${location}: ${error.message}. Esegui npm install oppure imposta FFMPEG_PATH con un binario valido.`
+}
+
+async function spawnFfmpeg(executablePath: string, args: string[]) {
   await new Promise<void>((resolve, reject) => {
-    const child = spawn(config.audioDelivery.ffmpegPath, args, {
+    const child = spawn(executablePath, args, {
       stdio: ['ignore', 'ignore', 'pipe'],
     })
 
@@ -31,7 +51,7 @@ async function runFfmpeg(args: string[]) {
     })
 
     child.on('error', (error) => {
-      reject(new Error(`FFmpeg non disponibile: ${error.message}`))
+      reject(error)
     })
 
     child.on('close', (code) => {
@@ -44,6 +64,31 @@ async function runFfmpeg(args: string[]) {
       reject(new Error(details ? `Transcodifica HLS fallita: ${details}` : 'Transcodifica HLS fallita'))
     })
   })
+}
+
+async function runFfmpeg(args: string[]) {
+  try {
+    await spawnFfmpeg(config.audioDelivery.ffmpegPath, args)
+  } catch (error) {
+    const systemError = error as NodeJS.ErrnoException
+
+    if (systemError.code === 'ENOENT' && !process.env.FFMPEG_PATH) {
+      const fallbackPath = getBundledFfmpegPath()
+
+      if (fallbackPath && fallbackPath !== config.audioDelivery.ffmpegPath) {
+        await spawnFfmpeg(fallbackPath, args)
+        return
+      }
+
+      throw new Error(buildFfmpegUnavailableMessage(config.audioDelivery.ffmpegPath, systemError))
+    }
+
+    if (systemError.code === 'ENOENT') {
+      throw new Error(buildFfmpegUnavailableMessage(config.audioDelivery.ffmpegPath, systemError))
+    }
+
+    throw error
+  }
 }
 
 async function ensureDirectory(directoryPath: string) {
