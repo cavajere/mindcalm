@@ -75,6 +75,75 @@ L'entrypoint del container API esegue automaticamente:
 - `prisma migrate deploy` (migrazioni database)
 - Setup permessi directory storage (`/data/audio`, `/data/hls`, `/data/images`)
 
+### Deploy automatico con script
+
+In alternativa ai comandi manuali puoi usare:
+
+```bash
+cd /opt/mindcalm/docker/production-notraefik
+chmod +x deploy.sh
+./deploy.sh --keep-data
+```
+
+#### Uso rapido
+
+Scenario tipico:
+
+```bash
+# 1. Vai nella cartella del deploy
+cd /opt/mindcalm/docker/production-notraefik
+
+# 2. Verifica o modifica il file .env
+nano .env
+
+# 3. Esegui un aggiornamento senza perdere dati
+./deploy.sh --keep-data
+```
+
+Reinstallazione completa da zero:
+
+```bash
+cd /opt/mindcalm/docker/production-notraefik
+./deploy.sh
+```
+
+Attenzione:
+
+- senza `--keep-data` lo script elimina completamente database e storage locale
+- `--yes` salta solo la conferma interattiva, non rende il deploy meno distruttivo
+- se `.env` non esiste, viene creato automaticamente da `.env.example`
+- lo script lavora sempre sul branch `main` con `git pull --ff-only origin main`
+
+Modalita' disponibili:
+
+```bash
+# Aggiornamento conservativo: mantiene DB e storage
+./deploy.sh --keep-data
+
+# Aggiornamento conservativo senza prompt
+./deploy.sh --keep-data --yes
+
+# Reinstallazione completa: distrugge dati, storage e volumi Docker
+./deploy.sh
+
+# Reinstallazione completa senza prompt
+./deploy.sh --yes
+```
+
+Significato opzioni:
+
+- `--keep-data`: mantiene `./data/postgres`, `./data/audio`, `./data/hls`, `./data/images`
+- `--yes`: accetta automaticamente il prompt di conferma
+- nessuna opzione: reinstallazione completa con distruzione dati e rebuild pulito
+
+Comportamento dello script:
+
+- esegue `git pull --ff-only origin main`
+- crea `.env` da `.env.example` se manca
+- in modalita' `--keep-data` preserva `./data`
+- senza `--keep-data` esegue `docker compose down --volumes --remove-orphans --rmi local` e rimuove `./data`
+- ricostruisce lo stack e verifica `http://localhost:3003/api/health`
+
 ## 5. Verifica
 
 ```bash
