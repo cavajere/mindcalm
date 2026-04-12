@@ -34,8 +34,13 @@ export const config = {
     audioPath: path.resolve(process.env.AUDIO_STORAGE_PATH || './storage/audio'),
     hlsPath: path.resolve(process.env.HLS_STORAGE_PATH || './storage/hls'),
     imagesPath: path.resolve(process.env.IMAGES_STORAGE_PATH || './storage/images'),
+    backupsPath: path.resolve(process.env.BACKUP_STORAGE_PATH || './storage/backups'),
     maxAudioSize: parseInt(process.env.MAX_AUDIO_SIZE_MB || '100', 10) * 1024 * 1024,
     maxImageSize: parseInt(process.env.MAX_IMAGE_SIZE_MB || '5', 10) * 1024 * 1024,
+  },
+
+  backups: {
+    schedulerPollMs: parseInt(process.env.BACKUP_SCHEDULER_POLL_MS || '60000', 10),
   },
 
   audioDelivery: {

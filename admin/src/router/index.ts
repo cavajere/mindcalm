@@ -26,6 +26,7 @@ const router = createRouter({
     { path: '/users/new', component: () => import('../views/UserFormView.vue'), meta: { requiresAuth: true } },
     { path: '/users/:id/edit', component: () => import('../views/UserFormView.vue'), meta: { requiresAuth: true } },
     { path: '/settings/smtp', component: () => import('../views/SmtpSettingsView.vue'), meta: { requiresAuth: true } },
+    { path: '/settings/backup-restore', component: () => import('../views/BackupRestoreView.vue'), meta: { requiresAuth: true } },
     { path: '/:pathMatch(.*)*', redirect: '/login' },
   ],
 })

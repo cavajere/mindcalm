@@ -6,8 +6,10 @@ dist/
 backend/storage/audio/*
 backend/storage/hls/*
 backend/storage/images/*
+backend/storage/backups/*
 !backend/storage/audio/.gitkeep
 !backend/storage/hls/.gitkeep
 !backend/storage/images/.gitkeep
+!backend/storage/backups/.gitkeep
 docker/production-synology/data/
 .devserver-pids.json

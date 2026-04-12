@@ -22,6 +22,7 @@ import analyticsPublicRouter from './routes/public/analytics'
 import analyticsAdminRouter from './routes/admin/analytics'
 import auditLogsAdminRouter from './routes/admin/auditLogs'
 import inviteCodesAdminRouter from './routes/admin/inviteCodes'
+import { startBackupScheduler } from './services/backupService'
 
 const app = express()
 
@@ -143,3 +144,7 @@ app.listen(config.port, () => {
 })
 
 export default app
+
+void startBackupScheduler().catch((error) => {
+  console.error('[Backup] Impossibile avviare lo scheduler backup:', error)
+})
