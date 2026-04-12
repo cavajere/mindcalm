@@ -11,7 +11,7 @@ const loading = ref(true)
 async function fetchArticles() {
   loading.value = true
   try {
-    const { data } = await axios.get('/api/v1/admin/articles?limit=50')
+    const { data } = await axios.get('/api/admin/articles?limit=50')
     articles.value = data.data
   } finally {
     loading.value = false
@@ -20,13 +20,13 @@ async function fetchArticles() {
 
 async function toggleStatus(article: any) {
   const newStatus = article.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED'
-  await axios.patch(`/api/v1/admin/articles/${article.id}/status`, { status: newStatus })
+  await axios.patch(`/api/admin/articles/${article.id}/status`, { status: newStatus })
   article.status = newStatus
 }
 
 async function deleteArticle(article: any) {
   if (!confirm(`Eliminare l'articolo "${article.title}"?`)) return
-  await axios.delete(`/api/v1/admin/articles/${article.id}`)
+  await axios.delete(`/api/admin/articles/${article.id}`)
   articles.value = articles.value.filter(a => a.id !== article.id)
 }
 

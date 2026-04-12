@@ -86,8 +86,8 @@ async function loadContentAvailability() {
   }
 
   const [audioResult, articlesResult] = await Promise.allSettled([
-    axios.get('/api/v1/audio?limit=1'),
-    axios.get('/api/v1/articles?limit=1'),
+    axios.get('/api/audio?limit=1'),
+    axios.get('/api/articles?limit=1'),
   ])
 
   if (audioResult.status === 'fulfilled') {

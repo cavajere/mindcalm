@@ -104,7 +104,7 @@ function setAdminAuthSession(
   res.cookie(config.jwt.adminCookieName, authToken, adminCookieOptions)
 }
 
-// POST /api/v1/auth/login
+// POST /api/auth/login
 router.post('/login', loginRateLimiter, loginValidation, async (req: Request, res: Response) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
@@ -191,7 +191,7 @@ router.post('/login', loginRateLimiter, loginValidation, async (req: Request, re
   res.status(401).json({ error: 'Credenziali non valide' })
 })
 
-// POST /api/v1/auth/app-login
+// POST /api/auth/app-login
 router.post('/app-login', loginRateLimiter, loginValidation, async (req: Request, res: Response) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
@@ -258,7 +258,7 @@ router.post('/app-login', loginRateLimiter, loginValidation, async (req: Request
   })
 })
 
-// GET /api/v1/admin/session
+// GET /api/admin/session
 router.get('/session', async (req: Request, res: Response) => {
   const hasRealAdmin = await hasActiveAdminUsers()
   const bootstrapEnabled = !hasRealAdmin && isBootstrapAdminConfigured()
@@ -287,7 +287,7 @@ router.get('/session', async (req: Request, res: Response) => {
   }))
 })
 
-// GET /api/v1/auth/me
+// GET /api/auth/me
 router.get('/me', adminAuthMiddleware, requireAdmin, async (req: Request, res: Response) => {
   const user = await prisma.user.findUnique({
     where: { id: req.adminUser!.id },
@@ -302,7 +302,7 @@ router.get('/me', adminAuthMiddleware, requireAdmin, async (req: Request, res: R
   res.json(user)
 })
 
-// GET /api/v1/auth/app-me
+// GET /api/auth/app-me
 router.get('/app-me', appAuthMiddleware, async (req: Request, res: Response) => {
   const user = await prisma.user.findUnique({
     where: { id: req.adminUser!.id },
@@ -317,7 +317,7 @@ router.get('/app-me', appAuthMiddleware, async (req: Request, res: Response) => 
   res.json(user)
 })
 
-// POST /api/v1/auth/logout
+// POST /api/auth/logout
 router.post('/logout', adminAuthMiddleware, async (req: Request, res: Response) => {
   await logAuditEventSafe({
     req,
@@ -336,7 +336,7 @@ router.post('/logout', adminAuthMiddleware, async (req: Request, res: Response) 
   res.json({ message: 'Logout effettuato' })
 })
 
-// POST /api/v1/auth/app-logout
+// POST /api/auth/app-logout
 router.post('/app-logout', appAuthMiddleware, async (req: Request, res: Response) => {
   await revokeAllPlaybackSessionsForUser(req.adminUser!.id)
 
@@ -354,7 +354,7 @@ router.post('/app-logout', appAuthMiddleware, async (req: Request, res: Response
   res.json({ message: 'Logout effettuato' })
 })
 
-// POST /api/v1/auth/bootstrap/setup
+// POST /api/auth/bootstrap/setup
 router.post('/bootstrap/setup', adminAuthMiddleware, requireBootstrapAdmin, bootstrapAdminSetupValidation, async (req: Request, res: Response) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
@@ -453,7 +453,7 @@ router.post('/bootstrap/setup', adminAuthMiddleware, requireBootstrapAdmin, boot
   }
 })
 
-// POST /api/v1/auth/forgot-password
+// POST /api/auth/forgot-password
 router.post('/forgot-password', forgotPasswordValidation, async (req: Request, res: Response) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
@@ -532,7 +532,7 @@ router.post('/forgot-password', forgotPasswordValidation, async (req: Request, r
   res.json({ message: 'Se l’email esiste, riceverai un link per reimpostare la password' })
 })
 
-// POST /api/v1/auth/reset-password
+// POST /api/auth/reset-password
 router.post('/reset-password', resetPasswordValidation, async (req: Request, res: Response) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
@@ -571,7 +571,7 @@ router.post('/reset-password', resetPasswordValidation, async (req: Request, res
   }
 })
 
-// GET /api/v1/auth/invite-details
+// GET /api/auth/invite-details
 router.get('/invite-details', async (req: Request, res: Response) => {
   const token = getSingleString(req.query.token)
   if (!token) {
@@ -587,7 +587,7 @@ router.get('/invite-details', async (req: Request, res: Response) => {
   }
 })
 
-// POST /api/v1/auth/accept-invite
+// POST /api/auth/accept-invite
 router.post('/accept-invite', acceptInviteValidation, async (req: Request, res: Response) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
@@ -631,7 +631,7 @@ router.post('/accept-invite', acceptInviteValidation, async (req: Request, res: 
   }
 })
 
-// POST /api/v1/auth/validate-invite-code
+// POST /api/auth/validate-invite-code
 router.post('/validate-invite-code', inviteCodeValidationRateLimiter, inviteCodeLookupValidation, async (req: Request, res: Response) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
@@ -652,7 +652,7 @@ router.post('/validate-invite-code', inviteCodeValidationRateLimiter, inviteCode
   }
 })
 
-// POST /api/v1/auth/register-with-invite-code
+// POST /api/auth/register-with-invite-code
 router.post('/register-with-invite-code', registrationRateLimiter, registerWithInviteCodeValidation, async (req: Request, res: Response) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
@@ -722,7 +722,7 @@ router.post('/register-with-invite-code', registrationRateLimiter, registerWithI
   }
 })
 
-// GET /api/v1/auth/registration-verification-details
+// GET /api/auth/registration-verification-details
 router.get('/registration-verification-details', async (req: Request, res: Response) => {
   const token = getSingleString(req.query.token)
   if (!token) {
@@ -738,7 +738,7 @@ router.get('/registration-verification-details', async (req: Request, res: Respo
   }
 })
 
-// POST /api/v1/auth/verify-registration
+// POST /api/auth/verify-registration
 router.post('/verify-registration', registrationVerificationRateLimiter, verifyRegistrationValidation, async (req: Request, res: Response) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
@@ -809,7 +809,7 @@ router.post('/verify-registration', registrationVerificationRateLimiter, verifyR
   }
 })
 
-// POST /api/v1/auth/app-change-password
+// POST /api/auth/app-change-password
 router.post('/app-change-password', appAuthMiddleware, changePasswordValidation, async (req: Request, res: Response) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {

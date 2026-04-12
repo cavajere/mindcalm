@@ -147,7 +147,7 @@ async function fetchFilterOptions() {
   loadingFilters.value = true
 
   try {
-    const { data } = await axios.get('/api/v1/admin/analytics/filters')
+    const { data } = await axios.get('/api/admin/analytics/filters')
     filterOptions.value = data
   } finally {
     loadingFilters.value = false
@@ -172,7 +172,7 @@ async function fetchOverview() {
     if (filters.value.articleId) params.set('articleId', filters.value.articleId)
     if (filters.value.userId) params.set('userId', filters.value.userId)
 
-    const { data } = await axios.get(`/api/v1/admin/analytics/overview?${params.toString()}`)
+    const { data } = await axios.get(`/api/admin/analytics/overview?${params.toString()}`)
     overview.value = data
   } catch (e: any) {
     error.value = e.response?.data?.error || 'Errore nel caricamento analytics'

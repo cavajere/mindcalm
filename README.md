@@ -160,35 +160,35 @@ cd backend && npx prisma studio
 
 ## API
 
-Base URL: `/api/v1`
+Base URL: `/api`
 
 ### Endpoint pubblici
 
 | Metodo | Endpoint | Descrizione |
 |---|---|---|
-| GET | `/api/v1/sessions` | Elenco sessioni pubblicate (filtri: category, level, duration, search) |
-| GET | `/api/v1/sessions/:id` | Dettaglio sessione |
-| GET | `/api/v1/sessions/:id/audio` | Stream audio (supporta range requests) |
-| GET | `/api/v1/articles` | Elenco articoli pubblicati |
-| GET | `/api/v1/articles/:slug` | Dettaglio articolo per slug |
-| GET | `/api/v1/categories` | Elenco categorie |
-| GET | `/api/v1/files/images/:filename` | Immagini copertina |
+| GET | `/api/sessions` | Elenco sessioni pubblicate (filtri: category, level, duration, search) |
+| GET | `/api/sessions/:id` | Dettaglio sessione |
+| GET | `/api/sessions/:id/audio` | Stream audio (supporta range requests) |
+| GET | `/api/articles` | Elenco articoli pubblicati |
+| GET | `/api/articles/:slug` | Dettaglio articolo per slug |
+| GET | `/api/categories` | Elenco categorie |
+| GET | `/api/files/images/:filename` | Immagini copertina |
 
 ### Endpoint admin (richiedono `Authorization: Bearer <token>`)
 
 | Metodo | Endpoint | Descrizione |
 |---|---|---|
-| POST | `/api/v1/auth/login` | Login admin |
-| GET | `/api/v1/auth/me` | Profilo admin |
-| GET/POST | `/api/v1/admin/sessions` | Lista / Crea sessione (multipart) |
-| PUT/DELETE | `/api/v1/admin/sessions/:id` | Aggiorna / Elimina sessione |
-| PATCH | `/api/v1/admin/sessions/:id/status` | Cambia stato (DRAFT/PUBLISHED) |
-| GET/POST | `/api/v1/admin/articles` | Lista / Crea articolo |
-| PUT/DELETE | `/api/v1/admin/articles/:id` | Aggiorna / Elimina articolo |
-| PATCH | `/api/v1/admin/articles/:id/status` | Cambia stato |
-| GET/POST | `/api/v1/admin/categories` | Lista / Crea categoria |
-| PUT/DELETE | `/api/v1/admin/categories/:id` | Aggiorna / Elimina categoria |
-| PATCH | `/api/v1/admin/categories/order` | Riordina categorie |
+| POST | `/api/auth/login` | Login admin |
+| GET | `/api/auth/me` | Profilo admin |
+| GET/POST | `/api/admin/sessions` | Lista / Crea sessione (multipart) |
+| PUT/DELETE | `/api/admin/sessions/:id` | Aggiorna / Elimina sessione |
+| PATCH | `/api/admin/sessions/:id/status` | Cambia stato (DRAFT/PUBLISHED) |
+| GET/POST | `/api/admin/articles` | Lista / Crea articolo |
+| PUT/DELETE | `/api/admin/articles/:id` | Aggiorna / Elimina articolo |
+| PATCH | `/api/admin/articles/:id/status` | Cambia stato |
+| GET/POST | `/api/admin/categories` | Lista / Crea categoria |
+| PUT/DELETE | `/api/admin/categories/:id` | Aggiorna / Elimina categoria |
+| PATCH | `/api/admin/categories/order` | Riordina categorie |
 
 ### Formato risposte
 

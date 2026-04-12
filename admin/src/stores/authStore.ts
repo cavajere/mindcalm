@@ -62,7 +62,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function fetchSession() {
-    const { data } = await axios.get<AdminSessionResponse>('/api/v1/auth/session')
+    const { data } = await axios.get<AdminSessionResponse>('/api/auth/session')
     applySession(data)
   }
 
@@ -72,7 +72,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function login(email: string, password: string) {
-    const { data } = await axios.post<AdminSessionResponse>('/api/v1/auth/login', { email, password })
+    const { data } = await axios.post<AdminSessionResponse>('/api/auth/login', { email, password })
     applySession(data)
   }
 
@@ -83,13 +83,13 @@ export const useAuthStore = defineStore('auth', () => {
     phone: string
     password: string
   }) {
-    const { data } = await axios.post<AdminSessionResponse>('/api/v1/auth/bootstrap/setup', payload)
+    const { data } = await axios.post<AdminSessionResponse>('/api/auth/bootstrap/setup', payload)
     applySession(data)
   }
 
   async function logout() {
     try {
-      await axios.post('/api/v1/auth/logout')
+      await axios.post('/api/auth/logout')
     } finally {
       clearSession()
     }

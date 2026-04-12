@@ -11,7 +11,7 @@ const router = Router()
 
 router.use(adminAuthMiddleware, requireAdmin)
 
-// GET /api/v1/admin/categories
+// GET /api/admin/categories
 router.get('/', async (_req: Request, res: Response) => {
   const categories = await prisma.category.findMany({
     orderBy: { sortOrder: 'asc' },
@@ -33,7 +33,7 @@ router.get('/', async (_req: Request, res: Response) => {
   })))
 })
 
-// POST /api/v1/admin/categories
+// POST /api/admin/categories
 router.post('/', categoryValidation, async (req: Request, res: Response) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
@@ -72,7 +72,7 @@ router.post('/', categoryValidation, async (req: Request, res: Response) => {
   res.status(201).json(category)
 })
 
-// PUT /api/v1/admin/categories/:id
+// PUT /api/admin/categories/:id
 router.put('/:id', categoryValidation, async (req: Request, res: Response) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
@@ -127,7 +127,7 @@ router.put('/:id', categoryValidation, async (req: Request, res: Response) => {
   res.json(category)
 })
 
-// DELETE /api/v1/admin/categories/:id
+// DELETE /api/admin/categories/:id
 router.delete('/:id', async (req: Request, res: Response) => {
   const categoryId = getSingleString(req.params.id)
   if (!categoryId) {
@@ -167,7 +167,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
   res.json({ message: 'Categoria eliminata' })
 })
 
-// PATCH /api/v1/admin/categories/order — riordina categorie
+// PATCH /api/admin/categories/order — riordina categorie
 router.patch('/order', async (req: Request, res: Response) => {
   const ids = getStringArray(req.body.ids)
 

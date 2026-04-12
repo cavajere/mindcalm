@@ -23,7 +23,7 @@ export function getPlaybackCookieName(sessionId: string): string {
 }
 
 export function buildPlaybackSessionBasePath(audioId: string, sessionId: string): string {
-  return `/api/v1/audio/${audioId}/playback/${sessionId}`
+  return `/api/audio/${audioId}/playback/${sessionId}`
 }
 
 export function buildPlaybackManifestPath(audioId: string, sessionId: string): string {

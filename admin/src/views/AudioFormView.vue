@@ -149,9 +149,9 @@ async function save() {
     }
 
     if (isEdit.value) {
-      await axios.put(`/api/v1/admin/audio/${route.params.id}`, fd, config)
+      await axios.put(`/api/admin/audio/${route.params.id}`, fd, config)
     } else {
-      await axios.post('/api/v1/admin/audio', fd, config)
+      await axios.post('/api/admin/audio', fd, config)
     }
 
     router.push('/audio')
@@ -166,8 +166,8 @@ async function save() {
 // --- Load ---
 onMounted(async () => {
   const [{ data: categoriesData }, { data: tagsData }] = await Promise.all([
-    axios.get('/api/v1/admin/categories'),
-    axios.get('/api/v1/admin/tags'),
+    axios.get('/api/admin/categories'),
+    axios.get('/api/admin/tags'),
   ])
   categories.value = categoriesData
   tags.value = tagsData
@@ -175,7 +175,7 @@ onMounted(async () => {
   if (isEdit.value) {
       loading.value = true
     try {
-      const { data: audioData } = await axios.get('/api/v1/admin/audio?limit=100')
+      const { data: audioData } = await axios.get('/api/admin/audio?limit=100')
       const audio = audioData.data.find((item: any) => item.id === route.params.id)
       if (audio) {
         form.value = {

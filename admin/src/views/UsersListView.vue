@@ -17,7 +17,7 @@ function getPublicAppBaseUrl() {
 async function fetchUsers() {
   loading.value = true
   try {
-    const { data } = await axios.get(`/api/v1/admin/users?page=${pagination.value.page}&limit=${pagination.value.limit}`)
+    const { data } = await axios.get(`/api/admin/users?page=${pagination.value.page}&limit=${pagination.value.limit}`)
     users.value = data.data
     pagination.value = { ...pagination.value, ...data.pagination }
   } finally {
@@ -27,12 +27,12 @@ async function fetchUsers() {
 
 async function deleteUser(user: any) {
   if (!confirm(`Eliminare l'utente "${user.name}"?`)) return
-  await axios.delete(`/api/v1/admin/users/${user.id}`)
+  await axios.delete(`/api/admin/users/${user.id}`)
   await fetchUsers()
 }
 
 async function resendInvite(user: any) {
-  await axios.post(`/api/v1/admin/users/${user.id}/resend-invite`, {
+  await axios.post(`/api/admin/users/${user.id}/resend-invite`, {
     inviteBaseUrl: getPublicAppBaseUrl(),
   })
   await fetchUsers()

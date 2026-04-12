@@ -37,7 +37,7 @@ function validateAudioUploadSizes(files?: { [fieldname: string]: Express.Multer.
 
 router.use(adminAuthMiddleware, requireAdmin)
 
-// GET /api/v1/admin/audio — elenco tutti gli audio (incluse bozze)
+// GET /api/admin/audio — elenco tutti gli audio (incluse bozze)
 router.get('/', paginationQuery, async (req: Request, res: Response) => {
   const page = parseInt(req.query.page as string) || 1
   const limit = parseInt(req.query.limit as string) || 20
@@ -82,14 +82,14 @@ router.get('/', paginationQuery, async (req: Request, res: Response) => {
       publishedAt: audio.publishedAt,
       createdAt: audio.createdAt,
       updatedAt: audio.updatedAt,
-      coverImage: audio.coverImage ? `/api/v1/files/images/${path.basename(audio.coverImage)}` : null,
+      coverImage: audio.coverImage ? `/api/files/images/${path.basename(audio.coverImage)}` : null,
       tags: mapAudioTags(audio.audioTags),
     })),
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   })
 })
 
-// POST /api/v1/admin/audio — crea audio
+// POST /api/admin/audio — crea audio
 router.post('/',
   uploadAudioFiles.fields([
     { name: 'audioFile', maxCount: 1 },
@@ -204,7 +204,7 @@ router.post('/',
   }
 )
 
-// PUT /api/v1/admin/audio/:id — aggiorna audio
+// PUT /api/admin/audio/:id — aggiorna audio
 router.put('/:id',
   uploadAudioFiles.fields([
     { name: 'audioFile', maxCount: 1 },
@@ -347,7 +347,7 @@ router.put('/:id',
   }
 )
 
-// DELETE /api/v1/admin/audio/:id
+// DELETE /api/admin/audio/:id
 router.delete('/:id', async (req: Request, res: Response) => {
   const audioId = getSingleString(req.params.id)
   if (!audioId) {
@@ -385,7 +385,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
   res.json({ message: 'Audio eliminato' })
 })
 
-// PATCH /api/v1/admin/audio/:id/status
+// PATCH /api/admin/audio/:id/status
 router.patch('/:id/status', statusValidation, async (req: Request, res: Response) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {

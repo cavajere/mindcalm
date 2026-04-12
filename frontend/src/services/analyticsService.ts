@@ -6,7 +6,7 @@ async function trackEvent(payload: {
   articleId?: string
 }) {
   try {
-    await axios.post('/api/v1/analytics/events', payload)
+    await axios.post('/api/analytics/events', payload)
   } catch {
     // Analytics must not block the user flow.
   }

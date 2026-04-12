@@ -220,7 +220,7 @@ Nota:
 
 ### Admin
 
-#### `GET /api/v1/admin/invite-codes`
+#### `GET /api/admin/invite-codes`
 
 Lista con filtri:
 
@@ -239,7 +239,7 @@ Ritorna:
 - data creazione
 - utente che l'ha riscattato
 
-#### `POST /api/v1/admin/invite-codes`
+#### `POST /api/admin/invite-codes`
 
 Body:
 
@@ -269,17 +269,17 @@ Response:
 }
 ```
 
-#### `POST /api/v1/admin/invite-codes/:id/disable`
+#### `POST /api/admin/invite-codes/:id/disable`
 
 Disabilita un codice non ancora usato.
 
-#### `GET /api/v1/admin/invite-codes/:id`
+#### `GET /api/admin/invite-codes/:id`
 
 Dettaglio singolo codice con dati di utilizzo.
 
 ### Pubblico
 
-#### `POST /api/v1/auth/validate-invite-code`
+#### `POST /api/auth/validate-invite-code`
 
 Body:
 
@@ -300,7 +300,7 @@ Ritorna solo metadati non sensibili:
 
 Serve per UX del form, ma non sostituisce la validazione finale.
 
-#### `POST /api/v1/auth/register-with-invite-code`
+#### `POST /api/auth/register-with-invite-code`
 
 Body:
 
@@ -333,7 +333,7 @@ Response:
 }
 ```
 
-#### `GET /api/v1/auth/registration-verification-details?token=...`
+#### `GET /api/auth/registration-verification-details?token=...`
 
 Opzionale ma utile per la view di conferma. Ritorna:
 
@@ -341,7 +341,7 @@ Opzionale ma utile per la view di conferma. Ritorna:
 - stato token
 - scadenza
 
-#### `POST /api/v1/auth/verify-registration`
+#### `POST /api/auth/verify-registration`
 
 Body:
 
@@ -471,9 +471,9 @@ Con 34 simboli e 7 caratteri ci sono `34^7 = 52.523.350.144` combinazioni, quind
 
 Aggiungere rate limiter dedicati per:
 
-- `POST /api/v1/auth/validate-invite-code`
-- `POST /api/v1/auth/register-with-invite-code`
-- `POST /api/v1/auth/verify-registration`
+- `POST /api/auth/validate-invite-code`
+- `POST /api/auth/register-with-invite-code`
+- `POST /api/auth/verify-registration`
 
 Suggerimento:
 

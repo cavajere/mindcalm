@@ -29,13 +29,13 @@ function mapArticleListItem(article: {
     slug: article.slug,
     excerpt: article.excerpt,
     author: article.author,
-    coverImage: article.coverImage ? `/api/v1/files/images/${path.basename(article.coverImage)}` : null,
+    coverImage: article.coverImage ? `/api/files/images/${path.basename(article.coverImage)}` : null,
     publishedAt: article.publishedAt,
     tags: mapArticleTags(article.articleTags),
   }
 }
 
-// GET /api/v1/articles — elenco articoli pubblicati
+// GET /api/articles — elenco articoli pubblicati
 router.get('/', articleFilterQuery, async (req: Request, res: Response) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
@@ -155,7 +155,7 @@ router.get('/', articleFilterQuery, async (req: Request, res: Response) => {
   })
 })
 
-// GET /api/v1/articles/:slug — dettaglio articolo
+// GET /api/articles/:slug — dettaglio articolo
 router.get('/:slug', async (req: Request, res: Response) => {
   const slug = getSingleString(req.params.slug)
   if (!slug) {
@@ -184,7 +184,7 @@ router.get('/:slug', async (req: Request, res: Response) => {
     body: article.body,
     excerpt: article.excerpt,
     author: article.author,
-    coverImage: article.coverImage ? `/api/v1/files/images/${path.basename(article.coverImage)}` : null,
+    coverImage: article.coverImage ? `/api/files/images/${path.basename(article.coverImage)}` : null,
     publishedAt: article.publishedAt,
     tags: mapArticleTags(article.articleTags),
   })

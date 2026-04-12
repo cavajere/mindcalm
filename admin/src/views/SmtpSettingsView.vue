@@ -39,7 +39,7 @@ const canExport = computed(() => Boolean(form.value.host.trim()))
 async function fetchSettings() {
   success.value = ''
   error.value = ''
-  const { data } = await axios.get('/api/v1/admin/settings/smtp')
+  const { data } = await axios.get('/api/admin/settings/smtp')
   if (!data) return
 
   form.value.host = data.host
@@ -57,7 +57,7 @@ async function saveSettings() {
   loading.value = true
 
   try {
-    const { data } = await axios.put('/api/v1/admin/settings/smtp', {
+    const { data } = await axios.put('/api/admin/settings/smtp', {
       host: form.value.host,
       port: form.value.port,
       secure: form.value.secure,
@@ -153,7 +153,7 @@ async function handleImportFile(event: Event) {
       payload.password = cfg.authPass
     }
 
-    const { data } = await axios.put('/api/v1/admin/settings/smtp', payload)
+    const { data } = await axios.put('/api/admin/settings/smtp', payload)
 
     form.value.host = data.host
     form.value.port = data.port
@@ -182,7 +182,7 @@ async function sendTestEmail() {
   testing.value = true
 
   try {
-    const { data } = await axios.post('/api/v1/admin/settings/smtp/test', {
+    const { data } = await axios.post('/api/admin/settings/smtp/test', {
       email: auth.user?.email,
     })
     success.value = data.message

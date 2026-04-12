@@ -18,11 +18,11 @@ describe('playbackSessionService helpers', () => {
   })
 
   it('builds a session base path bound to audio and session', () => {
-    expect(buildPlaybackSessionBasePath('audio-123', 'session-123')).toBe('/api/v1/audio/audio-123/playback/session-123')
+    expect(buildPlaybackSessionBasePath('audio-123', 'session-123')).toBe('/api/audio/audio-123/playback/session-123')
   })
 
   it('builds manifest and direct playback paths', () => {
-    expect(buildPlaybackManifestPath('audio-123', 'session-123')).toBe('/api/v1/audio/audio-123/playback/session-123/master.m3u8')
-    expect(buildPlaybackDirectStreamPath('audio-123', 'session-123')).toBe('/api/v1/audio/audio-123/playback/session-123/direct')
+    expect(buildPlaybackManifestPath('audio-123', 'session-123')).toBe('/api/audio/audio-123/playback/session-123/master.m3u8')
+    expect(buildPlaybackDirectStreamPath('audio-123', 'session-123')).toBe('/api/audio/audio-123/playback/session-123/direct')
   })
 })

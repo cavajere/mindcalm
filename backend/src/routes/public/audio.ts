@@ -112,7 +112,7 @@ function mapAudioListItem(audio: {
     category: audio.category,
     level: audio.level,
     durationSec: audio.durationSec,
-    coverImage: audio.coverImage ? `/api/v1/files/images/${path.basename(audio.coverImage)}` : null,
+    coverImage: audio.coverImage ? `/api/files/images/${path.basename(audio.coverImage)}` : null,
     publishedAt: audio.publishedAt,
     tags: mapAudioTags(audio.audioTags),
   }
@@ -262,7 +262,7 @@ router.get('/:id', async (req: Request, res: Response) => {
     durationSec: audio.durationSec,
     audioFormat: audio.audioFormat,
     audioSize: audio.audioSize,
-    coverImage: audio.coverImage ? `/api/v1/files/images/${path.basename(audio.coverImage)}` : null,
+    coverImage: audio.coverImage ? `/api/files/images/${path.basename(audio.coverImage)}` : null,
     publishedAt: audio.publishedAt,
     tags: mapAudioTags(audio.audioTags),
     streaming: {
@@ -270,7 +270,7 @@ router.get('/:id', async (req: Request, res: Response) => {
       requiresOnline: true,
       delivery: audio.streamingFormat === StreamingFormat.HLS ? 'hls' : 'direct',
       processingStatus: audio.processingStatus,
-      playbackSessionUrl: `/api/v1/audio/${audioId}/playback-session`,
+      playbackSessionUrl: `/api/audio/${audioId}/playback-session`,
       minTokenTtlSec: config.playback.minExpiresInSeconds,
     },
   })

@@ -12,7 +12,7 @@ const pagination = ref({ page: 1, limit: 20, total: 0, totalPages: 0 })
 async function fetchAudio() {
   loading.value = true
   try {
-    const { data } = await axios.get(`/api/v1/admin/audio?page=${pagination.value.page}&limit=${pagination.value.limit}`)
+    const { data } = await axios.get(`/api/admin/audio?page=${pagination.value.page}&limit=${pagination.value.limit}`)
     audioItems.value = data.data
     pagination.value = { ...pagination.value, ...data.pagination }
   } finally {
@@ -22,13 +22,13 @@ async function fetchAudio() {
 
 async function toggleStatus(audio: any) {
   const newStatus = audio.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED'
-  await axios.patch(`/api/v1/admin/audio/${audio.id}/status`, { status: newStatus })
+  await axios.patch(`/api/admin/audio/${audio.id}/status`, { status: newStatus })
   audio.status = newStatus
 }
 
 async function deleteAudio(audio: any) {
   if (!confirm(`Eliminare l'audio "${audio.title}"?`)) return
-  await axios.delete(`/api/v1/admin/audio/${audio.id}`)
+  await axios.delete(`/api/admin/audio/${audio.id}`)
   audioItems.value = audioItems.value.filter((item) => item.id !== audio.id)
 }
 

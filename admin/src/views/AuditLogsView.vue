@@ -120,7 +120,7 @@ async function fetchLogs(page = 1) {
   error.value = ''
 
   try {
-    const { data } = await axios.get(`/api/v1/admin/audit-logs?${buildQuery(page)}`)
+    const { data } = await axios.get(`/api/admin/audit-logs?${buildQuery(page)}`)
     logs.value = data.data
     pagination.value = { ...pagination.value, ...data.pagination }
     summary.value = data.summary

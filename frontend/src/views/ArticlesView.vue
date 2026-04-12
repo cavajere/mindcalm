@@ -32,7 +32,7 @@ async function fetchArticles() {
     if (search.value) query.set('search', search.value)
     if (selectedTags.value.length) query.set('tags', selectedTags.value.join(','))
 
-    const { data } = await axios.get(`/api/v1/articles?${query}`)
+    const { data } = await axios.get(`/api/articles?${query}`)
     articles.value = data.data
     pagination.value = { ...pagination.value, ...data.pagination }
   } finally {
@@ -46,7 +46,7 @@ function changePage(page: number) {
 }
 
 onMounted(async () => {
-  const { data } = await axios.get('/api/v1/tags?contentType=article')
+  const { data } = await axios.get('/api/tags?contentType=article')
   tags.value = data
   await fetchArticles()
 })

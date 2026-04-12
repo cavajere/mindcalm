@@ -16,7 +16,7 @@ const router = Router()
 
 router.use(adminAuthMiddleware, requireAdmin)
 
-// GET /api/v1/admin/articles
+// GET /api/admin/articles
 router.get('/', paginationQuery, async (req: Request, res: Response) => {
   const page = parseInt(req.query.page as string) || 1
   const limit = parseInt(req.query.limit as string) || 20
@@ -52,14 +52,14 @@ router.get('/', paginationQuery, async (req: Request, res: Response) => {
       publishedAt: a.publishedAt,
       createdAt: a.createdAt,
       updatedAt: a.updatedAt,
-      coverImage: a.coverImage ? `/api/v1/files/images/${path.basename(a.coverImage)}` : null,
+      coverImage: a.coverImage ? `/api/files/images/${path.basename(a.coverImage)}` : null,
       tags: mapArticleTags(a.articleTags),
     })),
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   })
 })
 
-// POST /api/v1/admin/articles
+// POST /api/admin/articles
 router.post('/',
   uploadImage.single('coverImage'),
   articleValidation,
@@ -143,7 +143,7 @@ router.post('/',
   }
 )
 
-// PUT /api/v1/admin/articles/:id
+// PUT /api/admin/articles/:id
 router.put('/:id',
   uploadImage.single('coverImage'),
   async (req: Request, res: Response) => {
@@ -265,7 +265,7 @@ router.put('/:id',
   }
 )
 
-// DELETE /api/v1/admin/articles/:id
+// DELETE /api/admin/articles/:id
 router.delete('/:id', async (req: Request, res: Response) => {
   const articleId = getSingleString(req.params.id)
   if (!articleId) {
@@ -299,7 +299,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
   res.json({ message: 'Articolo eliminato' })
 })
 
-// PATCH /api/v1/admin/articles/:id/status
+// PATCH /api/admin/articles/:id/status
 router.patch('/:id/status', statusValidation, async (req: Request, res: Response) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {

@@ -16,11 +16,11 @@ MindCalm is a Progressive Web App (PWA) for mindfulness sessions. Serves audio c
 
 ## Key patterns
 
-- Public API: `/api/v1/sessions`, `/api/v1/articles`, `/api/v1/categories` — no auth
-- Admin API: `/api/v1/admin/*` — JWT required (Bearer token)
-- Auth: `/api/v1/auth/login`, `/api/v1/auth/me`
-- Audio streaming: `/api/v1/sessions/:id/audio` with range request support
-- File serving: `/api/v1/files/images/:filename`
+- Public API: `/api/sessions`, `/api/articles`, `/api/categories` — no auth
+- Admin API: `/api/admin/*` — JWT required (Bearer token)
+- Auth: `/api/auth/login`, `/api/auth/me`
+- Audio streaming: `/api/sessions/:id/audio` with range request support
+- File serving: `/api/files/images/:filename`
 - In production, Express serves frontend at `/` and admin at `/admin/`
 - Prisma migrations: `cd backend && npx prisma migrate dev`
 

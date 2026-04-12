@@ -54,7 +54,7 @@ function changePage(page: number) {
 onMounted(async () => {
   const [, { data: publicTags }] = await Promise.all([
     store.fetchCategories(),
-    axios.get('/api/v1/tags?contentType=audio'),
+    axios.get('/api/tags?contentType=audio'),
   ])
   tags.value = publicTags
   if (route.query.category) {

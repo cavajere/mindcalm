@@ -25,7 +25,7 @@ const icons = ['lotus', 'wind', 'body', 'moon', 'sun', 'brain', 'heart', 'star']
 async function fetchCategories() {
   loading.value = true
   try {
-    const { data } = await axios.get('/api/v1/admin/categories')
+    const { data } = await axios.get('/api/admin/categories')
     categories.value = data
   } finally {
     loading.value = false
@@ -55,9 +55,9 @@ async function save() {
   error.value = ''
   try {
     if (editingId.value) {
-      await axios.put(`/api/v1/admin/categories/${editingId.value}`, form.value)
+      await axios.put(`/api/admin/categories/${editingId.value}`, form.value)
     } else {
-      await axios.post('/api/v1/admin/categories', form.value)
+      await axios.post('/api/admin/categories', form.value)
     }
     showModal.value = false
     await fetchCategories()
@@ -69,7 +69,7 @@ async function save() {
 async function deleteCategory(cat: Category) {
   if (!confirm(`Eliminare la categoria "${cat.name}"?`)) return
   try {
-    await axios.delete(`/api/v1/admin/categories/${cat.id}`)
+    await axios.delete(`/api/admin/categories/${cat.id}`)
     await fetchCategories()
   } catch (e: any) {
     alert(e.response?.data?.error || 'Errore')

@@ -20,7 +20,7 @@ onMounted(async () => {
 
   // Ultimi 3 articoli
   try {
-    const { data } = await axios.get('/api/v1/articles?limit=3')
+    const { data } = await axios.get('/api/articles?limit=3')
     latestArticles.value = data.data
   } catch {}
 })

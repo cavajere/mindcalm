@@ -25,9 +25,9 @@ axios.interceptors.response.use(
     const requestUrl = error.config?.url || ''
     const normalizedPath = requestUrl.startsWith('http') ? new URL(requestUrl).pathname : requestUrl
     const isPublicAuthRequest = [
-      '/api/v1/auth/login',
-      '/api/v1/auth/forgot-password',
-      '/api/v1/auth/reset-password',
+      '/api/auth/login',
+      '/api/auth/forgot-password',
+      '/api/auth/reset-password',
     ].includes(normalizedPath)
 
     if ((status === 401 || status === 403) && !isPublicAuthRequest) {

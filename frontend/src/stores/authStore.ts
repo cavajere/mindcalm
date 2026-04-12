@@ -95,7 +95,7 @@ export const useAuthStore = defineStore('app-auth', () => {
 
   async function login(email: string, password: string) {
     try {
-      const { data } = await axios.post('/api/v1/auth/app-login', { email, password })
+      const { data } = await axios.post('/api/auth/app-login', { email, password })
       clearLicenseExpired()
       user.value = data.user
       await syncProtectedOfflineState(user.value)
@@ -110,7 +110,7 @@ export const useAuthStore = defineStore('app-auth', () => {
 
   async function fetchMe() {
     try {
-      const { data } = await axios.get('/api/v1/auth/app-me')
+      const { data } = await axios.get('/api/auth/app-me')
       clearLicenseExpired()
       user.value = data
       await syncProtectedOfflineState(user.value)
@@ -135,7 +135,7 @@ export const useAuthStore = defineStore('app-auth', () => {
 
   async function logout() {
     try {
-      await axios.post('/api/v1/auth/app-logout')
+      await axios.post('/api/auth/app-logout')
     } finally {
       clearLicenseExpired()
       user.value = null

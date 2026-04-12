@@ -29,7 +29,7 @@ async function handleSubmit() {
   loading.value = true
 
   try {
-    await axios.post('/api/v1/auth/reset-password', {
+    await axios.post('/api/auth/reset-password', {
       token: token.value,
       password: password.value,
     })

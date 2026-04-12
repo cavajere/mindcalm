@@ -81,7 +81,7 @@ function getLicenseExpiresAtPayload() {
 async function fetchUser() {
   if (!isEdit.value) return
 
-  const { data } = await axios.get(`/api/v1/admin/users/${route.params.id}`)
+  const { data } = await axios.get(`/api/admin/users/${route.params.id}`)
   form.value.email = data.email
   const fallbackName = splitFullName(data.name || '')
   form.value.firstName = data.firstName || fallbackName.firstName
@@ -129,9 +129,9 @@ async function handleSubmit() {
     }
 
     if (isEdit.value) {
-      await axios.put(`/api/v1/admin/users/${route.params.id}`, payload)
+      await axios.put(`/api/admin/users/${route.params.id}`, payload)
     } else {
-      await axios.post('/api/v1/admin/users', payload)
+      await axios.post('/api/admin/users', payload)
     }
 
     router.push('/users')
@@ -150,7 +150,7 @@ async function resendInvite() {
   resendingInvite.value = true
 
   try {
-    const { data } = await axios.post(`/api/v1/admin/users/${route.params.id}/resend-invite`, {
+    const { data } = await axios.post(`/api/admin/users/${route.params.id}/resend-invite`, {
       inviteBaseUrl: getPublicAppBaseUrl(),
     })
 

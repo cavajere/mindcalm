@@ -104,7 +104,7 @@ async function fetchInviteCodes(page = pagination.value.page) {
   error.value = ''
 
   try {
-    const { data } = await axios.get(`/api/v1/admin/invite-codes?${buildQuery(page)}`)
+    const { data } = await axios.get(`/api/admin/invite-codes?${buildQuery(page)}`)
     inviteCodes.value = data.data
     pagination.value = { ...pagination.value, ...data.pagination }
   } catch (e: any) {
@@ -122,7 +122,7 @@ async function handleCreate() {
   success.value = ''
 
   try {
-    const { data } = await axios.post('/api/v1/admin/invite-codes', {
+    const { data } = await axios.post('/api/admin/invite-codes', {
       licenseDurationDays: form.value.licenseDurationDays,
       expiresAt: form.value.expiresAt ? new Date(`${form.value.expiresAt}T23:59:59.999`).toISOString() : undefined,
       notes: form.value.notes || undefined,
@@ -161,7 +161,7 @@ async function disableCode(inviteCode: InviteCodeItem) {
   success.value = ''
 
   try {
-    await axios.post(`/api/v1/admin/invite-codes/${inviteCode.id}/disable`)
+    await axios.post(`/api/admin/invite-codes/${inviteCode.id}/disable`)
     success.value = `Codice ${inviteCode.code} disabilitato`
     await fetchInviteCodes()
   } catch (e: any) {

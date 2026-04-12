@@ -6,7 +6,7 @@ const router = Router()
 
 router.use(appAuthMiddleware)
 
-// GET /api/v1/categories — elenco categorie
+// GET /api/categories — elenco categorie
 router.get('/', async (_req: Request, res: Response) => {
   const categories = await prisma.category.findMany({
     where: {

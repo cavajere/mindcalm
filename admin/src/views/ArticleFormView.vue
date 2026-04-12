@@ -51,9 +51,9 @@ async function save() {
     if (coverImage.value) fd.append('coverImage', coverImage.value)
 
     if (isEdit.value) {
-      await axios.put(`/api/v1/admin/articles/${route.params.id}`, fd)
+      await axios.put(`/api/admin/articles/${route.params.id}`, fd)
     } else {
-      await axios.post('/api/v1/admin/articles', fd)
+      await axios.post('/api/admin/articles', fd)
     }
 
     router.push('/articles')
@@ -65,13 +65,13 @@ async function save() {
 }
 
 onMounted(async () => {
-  const { data: tagsData } = await axios.get('/api/v1/admin/tags')
+  const { data: tagsData } = await axios.get('/api/admin/tags')
   tags.value = tagsData
 
   if (isEdit.value) {
     loading.value = true
     try {
-      const { data: articlesData } = await axios.get('/api/v1/admin/articles?limit=100')
+      const { data: articlesData } = await axios.get('/api/admin/articles?limit=100')
       const article = articlesData.data.find((a: any) => a.id === route.params.id)
       if (article) {
         form.value = {

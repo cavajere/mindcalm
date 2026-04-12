@@ -229,7 +229,7 @@ enum Status {
 
 ## API REST — Specifica completa
 
-Base URL: `/api/v1`  
+Base URL: `/api`  
 Content-Type: `application/json` (tranne upload: `multipart/form-data`)  
 Autenticazione admin: header `Authorization: Bearer <token>`  
 Paginazione: query params `page` (default 1) e `limit` (default 20)  
@@ -237,7 +237,7 @@ Errori: `{ "error": "messaggio", "details": {} }`
 
 ### Endpoint pubblici (nessuna autenticazione)
 
-#### GET /api/v1/sessions
+#### GET /api/sessions
 Elenco sessioni pubblicate.
 
 Query params:
@@ -258,7 +258,7 @@ Risposta:
       "category": { "id": "uuid", "name": "Respirazione", "color": "#4A90D9" },
       "level": "BEGINNER",
       "durationSec": 600,
-      "coverImage": "/api/v1/files/images/abc-123.jpg",
+      "coverImage": "/api/files/images/abc-123.jpg",
       "publishedAt": "2026-04-01T10:00:00Z"
     }
   ],
@@ -266,7 +266,7 @@ Risposta:
 }
 ```
 
-#### GET /api/v1/sessions/:id
+#### GET /api/sessions/:id
 Dettaglio sessione. Include URL per lo stream audio.
 
 Risposta:
@@ -278,15 +278,15 @@ Risposta:
   "category": { "id": "uuid", "name": "...", "color": "..." },
   "level": "BEGINNER",
   "durationSec": 600,
-  "audioUrl": "/api/v1/sessions/uuid/audio",
+  "audioUrl": "/api/sessions/uuid/audio",
   "audioFormat": "mp3",
   "audioSize": 9500000,
-  "coverImage": "/api/v1/files/images/abc-123.jpg",
+  "coverImage": "/api/files/images/abc-123.jpg",
   "publishedAt": "2026-04-01T10:00:00Z"
 }
 ```
 
-#### GET /api/v1/sessions/:id/audio
+#### GET /api/sessions/:id/audio
 Stream del file audio. DEVE supportare range requests (HTTP 206 Partial Content) per consentire seeking nel player senza scaricare l'intero file.
 
 Headers risposta:
@@ -294,33 +294,33 @@ Headers risposta:
 - `Accept-Ranges: bytes`
 - `Content-Length` / `Content-Range` per range requests
 
-#### GET /api/v1/categories
+#### GET /api/categories
 Elenco categorie ordinate per sortOrder.
 
-#### GET /api/v1/articles
+#### GET /api/articles
 Elenco articoli pubblicati (paginato). Restituisce: id, title, slug, excerpt, author, coverImage, publishedAt.
 
-#### GET /api/v1/articles/:slug
+#### GET /api/articles/:slug
 Dettaglio articolo per slug. Restituisce tutti i campi incluso body HTML.
 
 ### Endpoint admin (richiedono JWT)
 
-#### POST /api/v1/auth/login
+#### POST /api/auth/login
 Body: `{ "email": "...", "password": "..." }`  
 Risposta: `{ "token": "jwt...", "user": { "id", "email", "name" } }`
 
-#### GET /api/v1/auth/me
+#### GET /api/auth/me
 Restituisce profilo dell'admin autenticato.
 
 #### CRUD sessioni admin
 
 | Metodo | Endpoint | Content-Type | Descrizione |
 |---|---|---|---|
-| GET | /api/v1/admin/sessions | — | Elenco sessioni (tutte, incluse DRAFT), con filtri e paginazione |
-| POST | /api/v1/admin/sessions | multipart/form-data | Crea sessione: fields (title, description, categoryId, level) + file audio + file coverImage opzionale |
-| PUT | /api/v1/admin/sessions/:id | multipart/form-data | Aggiorna metadati e/o sostituisce file |
-| DELETE | /api/v1/admin/sessions/:id | — | Elimina sessione e file associati dal filesystem |
-| PATCH | /api/v1/admin/sessions/:id/status | application/json | Body: `{ "status": "PUBLISHED" }` — cambia stato pubblicazione; se PUBLISHED, imposta publishedAt a now() |
+| GET | /api/admin/sessions | — | Elenco sessioni (tutte, incluse DRAFT), con filtri e paginazione |
+| POST | /api/admin/sessions | multipart/form-data | Crea sessione: fields (title, description, categoryId, level) + file audio + file coverImage opzionale |
+| PUT | /api/admin/sessions/:id | multipart/form-data | Aggiorna metadati e/o sostituisce file |
+| DELETE | /api/admin/sessions/:id | — | Elimina sessione e file associati dal filesystem |
+| PATCH | /api/admin/sessions/:id/status | application/json | Body: `{ "status": "PUBLISHED" }` — cambia stato pubblicazione; se PUBLISHED, imposta publishedAt a now() |
 
 Logica POST sessione:
 1. Validare i campi obbligatori (title, description, categoryId, file audio)
@@ -336,11 +336,11 @@ Logica POST sessione:
 
 | Metodo | Endpoint | Descrizione |
 |---|---|---|
-| GET | /api/v1/admin/articles | Elenco articoli (tutti, incluse bozze) |
-| POST | /api/v1/admin/articles | Crea articolo: title, body (HTML), author, excerpt, coverImage. Lo slug è generato automaticamente dal titolo. |
-| PUT | /api/v1/admin/articles/:id | Aggiorna articolo |
-| DELETE | /api/v1/admin/articles/:id | Elimina articolo |
-| PATCH | /api/v1/admin/articles/:id/status | Cambia stato pubblicazione |
+| GET | /api/admin/articles | Elenco articoli (tutti, incluse bozze) |
+| POST | /api/admin/articles | Crea articolo: title, body (HTML), author, excerpt, coverImage. Lo slug è generato automaticamente dal titolo. |
+| PUT | /api/admin/articles/:id | Aggiorna articolo |
+| DELETE | /api/admin/articles/:id | Elimina articolo |
+| PATCH | /api/admin/articles/:id/status | Cambia stato pubblicazione |
 
 Il body HTML deve essere sanitizzato con `sanitize-html` prima del salvataggio. Tag consentiti: p, h2, h3, h4, strong, em, ul, ol, li, a (con href), img (con src e alt), blockquote, br.
 
@@ -348,11 +348,11 @@ Il body HTML deve essere sanitizzato con `sanitize-html` prima del salvataggio. 
 
 | Metodo | Endpoint | Descrizione |
 |---|---|---|
-| GET | /api/v1/admin/categories | Elenco categorie |
-| POST | /api/v1/admin/categories | Crea categoria (name, description, color, icon) |
-| PUT | /api/v1/admin/categories/:id | Aggiorna categoria |
-| DELETE | /api/v1/admin/categories/:id | Elimina categoria (solo se non ha sessioni associate) |
-| PATCH | /api/v1/admin/categories/order | Riordina categorie. Body: `{ "ids": ["uuid1", "uuid2", ...] }` |
+| GET | /api/admin/categories | Elenco categorie |
+| POST | /api/admin/categories | Crea categoria (name, description, color, icon) |
+| PUT | /api/admin/categories/:id | Aggiorna categoria |
+| DELETE | /api/admin/categories/:id | Elimina categoria (solo se non ha sessioni associate) |
+| PATCH | /api/admin/categories/order | Riordina categorie. Body: `{ "ids": ["uuid1", "uuid2", ...] }` |
 
 ---
 

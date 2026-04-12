@@ -9,21 +9,21 @@ const recentArticles = ref<any[]>([])
 onMounted(async () => {
   try {
     const [audioRes, articlesRes, categoriesRes] = await Promise.all([
-      axios.get('/api/v1/admin/audio?limit=5'),
-      axios.get('/api/v1/admin/articles?limit=5'),
-      axios.get('/api/v1/admin/categories'),
+      axios.get('/api/admin/audio?limit=5'),
+      axios.get('/api/admin/articles?limit=5'),
+      axios.get('/api/admin/categories'),
     ])
 
     recentAudio.value = audioRes.data.data
     recentArticles.value = articlesRes.data.data
 
     const allAudio = audioRes.data.pagination.total
-    const pubAudioRes = await axios.get('/api/v1/admin/audio?status=PUBLISHED&limit=1')
+    const pubAudioRes = await axios.get('/api/admin/audio?status=PUBLISHED&limit=1')
     stats.value.audio.published = pubAudioRes.data.pagination.total
     stats.value.audio.draft = allAudio - stats.value.audio.published
 
     const allArticles = articlesRes.data.pagination.total
-    const pubArticlesRes = await axios.get('/api/v1/admin/articles?status=PUBLISHED&limit=1')
+    const pubArticlesRes = await axios.get('/api/admin/articles?status=PUBLISHED&limit=1')
     stats.value.articles.published = pubArticlesRes.data.pagination.total
     stats.value.articles.draft = allArticles - stats.value.articles.published
 

@@ -14,7 +14,7 @@ async function handleSubmit() {
 
   try {
     const resetBaseUrl = `${window.location.origin}/admin`
-    const { data } = await axios.post('/api/v1/auth/forgot-password', {
+    const { data } = await axios.post('/api/auth/forgot-password', {
       email: email.value,
       resetBaseUrl,
     })

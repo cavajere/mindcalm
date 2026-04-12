@@ -43,7 +43,7 @@ app.use(express.urlencoded({ extended: true }))
 app.use(cookieParser())
 
 // Rate limiting
-app.use('/api/v1', publicRateLimiter)
+app.use('/api', publicRateLimiter)
 
 // Health check
 app.get('/api/health', (_req, res) => {
@@ -51,26 +51,26 @@ app.get('/api/health', (_req, res) => {
 })
 
 // Public API routes
-app.use('/api/v1/audio', audioPublicRouter)
-app.use('/api/v1/articles', articlesPublicRouter)
-app.use('/api/v1/categories', categoriesPublicRouter)
-app.use('/api/v1/tags', tagsPublicRouter)
-app.use('/api/v1/analytics', analyticsPublicRouter)
+app.use('/api/audio', audioPublicRouter)
+app.use('/api/articles', articlesPublicRouter)
+app.use('/api/categories', categoriesPublicRouter)
+app.use('/api/tags', tagsPublicRouter)
+app.use('/api/analytics', analyticsPublicRouter)
 
 // Admin API routes
-app.use('/api/v1/auth', authRouter)
-app.use('/api/v1/admin/audio', audioAdminRouter)
-app.use('/api/v1/admin/articles', articlesAdminRouter)
-app.use('/api/v1/admin/categories', categoriesAdminRouter)
-app.use('/api/v1/admin/tags', tagsAdminRouter)
-app.use('/api/v1/admin/users', usersAdminRouter)
-app.use('/api/v1/admin/settings', settingsAdminRouter)
-app.use('/api/v1/admin/analytics', analyticsAdminRouter)
-app.use('/api/v1/admin/audit-logs', auditLogsAdminRouter)
-app.use('/api/v1/admin/invite-codes', inviteCodesAdminRouter)
+app.use('/api/auth', authRouter)
+app.use('/api/admin/audio', audioAdminRouter)
+app.use('/api/admin/articles', articlesAdminRouter)
+app.use('/api/admin/categories', categoriesAdminRouter)
+app.use('/api/admin/tags', tagsAdminRouter)
+app.use('/api/admin/users', usersAdminRouter)
+app.use('/api/admin/settings', settingsAdminRouter)
+app.use('/api/admin/analytics', analyticsAdminRouter)
+app.use('/api/admin/audit-logs', auditLogsAdminRouter)
+app.use('/api/admin/invite-codes', inviteCodesAdminRouter)
 
 // Serve uploaded files
-app.use('/api/v1/files/images', authMiddleware, express.static(config.storage.imagesPath))
+app.use('/api/files/images', authMiddleware, express.static(config.storage.imagesPath))
 
 // In production, serve frontend and admin static files
 if (config.isProduction) {

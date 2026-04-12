@@ -57,7 +57,7 @@ async function loadArticle(slug: string) {
   article.value = null
 
   try {
-    const { data } = await axios.get(`/api/v1/articles/${slug}`)
+    const { data } = await axios.get(`/api/articles/${slug}`)
     article.value = data
     await trackArticleView(data.id)
   } catch {

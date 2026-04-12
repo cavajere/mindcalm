@@ -43,7 +43,7 @@ const filteredTags = computed(() => {
 async function fetchTags() {
   loading.value = true
   try {
-    const { data } = await axios.get('/api/v1/admin/tags')
+    const { data } = await axios.get('/api/admin/tags')
     tags.value = data
   } finally {
     loading.value = false
@@ -91,9 +91,9 @@ async function save() {
 
   try {
     if (editingId.value) {
-      await axios.put(`/api/v1/admin/tags/${editingId.value}`, payload)
+      await axios.put(`/api/admin/tags/${editingId.value}`, payload)
     } else {
-      await axios.post('/api/v1/admin/tags', payload)
+      await axios.post('/api/admin/tags', payload)
     }
 
     showModal.value = false
@@ -104,13 +104,13 @@ async function save() {
 }
 
 async function toggleStatus(tag: Tag) {
-  await axios.patch(`/api/v1/admin/tags/${tag.id}/status`, { isActive: !tag.isActive })
+  await axios.patch(`/api/admin/tags/${tag.id}/status`, { isActive: !tag.isActive })
   tag.isActive = !tag.isActive
 }
 
 async function deleteTag(tag: Tag) {
   if (!confirm(`Eliminare il tag "${tag.label}"?`)) return
-  await axios.delete(`/api/v1/admin/tags/${tag.id}`)
+  await axios.delete(`/api/admin/tags/${tag.id}`)
   await fetchTags()
 }
 

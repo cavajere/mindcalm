@@ -52,7 +52,7 @@ export const useAudioStore = defineStore('audio', () => {
     loading.value = true
     try {
       const query = new URLSearchParams({ page: String(pagination.value.page), limit: String(pagination.value.limit), ...params })
-      const { data } = await axios.get(`/api/v1/audio?${query}`)
+      const { data } = await axios.get(`/api/audio?${query}`)
       audioItems.value = data.data
       pagination.value = data.pagination
     } finally {
@@ -61,7 +61,7 @@ export const useAudioStore = defineStore('audio', () => {
   }
 
   async function fetchAudioById(id: string): Promise<AudioDetail> {
-    const { data } = await axios.get(`/api/v1/audio/${id}`)
+    const { data } = await axios.get(`/api/audio/${id}`)
     return data
   }
 
@@ -71,12 +71,12 @@ export const useAudioStore = defineStore('audio', () => {
     expiresAt: string
     expiresInSec: number
   }> {
-    const { data } = await axios.post(`/api/v1/audio/${id}/playback-session`)
+    const { data } = await axios.post(`/api/audio/${id}/playback-session`)
     return data
   }
 
   async function fetchCategories() {
-    const { data } = await axios.get('/api/v1/categories')
+    const { data } = await axios.get('/api/categories')
     categories.value = data
   }
 
