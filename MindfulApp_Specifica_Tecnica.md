@@ -16,7 +16,7 @@ L'app deve funzionare su Android e iOS senza passare dagli app store, sfruttando
 | Frontend Admin | Vue 3 + Vite + Tailwind CSS | SPA separata o rotte protette nella stessa app |
 | Backend API | Express.js (Node.js 20 LTS+) | API REST, serving audio, upload file |
 | ORM | Prisma 5.x | Migrazioni, type-safety, query builder |
-| Database | PostgreSQL 15+ | Persistenza dati |
+| Database | PostgreSQL 18+ | Persistenza dati |
 | Autenticazione admin | JWT + bcrypt | Stateless, cost factor ≥ 12 |
 | Storage file | Filesystem locale | Directory configurabile, naming UUID |
 | Service Worker | vite-plugin-pwa (Workbox) | Caching, precaching, offline |
@@ -672,7 +672,7 @@ version: "3.8"
 
 services:
   db:
-    image: postgres:15-alpine
+    image: postgres:18-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: mindfulapp

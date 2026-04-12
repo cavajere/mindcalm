@@ -7,7 +7,7 @@ MindCalm is a Progressive Web App (PWA) for mindfulness sessions. Serves audio c
 ## Architecture
 
 - **Monorepo**: npm workspaces with 3 packages: `backend`, `frontend`, `admin`
-- **Backend**: Express.js + TypeScript + Prisma ORM + PostgreSQL 15
+- **Backend**: Express.js + TypeScript + Prisma ORM + PostgreSQL 18
 - **Frontend PWA**: Vue 3 + Vite + Tailwind CSS + Pinia + vite-plugin-pwa
 - **Admin**: Vue 3 + Vite + Tailwind CSS + Tiptap editor
 - **Auth**: JWT (stateless, 1h expiry) for admin only. Public API has no auth.

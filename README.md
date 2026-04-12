@@ -9,7 +9,7 @@ Progressive Web App per sessioni di mindfulness. Serve contenuti audio (meditazi
 | Frontend PWA | Vue 3 + Vite + Tailwind CSS + Pinia |
 | Admin Panel | Vue 3 + Vite + Tailwind CSS + Tiptap |
 | Backend API | Express.js + TypeScript + Prisma ORM |
-| Database | PostgreSQL 15 |
+| Database | PostgreSQL 18 |
 | Deployment | Docker + Traefik Gateway (Synology NAS) |
 
 ## Struttura progetto
@@ -69,6 +69,8 @@ cd ../..
 ```
 
 PostgreSQL sara' disponibile su `localhost:5435` (utente: `mindcalm`, password: `mindcalm`, database: `mindcalm`).
+
+Se stai aggiornando un'istanza esistente da PostgreSQL 15/16/17 a PostgreSQL 18, non riutilizzare direttamente il data directory della versione precedente: esegui prima dump/restore o una procedura di upgrade dedicata.
 
 ### 2. Installa le dipendenze
 
