@@ -1,4 +1,5 @@
-import { Router, Request, Response } from 'express'
+import { Request, Response } from 'express'
+import { createAsyncRouter } from '../../utils/asyncRouter'
 import { AuditAction, AuditEntityType, AudioProcessingStatus, Level, Prisma, Status, StreamingFormat } from '@prisma/client'
 import { validationResult } from 'express-validator'
 import fs from 'fs'
@@ -17,7 +18,7 @@ import { transcodeAudioFileToHls } from '../../services/audioDeliveryService'
 import { buildUploadMetadata, renameStoredUpload } from '../../services/uploadMetadataService'
 import { deleteDirectCoverImage, resolveCoverImageSource } from '../../services/albumImageService'
 
-const router = Router()
+const router = createAsyncRouter()
 
 function removeUploadedFile(file?: Express.Multer.File) {
   if (file && fs.existsSync(file.path)) {

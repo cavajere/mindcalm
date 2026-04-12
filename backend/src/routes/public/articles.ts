@@ -1,4 +1,5 @@
-import { Router, Request, Response } from 'express'
+import { Request, Response } from 'express'
+import { createAsyncRouter } from '../../utils/asyncRouter'
 import { Prisma } from '@prisma/client'
 import { validationResult } from 'express-validator'
 import { getSingleString, getStringList } from '../../utils/request'
@@ -9,7 +10,7 @@ import { getRankedPublishedArticleIds } from '../../services/searchService'
 import { mapArticleTags } from '../../services/tagService'
 import { resolveCoverImageSource } from '../../services/albumImageService'
 
-const router = Router()
+const router = createAsyncRouter()
 
 router.use(appAuthMiddleware)
 

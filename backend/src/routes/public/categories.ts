@@ -1,8 +1,9 @@
-import { Router, Request, Response } from 'express'
+import { Request, Response } from 'express'
+import { createAsyncRouter } from '../../utils/asyncRouter'
 import { prisma } from '../../lib/prisma'
 import { appAuthMiddleware } from '../../middleware/auth'
 
-const router = Router()
+const router = createAsyncRouter()
 
 router.use(appAuthMiddleware)
 

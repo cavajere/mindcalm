@@ -1,4 +1,5 @@
-import { Router, Request, Response } from 'express'
+import { Request, Response } from 'express'
+import { createAsyncRouter } from '../../utils/asyncRouter'
 import { validationResult } from 'express-validator'
 import { AuditAction, AuditEntityType, AuditOutcome, UserRole } from '@prisma/client'
 import {
@@ -50,7 +51,7 @@ import {
   startInviteCodeRegistration,
 } from '../../services/registrationService'
 
-const router = Router()
+const router = createAsyncRouter()
 
 const appCookieOptions = getAuthCookieOptions(config.jwt.appCookieName)
 const adminCookieOptions = getAuthCookieOptions(config.jwt.adminCookieName)

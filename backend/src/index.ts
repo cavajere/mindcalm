@@ -24,6 +24,8 @@ import analyticsAdminRouter from './routes/admin/analytics'
 import auditLogsAdminRouter from './routes/admin/auditLogs'
 import inviteCodesAdminRouter from './routes/admin/inviteCodes'
 import { startBackupScheduler } from './services/backupService'
+import { ensureDatabaseReady } from './services/startupService'
+import { asyncHandler } from './utils/asyncRouter'
 
 const app = express()
 
@@ -93,7 +95,7 @@ if (config.isProduction) {
 
   app.use('/admin', express.static(adminDir, { index: false }))
 
-  app.get(['/admin', '/admin/*'], async (req, res) => {
+  app.get(['/admin', '/admin/*'], asyncHandler(async (req, res) => {
     if (path.extname(req.path)) {
       res.status(404).end()
       return
@@ -128,7 +130,7 @@ if (config.isProduction) {
     }
 
     res.sendFile(path.join(adminDir, 'index.html'))
-  })
+  }))
 
   // Frontend PWA
   app.use(express.static(publicDir, { index: 'index.html' }))
@@ -141,12 +143,21 @@ if (config.isProduction) {
 // Error handler
 app.use(errorHandler)
 
-app.listen(config.port, () => {
-  console.log(`[MindCalm] Server avviato su porta ${config.port} (${config.nodeEnv})`)
-})
+async function startApplication() {
+  await ensureDatabaseReady()
 
-void startBackupScheduler().catch((error) => {
-  console.error('[Backup] Impossibile avviare lo scheduler backup:', error)
+  app.listen(config.port, () => {
+    console.log(`[MindCalm] Server avviato su porta ${config.port} (${config.nodeEnv})`)
+  })
+
+  void startBackupScheduler().catch((error) => {
+    console.error('[Backup] Impossibile avviare lo scheduler backup:', error)
+  })
+}
+
+void startApplication().catch((error) => {
+  console.error('[MindCalm] Avvio backend fallito:', error)
+  process.exit(1)
 })
 
 export default app

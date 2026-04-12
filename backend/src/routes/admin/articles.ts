@@ -1,4 +1,5 @@
-import { Router, Request, Response } from 'express'
+import { Request, Response } from 'express'
+import { createAsyncRouter } from '../../utils/asyncRouter'
 import { AuditAction, AuditEntityType, Prisma, Status } from '@prisma/client'
 import { validationResult } from 'express-validator'
 import { adminAuthMiddleware, requireAdmin } from '../../middleware/auth'
@@ -12,7 +13,7 @@ import { MAX_TAGS_PER_CONTENT, createTagSlug, ensureTagsExist, mapArticleTags, p
 import { buildUploadMetadata, renameStoredUpload } from '../../services/uploadMetadataService'
 import { deleteDirectCoverImage, resolveCoverImageSource } from '../../services/albumImageService'
 
-const router = Router()
+const router = createAsyncRouter()
 
 router.use(adminAuthMiddleware, requireAdmin)
 

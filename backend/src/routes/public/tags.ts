@@ -1,11 +1,12 @@
-import { Router, Request, Response } from 'express'
+import { Request, Response } from 'express'
+import { createAsyncRouter } from '../../utils/asyncRouter'
 import { validationResult } from 'express-validator'
 import { prisma } from '../../lib/prisma'
 import { appAuthMiddleware } from '../../middleware/auth'
 import { getBoolean, getSingleString } from '../../utils/request'
 import { tagFilterQuery } from '../../utils/validators'
 
-const router = Router()
+const router = createAsyncRouter()
 
 router.use(appAuthMiddleware)
 

@@ -1,4 +1,5 @@
-import { Router, Request, Response } from 'express'
+import { Request, Response } from 'express'
+import { createAsyncRouter } from '../../utils/asyncRouter'
 import { AuditAction, AuditEntityType } from '@prisma/client'
 import fs from 'fs'
 import os from 'os'
@@ -40,7 +41,7 @@ const backupUpload = multer({
   },
 })
 
-const router = Router()
+const router = createAsyncRouter()
 
 router.use(adminAuthMiddleware, requireAdmin)
 

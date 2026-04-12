@@ -1,4 +1,5 @@
-import { Router, Request, Response } from 'express'
+import { Request, Response } from 'express'
+import { createAsyncRouter } from '../../utils/asyncRouter'
 import { AuditAction, AuditEntityType, AuditOutcome, UserRole } from '@prisma/client'
 import { validationResult } from 'express-validator'
 import { adminAuthMiddleware, requireAdmin } from '../../middleware/auth'
@@ -49,7 +50,7 @@ function serializeUser(user: {
   }
 }
 
-const router = Router()
+const router = createAsyncRouter()
 const userSelect = {
   id: true,
   email: true,

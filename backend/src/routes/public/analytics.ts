@@ -1,4 +1,5 @@
-import { Router, Request, Response } from 'express'
+import { Request, Response } from 'express'
+import { createAsyncRouter } from '../../utils/asyncRouter'
 import { AnalyticsEventType } from '@prisma/client'
 import { validationResult } from 'express-validator'
 import { analyticsEventValidation } from '../../utils/validators'
@@ -7,7 +8,7 @@ import { getSingleString } from '../../utils/request'
 import { optionalAppAuthMiddleware } from '../../middleware/auth'
 import { createAnalyticsEvent } from '../../services/analyticsEventService'
 
-const router = Router()
+const router = createAsyncRouter()
 
 const errorEventTypes = new Set<AnalyticsEventType>([
   AnalyticsEventType.APP_ERROR,

@@ -1,4 +1,5 @@
-import { Router, Request, Response } from 'express'
+import { Request, Response } from 'express'
+import { createAsyncRouter } from '../../utils/asyncRouter'
 import { AuditAction, AuditEntityType, AuditOutcome } from '@prisma/client'
 import { validationResult } from 'express-validator'
 import { adminAuthMiddleware, requireAdmin } from '../../middleware/auth'
@@ -7,7 +8,7 @@ import { getNumber, getSingleString } from '../../utils/request'
 import { createInviteCode, disableInviteCode, getInviteCodeById, listInviteCodes } from '../../services/inviteCodeService'
 import { getAuditActorFromRequest, logAuditEventSafe } from '../../services/auditLogService'
 
-const router = Router()
+const router = createAsyncRouter()
 
 router.use(adminAuthMiddleware, requireAdmin)
 

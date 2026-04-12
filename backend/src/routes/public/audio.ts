@@ -1,4 +1,5 @@
-import { Router, Request, Response } from 'express'
+import { Request, Response } from 'express'
+import { createAsyncRouter } from '../../utils/asyncRouter'
 import { AudioProcessingStatus, Prisma, StreamingFormat } from '@prisma/client'
 import { validationResult } from 'express-validator'
 import fs from 'fs'
@@ -25,7 +26,7 @@ import {
 } from '../../services/playbackSessionService'
 import { playbackSessionRateLimiter } from '../../middleware/rateLimiter'
 
-const router = Router()
+const router = createAsyncRouter()
 
 router.use(appAuthMiddleware)
 
