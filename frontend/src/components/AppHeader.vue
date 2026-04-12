@@ -296,17 +296,7 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="mt-4 rounded-3xl border border-ui-border bg-muted p-4">
-          <div class="flex items-center gap-3">
-            <div class="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-              {{ userInitials }}
-            </div>
-            <div class="min-w-0">
-              <p class="truncate text-sm font-semibold text-text-primary">{{ auth.user?.name || 'Utente' }}</p>
-              <p class="truncate text-sm text-text-secondary">{{ auth.user?.email }}</p>
-            </div>
-          </div>
-
-          <div class="mt-4 space-y-2">
+          <div class="space-y-2">
             <router-link
               to="/profile"
               class="flex items-center gap-3 rounded-2xl bg-surface px-4 py-3 text-sm font-medium text-text-primary transition-colors hover:bg-muted"

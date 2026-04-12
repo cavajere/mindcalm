@@ -234,25 +234,6 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <div class="px-4 py-4">
-        <a
-          :href="publicUrl"
-          target="_blank"
-          :class="[
-            'flex items-center rounded-2xl border border-white/10 bg-white/5 transition hover:border-white/20 hover:bg-white/10',
-            sidebarCollapsed ? 'justify-center px-3 py-3' : 'gap-3 px-4 py-3',
-          ]"
-        >
-          <svg class="h-5 w-5 shrink-0 text-sky-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-          </svg>
-          <div v-if="!sidebarCollapsed" class="min-w-0">
-            <p class="text-sm font-medium text-white">Sito pubblico</p>
-            <p class="text-xs text-slate-400">Apri l’esperienza utente</p>
-          </div>
-        </a>
-      </div>
-
       <nav class="flex-1 px-3 pb-4">
         <div class="space-y-1">
           <template v-for="item in navItems" :key="hasChildren(item) ? item.key : item.path">
@@ -311,23 +292,24 @@ onBeforeUnmount(() => {
       </nav>
 
       <div class="border-t border-white/10 p-3">
-        <div
+        <a
+          :href="publicUrl"
+          target="_blank"
           :class="[
-            'mt-0 overflow-hidden rounded-2xl border border-white/10 bg-white/5',
-            sidebarCollapsed ? 'hidden' : 'block',
+            'flex items-center rounded-2xl border border-white/10 bg-white/5 transition hover:border-white/20 hover:bg-white/10',
+            sidebarCollapsed ? 'justify-center px-3 py-3' : 'gap-3 px-4 py-3',
           ]"
         >
-          <div class="flex items-center gap-3 px-4 py-3">
-            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-secondary to-primary text-sm font-semibold text-white">
-              {{ userInitials }}
-            </div>
-            <div class="min-w-0">
-              <p class="truncate text-sm font-medium text-white">{{ auth.user?.name }}</p>
-              <p class="truncate text-xs text-slate-400">{{ auth.user?.email }}</p>
-            </div>
+          <svg class="h-5 w-5 shrink-0 text-sky-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
+          <div v-if="!sidebarCollapsed" class="min-w-0">
+            <p class="text-sm font-medium text-white">Sito pubblico</p>
+            <p class="text-xs text-slate-400">Apri l’esperienza utente</p>
           </div>
-        </div>
+        </a>
       </div>
+
     </aside>
 
     <div :class="['min-h-screen transition-all duration-300', sidebarCollapsed ? 'lg:pl-[88px]' : 'lg:pl-72']">
