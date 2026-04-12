@@ -74,8 +74,8 @@ app.use('/api/v1/files/images', authMiddleware, express.static(config.storage.im
 
 // In production, serve frontend and admin static files
 if (config.isProduction) {
-  const publicDir = path.resolve(__dirname, '../public')
-  const adminDir = path.resolve(__dirname, '../public/admin')
+  const publicDir = path.resolve(__dirname, 'public')
+  const adminDir = path.resolve(__dirname, 'public/admin')
 
   // Admin SPA (must be before frontend catch-all)
   app.use('/admin', express.static(adminDir))

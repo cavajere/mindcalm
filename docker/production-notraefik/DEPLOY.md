@@ -68,7 +68,7 @@ mkdir -p ./data/postgres ./data/audio ./data/hls ./data/images
 ## 4. Build e primo avvio
 
 ```bash
-docker compose up -d --build
+./deploy.sh --reset-data
 ```
 
 L'entrypoint del container API esegue automaticamente:
@@ -82,7 +82,7 @@ In alternativa ai comandi manuali puoi usare:
 ```bash
 cd /opt/mindcalm/docker/production-notraefik
 chmod +x deploy.sh
-./deploy.sh --keep-data
+./deploy.sh
 ```
 
 #### Uso rapido
@@ -97,52 +97,60 @@ cd /opt/mindcalm/docker/production-notraefik
 nano .env
 
 # 3. Esegui un aggiornamento senza perdere dati
-./deploy.sh --keep-data
+./deploy.sh
 ```
 
 Reinstallazione completa da zero:
 
 ```bash
 cd /opt/mindcalm/docker/production-notraefik
-./deploy.sh
+./deploy.sh --reset-data
 ```
 
 Attenzione:
 
-- senza `--keep-data` lo script elimina completamente database e storage locale
+- di default lo script preserva database e storage locale
+- `--reset-data` elimina completamente database, storage locale e volumi Docker
 - `--yes` salta solo la conferma interattiva, non rende il deploy meno distruttivo
 - se `.env` non esiste, viene creato automaticamente da `.env.example`
 - lo script lavora sempre sul branch `main` con `git pull --ff-only origin main`
+- se il repository ha modifiche locali tracciate, lo script si ferma prima del deploy
+- se il deploy fallisce, lo script mostra automaticamente `docker compose ps` e gli ultimi log di `api` e `postgres`
 
 Modalita' disponibili:
 
 ```bash
 # Aggiornamento conservativo: mantiene DB e storage
-./deploy.sh --keep-data
-
-# Aggiornamento conservativo senza prompt
-./deploy.sh --keep-data --yes
-
-# Reinstallazione completa: distrugge dati, storage e volumi Docker
 ./deploy.sh
 
-# Reinstallazione completa senza prompt
+# Aggiornamento conservativo senza prompt
 ./deploy.sh --yes
+
+# Reinstallazione completa: distrugge dati, storage e volumi Docker
+./deploy.sh --reset-data
+
+# Reinstallazione completa senza prompt
+./deploy.sh --reset-data --yes
 ```
 
 Significato opzioni:
 
-- `--keep-data`: mantiene `./data/postgres`, `./data/audio`, `./data/hls`, `./data/images`
+- `--keep-data`: alias esplicito del comportamento di default, mantiene `./data/postgres`, `./data/audio`, `./data/hls`, `./data/images`
+- `--reset-data`: esegue `docker compose down --volumes --remove-orphans --rmi local` e rimuove `./data`
 - `--yes`: accetta automaticamente il prompt di conferma
-- nessuna opzione: reinstallazione completa con distruzione dati e rebuild pulito
+- nessuna opzione: aggiornamento conservativo con rebuild dello stack
 
 Comportamento dello script:
 
 - esegue `git pull --ff-only origin main`
 - crea `.env` da `.env.example` se manca
-- in modalita' `--keep-data` preserva `./data`
-- senza `--keep-data` esegue `docker compose down --volumes --remove-orphans --rmi local` e rimuove `./data`
-- ricostruisce lo stack e verifica `http://localhost:3003/api/health`
+- in modalita' predefinita preserva `./data`
+- con `--reset-data` esegue `docker compose down --volumes --remove-orphans --rmi local` e rimuove `./data`
+- ricostruisce lo stack e verifica:
+  - `http://127.0.0.1:3003/api/health`
+  - `http://127.0.0.1:3003/`
+  - `http://127.0.0.1:3003/admin/`
+- se qualcosa va storto, stampa automaticamente stato container e log recenti
 
 ## 5. Verifica
 
@@ -186,11 +194,8 @@ Se esiste gia' un wildcard `*.datagestio.com`, non serve fare nulla.
 ## Aggiornamento
 
 ```bash
-cd /opt/mindcalm
-git pull origin main
-cd docker/production-notraefik
-docker compose build --pull
-docker compose up -d
+cd /opt/mindcalm/docker/production-notraefik
+./deploy.sh
 ```
 
 Le migrazioni Prisma vengono applicate automaticamente dall'entrypoint ad ogni avvio.

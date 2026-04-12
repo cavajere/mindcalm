@@ -280,7 +280,7 @@ ADMIN_PASSWORD=password-admin-sicura
 ### 4. Build e avvio
 
 ```bash
-docker compose up -d --build
+./deploy.sh --reset-data
 ```
 
 Al primo avvio:
@@ -300,8 +300,7 @@ docker compose exec api npx tsx prisma/seed.ts
 
 ```bash
 cd docker/production-notraefik
-docker compose build --pull
-docker compose up -d
+./deploy.sh
 ```
 
 ### Log e debug
