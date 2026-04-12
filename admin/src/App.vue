@@ -44,8 +44,8 @@ const navItems: NavItem[] = [
   ...primaryNavItems,
   {
     key: 'admin',
-    label: 'Admin',
-    shortLabel: 'AD',
+    label: 'Amministrazione',
+    shortLabel: 'AM',
     children: adminNavItems,
   },
 ]
@@ -70,7 +70,7 @@ const currentSection = computed(() => {
 
   return flatNavItems.value.find((item) =>
     item.path === '/' ? route.path === item.path : route.path.startsWith(item.path),
-  ) ?? { label: 'Admin', shortLabel: 'Admin' }
+  ) ?? { label: 'Amministrazione', shortLabel: 'AM' }
 })
 
 const userInitials = computed(() => {
