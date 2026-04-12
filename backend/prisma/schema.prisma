@@ -216,8 +216,8 @@ model ArticleTag {
 
 model AnalyticsEvent {
   id          String               @id @default(uuid())
-  userId      String
-  user        User                 @relation(fields: [userId], references: [id])
+  userId      String?
+  user        User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
   contentType AnalyticsContentType
   eventType   AnalyticsEventType
   audioId     String?
@@ -230,6 +230,7 @@ model AnalyticsEvent {
   @@index([eventType, occurredAt])
   @@index([audioId, occurredAt])
   @@index([articleId, occurredAt])
+  metadata    Json?
   @@index([userId, occurredAt])
   @@map("analytics_events")
 }
@@ -390,5 +391,10 @@ enum AnalyticsEventType {
   AUDIO_VIEW
   AUDIO_PLAY
   AUDIO_COMPLETE
+  SYSTEM
   ARTICLE_VIEW
 }
+  APP_ERROR
+  API_ERROR
+  AUDIO_ERROR
+  SERVER_ERROR

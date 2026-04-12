@@ -4,11 +4,19 @@ import { validationResult } from 'express-validator'
 import { analyticsEventValidation } from '../../utils/validators'
 import { prisma } from '../../lib/prisma'
 import { getSingleString } from '../../utils/request'
-import { appAuthMiddleware } from '../../middleware/auth'
+import { optionalAppAuthMiddleware } from '../../middleware/auth'
+import { createAnalyticsEvent } from '../../services/analyticsEventService'
 
 const router = Router()
 
-router.use(appAuthMiddleware)
+const errorEventTypes = new Set<AnalyticsEventType>([
+  AnalyticsEventType.APP_ERROR,
+  AnalyticsEventType.API_ERROR,
+  AnalyticsEventType.AUDIO_ERROR,
+  AnalyticsEventType.SERVER_ERROR,
+])
+
+router.use(optionalAppAuthMiddleware)
 
 router.post('/events', analyticsEventValidation, async (req: Request, res: Response) => {
   const errors = validationResult(req)
@@ -20,9 +28,35 @@ router.post('/events', analyticsEventValidation, async (req: Request, res: Respo
   const eventType = getSingleString(req.body.eventType) as AnalyticsEventType | undefined
   const audioId = getSingleString(req.body.audioId)
   const articleId = getSingleString(req.body.articleId)
+  const metadata = typeof req.body.metadata === 'object' && req.body.metadata !== null && !Array.isArray(req.body.metadata)
+    ? req.body.metadata as Record<string, unknown>
+    : undefined
 
   if (!eventType) {
     res.status(400).json({ error: 'Tipo evento non valido' })
+    return
+  }
+
+  if (audioId && articleId) {
+    res.status(400).json({ error: 'Specifica un solo contenuto per evento' })
+    return
+  }
+
+  if (errorEventTypes.has(eventType)) {
+    await createAnalyticsEvent({
+      userId: req.adminUser?.id ?? null,
+      eventType,
+      audioId,
+      articleId,
+      metadata,
+    })
+
+    res.status(201).json({ success: true })
+    return
+  }
+
+  if (!req.adminUser?.id) {
+    res.status(401).json({ error: 'Autenticazione richiesta per questo evento' })
     return
   }
 
@@ -43,13 +77,10 @@ router.post('/events', analyticsEventValidation, async (req: Request, res: Respo
       return
     }
 
-    await prisma.analyticsEvent.create({
-      data: {
-        userId: req.adminUser!.id,
-        contentType: 'AUDIO',
-        eventType,
-        audioId,
-      },
+    await createAnalyticsEvent({
+      userId: req.adminUser.id,
+      eventType,
+      audioId,
     })
 
     res.status(201).json({ success: true })
@@ -72,13 +103,10 @@ router.post('/events', analyticsEventValidation, async (req: Request, res: Respo
       return
     }
 
-    await prisma.analyticsEvent.create({
-      data: {
-        userId: req.adminUser!.id,
-        contentType: 'ARTICLE',
-        eventType,
-        articleId,
-      },
+    await createAnalyticsEvent({
+      userId: req.adminUser.id,
+      eventType,
+      articleId,
     })
 
     res.status(201).json({ success: true })

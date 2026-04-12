@@ -307,6 +307,21 @@ export const appAuthMiddleware = buildAuthMiddleware(appResolveOptions)
 
 export const adminAuthMiddleware = buildAuthMiddleware(adminResolveOptions)
 
+export async function optionalAppAuthMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const result = await resolveRequestAuth(req, {
+    ...appResolveOptions,
+    logMissingToken: false,
+  })
+
+  if (result.kind === 'authenticated') {
+    req.adminUser = result.principal
+  } else {
+    clearCookieIfNeeded(res, result.clearCookieName)
+  }
+
+  next()
+}
+
 export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
   if (req.adminUser?.role !== UserRole.ADMIN || req.adminUser?.isBootstrap) {
     res.status(403).json({ error: 'Operazione riservata agli amministratori' })

@@ -228,10 +228,23 @@ export const smtpSettingsValidation = [
 
 export const analyticsEventValidation = [
   body('eventType')
-    .isIn(['AUDIO_VIEW', 'AUDIO_PLAY', 'AUDIO_COMPLETE', 'ARTICLE_VIEW'])
+    .isIn([
+      'AUDIO_VIEW',
+      'AUDIO_PLAY',
+      'AUDIO_COMPLETE',
+      'ARTICLE_VIEW',
+      'APP_ERROR',
+      'API_ERROR',
+      'AUDIO_ERROR',
+      'SERVER_ERROR',
+    ])
     .withMessage('Tipo evento non valido'),
   body('audioId').optional({ values: 'falsy' }).isUUID().withMessage('audioId non valido'),
   body('articleId').optional({ values: 'falsy' }).isUUID().withMessage('articleId non valido'),
+  body('metadata')
+    .optional({ values: 'falsy' })
+    .custom((value) => typeof value === 'object' && value !== null && !Array.isArray(value))
+    .withMessage('metadata non valida'),
 ]
 
 export const analyticsOverviewQuery = [

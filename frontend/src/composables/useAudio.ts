@@ -2,7 +2,7 @@ import { watch, onUnmounted } from 'vue'
 import type Hls from 'hls.js'
 import { usePlayerStore } from '../stores/playerStore'
 import type { PlayingAudio } from '../stores/playerStore'
-import { trackAudioComplete, trackAudioPlay } from '../services/analyticsService'
+import { trackAudioComplete, trackAudioError, trackAudioPlay } from '../services/analyticsService'
 
 let audio: HTMLAudioElement | null = null
 let hls: Hls | null = null
@@ -63,6 +63,15 @@ export function useAudio() {
 
             player.isLoading = false
             player.isPlaying = false
+            void trackAudioError(new Error(data.details || 'HLS playback error'), {
+              audioId: audioItem.id,
+              metadata: {
+                source: 'hls-fatal-error',
+                fatal: data.fatal,
+                type: data.type,
+                details: data.details,
+              },
+            })
             reject(new Error(data.details || 'HLS playback error'))
           })
 
@@ -108,6 +117,15 @@ export function useAudio() {
     audio.addEventListener('error', () => {
       player.isLoading = false
       player.isPlaying = false
+
+      const mediaError = audio?.error
+      void trackAudioError(new Error(mediaError?.message || 'Audio element error'), {
+        audioId: player.currentAudio?.id,
+        metadata: {
+          source: 'html-audio-error',
+          code: mediaError?.code,
+        },
+      })
     })
   }
 
@@ -123,7 +141,14 @@ export function useAudio() {
       await attachPlaybackSource(audioItem)
       await audio!.play()
       void trackAudioPlay(audioItem.id)
-    } catch {
+    } catch (error) {
+      void trackAudioError(error, {
+        audioId: audioItem.id,
+        metadata: {
+          source: 'audio-watch-playback-start',
+          playbackType: audioItem.playbackType,
+        },
+      })
       player.isPlaying = false
     }
   })
@@ -132,7 +157,13 @@ export function useAudio() {
   watch(() => player.isPlaying, (playing) => {
     if (!audio || !audio.src) return
     if (playing) {
-      audio.play().catch(() => {
+      audio.play().catch((error) => {
+        void trackAudioError(error, {
+          audioId: player.currentAudio?.id,
+          metadata: {
+            source: 'audio-play-promise',
+          },
+        })
         player.isPlaying = false
       })
     } else {

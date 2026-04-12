@@ -146,6 +146,7 @@ router.get('/overview', analyticsOverviewQuery, async (req: Request, res: Respon
     audioPlays,
     audioCompletions,
     articleViews,
+    errorEvents,
     activeUsers,
     audioMetricRows,
     articleMetricRows,
@@ -157,8 +158,24 @@ router.get('/overview', analyticsOverviewQuery, async (req: Request, res: Respon
     prisma.analyticsEvent.count({ where: { ...baseWhere, eventType: AnalyticsEventType.AUDIO_PLAY } }),
     prisma.analyticsEvent.count({ where: { ...baseWhere, eventType: AnalyticsEventType.AUDIO_COMPLETE } }),
     prisma.analyticsEvent.count({ where: { ...baseWhere, eventType: AnalyticsEventType.ARTICLE_VIEW } }),
+    prisma.analyticsEvent.count({
+      where: {
+        ...baseWhere,
+        eventType: {
+          in: [
+            AnalyticsEventType.APP_ERROR,
+            AnalyticsEventType.API_ERROR,
+            AnalyticsEventType.AUDIO_ERROR,
+            AnalyticsEventType.SERVER_ERROR,
+          ],
+        },
+      },
+    }),
     prisma.analyticsEvent.findMany({
-      where: baseWhere,
+      where: {
+        ...baseWhere,
+        userId: { not: null },
+      },
       distinct: ['userId'],
       select: { userId: true },
     }),
@@ -189,7 +206,10 @@ router.get('/overview', analyticsOverviewQuery, async (req: Request, res: Respon
     }),
     prisma.analyticsEvent.groupBy({
       by: ['userId', 'eventType'],
-      where: baseWhere,
+      where: {
+        ...baseWhere,
+        userId: { not: null },
+      },
       _count: { userId: true },
     }),
     prisma.analyticsEvent.findMany({
@@ -205,6 +225,7 @@ router.get('/overview', analyticsOverviewQuery, async (req: Request, res: Respon
         id: true,
         eventType: true,
         occurredAt: true,
+        metadata: true,
         user: {
           select: {
             id: true,
@@ -242,7 +263,11 @@ router.get('/overview', analyticsOverviewQuery, async (req: Request, res: Respon
   const articleIds = articleMetricRows
     .map((row) => row.articleId)
     .filter((id): id is string => Boolean(id))
-  const userIds = Array.from(new Set(userMetricRows.map((row) => row.userId)))
+  const userIds = Array.from(new Set(
+    userMetricRows
+      .map((row) => row.userId)
+      .filter((id): id is string => Boolean(id)),
+  ))
 
   const [audioDetails, articleDetails, userDetails] = await Promise.all([
     audioIds.length
@@ -363,6 +388,8 @@ router.get('/overview', analyticsOverviewQuery, async (req: Request, res: Respon
   }>()
 
   userMetricRows.forEach((row) => {
+    if (!row.userId) return
+
     const current = userCountMap.get(row.userId) || {
       totalEvents: 0,
       audioViews: 0,
@@ -408,6 +435,7 @@ router.get('/overview', analyticsOverviewQuery, async (req: Request, res: Respon
     audioPlays: number
     audioCompletions: number
     articleViews: number
+    errorEvents: number
   }>()
 
   for (let index = 0; index < periodDays; index += 1) {
@@ -420,6 +448,7 @@ router.get('/overview', analyticsOverviewQuery, async (req: Request, res: Respon
       audioPlays: 0,
       audioCompletions: 0,
       articleViews: 0,
+      errorEvents: 0,
     })
   }
 
@@ -432,6 +461,14 @@ router.get('/overview', analyticsOverviewQuery, async (req: Request, res: Respon
     if (event.eventType === AnalyticsEventType.AUDIO_PLAY) day.audioPlays += 1
     if (event.eventType === AnalyticsEventType.AUDIO_COMPLETE) day.audioCompletions += 1
     if (event.eventType === AnalyticsEventType.ARTICLE_VIEW) day.articleViews += 1
+    if (
+      event.eventType === AnalyticsEventType.APP_ERROR
+      || event.eventType === AnalyticsEventType.API_ERROR
+      || event.eventType === AnalyticsEventType.AUDIO_ERROR
+      || event.eventType === AnalyticsEventType.SERVER_ERROR
+    ) {
+      day.errorEvents += 1
+    }
   })
 
   res.json({
@@ -449,6 +486,7 @@ router.get('/overview', analyticsOverviewQuery, async (req: Request, res: Respon
       audioPlays,
       audioCompletions,
       articleViews,
+      errorEvents,
       activeUsers: activeUsers.length,
     },
     topAudio,
@@ -461,6 +499,7 @@ router.get('/overview', analyticsOverviewQuery, async (req: Request, res: Respon
       id: event.id,
       eventType: event.eventType,
       occurredAt: event.occurredAt,
+      metadata: event.metadata,
       user: event.user,
       audio: event.audio
         ? {

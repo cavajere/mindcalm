@@ -36,6 +36,7 @@ const overview = ref<{
     audioPlays: number
     audioCompletions: number
     articleViews: number
+    errorEvents: number
     activeUsers: number
   }
   topAudio: Array<{
@@ -94,12 +95,22 @@ const overview = ref<{
     audioPlays: number
     audioCompletions: number
     articleViews: number
+    errorEvents: number
   }>
   recentEvents: Array<{
     id: string
-    eventType: 'AUDIO_VIEW' | 'AUDIO_PLAY' | 'AUDIO_COMPLETE' | 'ARTICLE_VIEW'
+    eventType:
+      | 'AUDIO_VIEW'
+      | 'AUDIO_PLAY'
+      | 'AUDIO_COMPLETE'
+      | 'ARTICLE_VIEW'
+      | 'APP_ERROR'
+      | 'API_ERROR'
+      | 'AUDIO_ERROR'
+      | 'SERVER_ERROR'
     occurredAt: string
-    user: { id: string; name: string; email: string }
+    metadata: Record<string, unknown> | null
+    user: { id: string; name: string; email: string } | null
     audio: { id: string; title: string; categoryName: string } | null
     article: { id: string; title: string; author: string } | null
   }>
@@ -115,7 +126,7 @@ const maxDailyEvents = computed(() =>
   Math.max(
     1,
     ...(overview.value?.dailyActivity.map((day) =>
-      day.audioViews + day.audioPlays + day.audioCompletions + day.articleViews,
+      day.audioViews + day.audioPlays + day.audioCompletions + day.articleViews + day.errorEvents,
     ) || [1]),
   ),
 )
@@ -209,7 +220,31 @@ function eventLabel(eventType: string) {
   if (eventType === 'AUDIO_VIEW') return 'Vista audio'
   if (eventType === 'AUDIO_PLAY') return 'Play audio'
   if (eventType === 'AUDIO_COMPLETE') return 'Audio completato'
+  if (eventType === 'APP_ERROR') return 'Errore app'
+  if (eventType === 'API_ERROR') return 'Errore API'
+  if (eventType === 'AUDIO_ERROR') return 'Errore audio'
+  if (eventType === 'SERVER_ERROR') return 'Errore server'
   return 'Lettura articolo'
+}
+
+function formatEventDetails(event: NonNullable<typeof overview.value>['recentEvents'][number]) {
+  const metadata = event.metadata || {}
+
+  const requestLabel =
+    typeof metadata.requestMethod === 'string' && typeof metadata.requestPath === 'string'
+      ? `${metadata.requestMethod} ${metadata.requestPath}`
+      : typeof metadata.requestPath === 'string'
+        ? metadata.requestPath
+        : typeof metadata.routePath === 'string'
+          ? metadata.routePath
+          : null
+
+  return [
+    typeof metadata.source === 'string' ? metadata.source : null,
+    requestLabel,
+    typeof metadata.status === 'number' ? `HTTP ${metadata.status}` : null,
+    typeof metadata.message === 'string' ? metadata.message : null,
+  ].filter(Boolean).join(' · ') || 'n/d'
 }
 
 watch(periodPreset, () => {
@@ -333,7 +368,7 @@ onMounted(async () => {
     <div v-if="loading" class="text-sm text-text-secondary">Caricamento analytics...</div>
 
     <template v-else-if="overview">
-      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-4 mb-8">
+      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-7 gap-4 mb-8">
         <div class="card">
           <p class="text-sm text-text-secondary mb-1">Audio visti</p>
           <p class="text-3xl font-bold text-text-primary">{{ overview.totals.audioViews }}</p>
@@ -349,6 +384,10 @@ onMounted(async () => {
         <div class="card">
           <p class="text-sm text-text-secondary mb-1">Articoli letti</p>
           <p class="text-3xl font-bold text-text-primary">{{ overview.totals.articleViews }}</p>
+        </div>
+        <div class="card">
+          <p class="text-sm text-text-secondary mb-1">Errori app</p>
+          <p class="text-3xl font-bold text-red-600">{{ overview.totals.errorEvents }}</p>
         </div>
         <div class="card">
           <p class="text-sm text-text-secondary mb-1">Utenti attivi</p>
@@ -373,8 +412,8 @@ onMounted(async () => {
             <div class="w-full max-w-10 h-36 flex items-end">
               <div
                 class="w-full rounded-t-lg bg-gradient-to-t from-primary to-secondary/60 min-h-1"
-                :style="{ height: `${Math.max(4, ((day.audioViews + day.audioPlays + day.audioCompletions + day.articleViews) / maxDailyEvents) * 100)}%` }"
-                :title="`${formatDay(day.date)} · ${(day.audioViews + day.audioPlays + day.audioCompletions + day.articleViews)} eventi`"
+                :style="{ height: `${Math.max(4, ((day.audioViews + day.audioPlays + day.audioCompletions + day.articleViews + day.errorEvents) / maxDailyEvents) * 100)}%` }"
+                :title="`${formatDay(day.date)} · ${(day.audioViews + day.audioPlays + day.audioCompletions + day.articleViews + day.errorEvents)} eventi`"
               />
             </div>
             <div class="text-[11px] text-text-secondary text-center">
@@ -544,6 +583,7 @@ onMounted(async () => {
                 <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Quando</th>
                 <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Evento</th>
                 <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Contenuto</th>
+                <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Dettagli</th>
                 <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Utente</th>
               </tr>
             </thead>
@@ -560,10 +600,19 @@ onMounted(async () => {
                     <p class="font-medium text-text-primary">{{ event.article.title }}</p>
                     <p class="text-xs text-text-secondary mt-1">{{ event.article.author }}</p>
                   </div>
+                  <div v-else class="text-text-secondary">
+                    Sistema
+                  </div>
+                </td>
+                <td class="px-4 py-3 text-sm text-text-secondary">
+                  {{ formatEventDetails(event) }}
                 </td>
                 <td class="px-4 py-3 text-sm">
-                  <p class="font-medium text-text-primary">{{ event.user.name }}</p>
-                  <p class="text-xs text-text-secondary mt-1">{{ event.user.email }}</p>
+                  <template v-if="event.user">
+                    <p class="font-medium text-text-primary">{{ event.user.name }}</p>
+                    <p class="text-xs text-text-secondary mt-1">{{ event.user.email }}</p>
+                  </template>
+                  <p v-else class="text-text-secondary">Anonimo</p>
                 </td>
               </tr>
             </tbody>
