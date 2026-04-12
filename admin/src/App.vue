@@ -36,6 +36,7 @@ const primaryNavItems: NavLeafItem[] = [
 
 const adminNavItems: NavLeafItem[] = [
   { path: '/settings/smtp', label: 'SMTP', shortLabel: 'SMTP' },
+  { path: '/settings/storage', label: 'Storage', shortLabel: 'ST' },
   { path: '/settings/backup-restore', label: 'Backup & Restore', shortLabel: 'BR' },
   { path: '/audit-logs', label: 'Log attivita', shortLabel: 'Log' },
   { path: '/categories', label: 'Categorie', shortLabel: 'Categorie' },

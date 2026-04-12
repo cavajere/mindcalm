@@ -19,7 +19,8 @@ import {
   restoreLocalBackup,
   saveBackupSettings,
 } from '../../services/backupService'
-import { smtpSettingsValidation } from '../../utils/validators'
+import { getPaginatedUnlinkedStorageItems, getStorageOverview } from '../../services/storageOverviewService'
+import { paginationQuery, smtpSettingsValidation } from '../../utils/validators'
 import { getBoolean, getNumber, getSingleString } from '../../utils/request'
 import { getSmtpSettingsForAdmin, saveSmtpSettings, sendTestMail } from '../../services/smtpService'
 import { getAuditActorFromRequest, logAuditEventSafe } from '../../services/auditLogService'
@@ -125,6 +126,24 @@ router.post('/smtp/test', async (req: Request, res: Response) => {
 router.get('/backup', async (_req: Request, res: Response) => {
   const overview = await getBackupOverview()
   res.json(overview)
+})
+
+router.get('/storage', async (_req: Request, res: Response) => {
+  const overview = await getStorageOverview()
+  res.json(overview)
+})
+
+router.get('/storage/unlinked', paginationQuery, async (req: Request, res: Response) => {
+  const errors = validationResult(req)
+  if (!errors.isEmpty()) {
+    res.status(400).json({ error: 'Parametri paginazione non validi', details: errors.array() })
+    return
+  }
+
+  const page = Number(req.query.page) || 1
+  const limit = Number(req.query.limit) || 20
+  const result = await getPaginatedUnlinkedStorageItems(page, limit)
+  res.json(result)
 })
 
 router.put('/backup', async (req: Request, res: Response) => {
