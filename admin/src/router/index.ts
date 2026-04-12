@@ -25,13 +25,22 @@ const router = createRouter({
     { path: '/users/new', component: () => import('../views/UserFormView.vue'), meta: { requiresAuth: true } },
     { path: '/users/:id/edit', component: () => import('../views/UserFormView.vue'), meta: { requiresAuth: true } },
     { path: '/settings/smtp', component: () => import('../views/SmtpSettingsView.vue'), meta: { requiresAuth: true } },
+    { path: '/:pathMatch(.*)*', redirect: '/login' },
   ],
 })
 
 router.beforeEach((to) => {
   const auth = useAuthStore()
+  if (!to.matched.length) {
+    return auth.isAuthenticated ? '/' : '/login'
+  }
+
   if (to.meta.requiresAuth && !auth.isAuthenticated) {
     return '/login'
+  }
+
+  if (to.path === '/login' && auth.isAuthenticated) {
+    return '/'
   }
 })
 

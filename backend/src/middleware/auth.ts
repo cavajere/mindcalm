@@ -26,8 +26,10 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
   const bearerToken = header?.startsWith('Bearer ') ? header.slice(7) : null
   const cookieToken = req.cookies?.[config.jwt.appCookieName]
   const token = bearerToken || cookieToken
+  const requestLabel = `${req.method} ${req.originalUrl}`
 
   if (!token) {
+    console.warn(`[Auth] Token mancante su ${requestLabel}`)
     res.status(401).json({ error: 'Token mancante' })
     return
   }
@@ -41,12 +43,28 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
       select: { id: true, email: true, name: true, role: true, isActive: true, licenseExpiresAt: true, sessionVersion: true },
     })
 
-    if (!user || !user.isActive || user.sessionVersion !== tokenSessionVersion) {
+    if (!user) {
+      console.warn(`[Auth] Utente non trovato per token valido su ${requestLabel} (userId=${payload.id})`)
+      res.status(401).json({ error: 'Utente non autorizzato' })
+      return
+    }
+
+    if (!user.isActive) {
+      console.warn(`[Auth] Utente inattivo su ${requestLabel} (userId=${user.id}, email=${user.email})`)
+      res.status(401).json({ error: 'Utente non autorizzato' })
+      return
+    }
+
+    if (user.sessionVersion !== tokenSessionVersion) {
+      console.warn(
+        `[Auth] Session version non valida su ${requestLabel} (userId=${user.id}, email=${user.email}, token=${tokenSessionVersion}, db=${user.sessionVersion})`,
+      )
       res.status(401).json({ error: 'Utente non autorizzato' })
       return
     }
 
     if (isLicenseExpired(user)) {
+      console.warn(`[Auth] Licenza scaduta su ${requestLabel} (userId=${user.id}, email=${user.email})`)
       if (cookieToken) {
         res.clearCookie(config.jwt.appCookieName, {
           httpOnly: true,
@@ -67,7 +85,9 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
       role: user.role,
     }
     next()
-  } catch {
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : 'Errore sconosciuto'
+    console.warn(`[Auth] Token non valido o scaduto su ${requestLabel}: ${reason}`)
     res.status(401).json({ error: 'Token non valido o scaduto' })
   }
 }

@@ -78,6 +78,10 @@ if (config.isProduction) {
   const adminDir = path.resolve(__dirname, 'public/admin')
 
   // Admin SPA (must be before frontend catch-all)
+  app.get('/admin', (_req, res) => {
+    console.info(`[Admin] Redirect ${_req.method} ${_req.originalUrl} -> /admin/`)
+    res.redirect(301, '/admin/')
+  })
   app.use('/admin', express.static(adminDir))
   app.get('/admin/*', (_req, res) => {
     res.sendFile(path.join(adminDir, 'index.html'))
