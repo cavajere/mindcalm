@@ -119,6 +119,8 @@ model Audio {
   level       Level     @default(BEGINNER)
   durationSec Int
   audioFile   String
+  audioOriginalName String
+  audioDisplayName  String
   audioFormat String
   audioSize   Int
   streamingFormat StreamingFormat @default(DIRECT)
@@ -126,6 +128,8 @@ model Audio {
   hlsManifestPath String?
   processingError String?
   coverImage  String?
+  coverImageOriginalName String?
+  coverImageDisplayName  String?
   status      Status    @default(DRAFT)
   publishedAt DateTime?
   createdAt   DateTime  @default(now())
@@ -149,6 +153,8 @@ model Article {
   excerpt     String?
   author      String
   coverImage  String?
+  coverImageOriginalName String?
+  coverImageDisplayName  String?
   status      Status    @default(DRAFT)
   publishedAt DateTime?
   createdAt   DateTime  @default(now())
@@ -224,13 +230,13 @@ model AnalyticsEvent {
   audio       Audio?               @relation(fields: [audioId], references: [id])
   articleId   String?
   article     Article?             @relation(fields: [articleId], references: [id])
+  metadata    Json?
   occurredAt  DateTime             @default(now())
 
   @@index([occurredAt])
   @@index([eventType, occurredAt])
   @@index([audioId, occurredAt])
   @@index([articleId, occurredAt])
-  metadata    Json?
   @@index([userId, occurredAt])
   @@map("analytics_events")
 }
@@ -385,16 +391,16 @@ enum AuditOutcome {
 enum AnalyticsContentType {
   AUDIO
   ARTICLE
+  SYSTEM
 }
 
 enum AnalyticsEventType {
   AUDIO_VIEW
   AUDIO_PLAY
   AUDIO_COMPLETE
-  SYSTEM
   ARTICLE_VIEW
-}
   APP_ERROR
   API_ERROR
   AUDIO_ERROR
   SERVER_ERROR
+}

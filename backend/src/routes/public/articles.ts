@@ -20,6 +20,8 @@ function mapArticleListItem(article: {
   excerpt: string | null
   author: string
   coverImage: string | null
+  coverImageOriginalName: string | null
+  coverImageDisplayName: string | null
   publishedAt: Date | null
   articleTags: Array<{ tag: { id: string; label: string; slug: string } }>
 }) {
@@ -30,6 +32,8 @@ function mapArticleListItem(article: {
     excerpt: article.excerpt,
     author: article.author,
     coverImage: article.coverImage ? `/api/files/images/${path.basename(article.coverImage)}` : null,
+    coverImageOriginalName: article.coverImageOriginalName,
+    coverImageDisplayName: article.coverImageDisplayName,
     publishedAt: article.publishedAt,
     tags: mapArticleTags(article.articleTags),
   }
@@ -90,6 +94,8 @@ router.get('/', articleFilterQuery, async (req: Request, res: Response) => {
         excerpt: true,
         author: true,
         coverImage: true,
+        coverImageOriginalName: true,
+        coverImageDisplayName: true,
         publishedAt: true,
         articleTags: include.articleTags,
       },
@@ -139,6 +145,8 @@ router.get('/', articleFilterQuery, async (req: Request, res: Response) => {
         excerpt: true,
         author: true,
         coverImage: true,
+        coverImageOriginalName: true,
+        coverImageDisplayName: true,
         publishedAt: true,
         articleTags: include.articleTags,
       },
@@ -185,6 +193,8 @@ router.get('/:slug', async (req: Request, res: Response) => {
     excerpt: article.excerpt,
     author: article.author,
     coverImage: article.coverImage ? `/api/files/images/${path.basename(article.coverImage)}` : null,
+    coverImageOriginalName: article.coverImageOriginalName,
+    coverImageDisplayName: article.coverImageDisplayName,
     publishedAt: article.publishedAt,
     tags: mapArticleTags(article.articleTags),
   })

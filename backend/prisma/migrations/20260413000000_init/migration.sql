@@ -44,10 +44,10 @@ CREATE TYPE "AuditEntityType" AS ENUM ('AUTH', 'USER', 'INVITE_CODE', 'REGISTRAT
 CREATE TYPE "AuditOutcome" AS ENUM ('SUCCESS', 'FAILURE');
 
 -- CreateEnum
-CREATE TYPE "AnalyticsContentType" AS ENUM ('AUDIO', 'ARTICLE');
+CREATE TYPE "AnalyticsContentType" AS ENUM ('AUDIO', 'ARTICLE', 'SYSTEM');
 
 -- CreateEnum
-CREATE TYPE "AnalyticsEventType" AS ENUM ('AUDIO_VIEW', 'AUDIO_PLAY', 'AUDIO_COMPLETE', 'ARTICLE_VIEW');
+CREATE TYPE "AnalyticsEventType" AS ENUM ('AUDIO_VIEW', 'AUDIO_PLAY', 'AUDIO_COMPLETE', 'ARTICLE_VIEW', 'APP_ERROR', 'API_ERROR', 'AUDIO_ERROR', 'SERVER_ERROR');
 
 -- CreateTable
 CREATE TABLE "admin_users" (
@@ -151,6 +151,8 @@ CREATE TABLE "audio" (
     "level" "Level" NOT NULL DEFAULT 'BEGINNER',
     "durationSec" INTEGER NOT NULL,
     "audioFile" TEXT NOT NULL,
+    "audioOriginalName" TEXT NOT NULL,
+    "audioDisplayName" TEXT NOT NULL,
     "audioFormat" TEXT NOT NULL,
     "audioSize" INTEGER NOT NULL,
     "streamingFormat" "StreamingFormat" NOT NULL DEFAULT 'DIRECT',
@@ -158,6 +160,8 @@ CREATE TABLE "audio" (
     "hlsManifestPath" TEXT,
     "processingError" TEXT,
     "coverImage" TEXT,
+    "coverImageOriginalName" TEXT,
+    "coverImageDisplayName" TEXT,
     "status" "Status" NOT NULL DEFAULT 'DRAFT',
     "publishedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -176,6 +180,8 @@ CREATE TABLE "articles" (
     "excerpt" TEXT,
     "author" TEXT NOT NULL,
     "coverImage" TEXT,
+    "coverImageOriginalName" TEXT,
+    "coverImageDisplayName" TEXT,
     "status" "Status" NOT NULL DEFAULT 'DRAFT',
     "publishedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -227,11 +233,12 @@ CREATE TABLE "article_tags" (
 -- CreateTable
 CREATE TABLE "analytics_events" (
     "id" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
+    "userId" TEXT,
     "contentType" "AnalyticsContentType" NOT NULL,
     "eventType" "AnalyticsEventType" NOT NULL,
     "audioId" TEXT,
     "articleId" TEXT,
+    "metadata" JSONB,
     "occurredAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "analytics_events_pkey" PRIMARY KEY ("id")
@@ -332,9 +339,6 @@ CREATE INDEX "tags_isActive_sortOrder_idx" ON "tags"("isActive", "sortOrder");
 CREATE INDEX "tags_label_idx" ON "tags"("label");
 
 -- CreateIndex
-CREATE INDEX "tag_aliases_alias_idx" ON "tag_aliases"("alias");
-
--- CreateIndex
 CREATE INDEX "audio_title_trgm_idx" ON "audio" USING GIN (lower(immutable_unaccent("title")) gin_trgm_ops);
 
 -- CreateIndex
@@ -345,6 +349,9 @@ CREATE INDEX "tag_aliases_alias_trgm_idx" ON "tag_aliases" USING GIN (lower(immu
 
 -- CreateIndex
 CREATE INDEX "tags_label_trgm_idx" ON "tags" USING GIN (lower(immutable_unaccent("label")) gin_trgm_ops);
+
+-- CreateIndex
+CREATE INDEX "tag_aliases_alias_idx" ON "tag_aliases"("alias");
 
 -- CreateIndex
 CREATE INDEX "tag_aliases_tagId_idx" ON "tag_aliases"("tagId");
@@ -428,7 +435,7 @@ ALTER TABLE "article_tags" ADD CONSTRAINT "article_tags_articleId_fkey" FOREIGN 
 ALTER TABLE "article_tags" ADD CONSTRAINT "article_tags_tagId_fkey" FOREIGN KEY ("tagId") REFERENCES "tags"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "analytics_events" ADD CONSTRAINT "analytics_events_userId_fkey" FOREIGN KEY ("userId") REFERENCES "admin_users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "analytics_events" ADD CONSTRAINT "analytics_events_userId_fkey" FOREIGN KEY ("userId") REFERENCES "admin_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "analytics_events" ADD CONSTRAINT "analytics_events_audioId_fkey" FOREIGN KEY ("audioId") REFERENCES "audio"("id") ON DELETE SET NULL ON UPDATE CASCADE;

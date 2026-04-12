@@ -102,6 +102,8 @@ function mapAudioListItem(audio: {
   level: string
   durationSec: number
   coverImage: string | null
+  coverImageOriginalName: string | null
+  coverImageDisplayName: string | null
   publishedAt: Date | null
   audioTags: Array<{ tag: { id: string; label: string; slug: string } }>
 }) {
@@ -113,6 +115,8 @@ function mapAudioListItem(audio: {
     level: audio.level,
     durationSec: audio.durationSec,
     coverImage: audio.coverImage ? `/api/files/images/${path.basename(audio.coverImage)}` : null,
+    coverImageOriginalName: audio.coverImageOriginalName,
+    coverImageDisplayName: audio.coverImageDisplayName,
     publishedAt: audio.publishedAt,
     tags: mapAudioTags(audio.audioTags),
   }
@@ -262,7 +266,11 @@ router.get('/:id', async (req: Request, res: Response) => {
     durationSec: audio.durationSec,
     audioFormat: audio.audioFormat,
     audioSize: audio.audioSize,
+    audioFileOriginalName: audio.audioOriginalName,
+    audioFileDisplayName: audio.audioDisplayName,
     coverImage: audio.coverImage ? `/api/files/images/${path.basename(audio.coverImage)}` : null,
+    coverImageOriginalName: audio.coverImageOriginalName,
+    coverImageDisplayName: audio.coverImageDisplayName,
     publishedAt: audio.publishedAt,
     tags: mapAudioTags(audio.audioTags),
     streaming: {

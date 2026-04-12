@@ -9,12 +9,13 @@ import { uploadAudioFiles } from '../../middleware/upload'
 import { audioValidation, statusValidation, paginationQuery } from '../../utils/validators'
 import { getAudioDuration, getAudioFormat } from '../../services/audioService'
 import { deleteDirectory, deleteFile, getHlsDirectoryPath } from '../../services/fileService'
-import { getSingleString } from '../../utils/request'
+import { getBoolean, getSingleString } from '../../utils/request'
 import { config } from '../../config'
 import { prisma } from '../../lib/prisma'
 import { getAuditActorFromRequest, logAuditEventSafe } from '../../services/auditLogService'
 import { MAX_TAGS_PER_CONTENT, ensureTagsExist, mapAudioTags, parseTagIds } from '../../services/tagService'
 import { transcodeAudioFileToHls } from '../../services/audioDeliveryService'
+import { buildUploadMetadata, renameStoredUpload } from '../../services/uploadMetadataService'
 
 const router = Router()
 
@@ -36,6 +37,62 @@ function validateAudioUploadSizes(files?: { [fieldname: string]: Express.Multer.
 }
 
 router.use(adminAuthMiddleware, requireAdmin)
+
+function buildImageUrl(filePath: string | null) {
+  return filePath ? `/api/files/images/${path.basename(filePath)}` : null
+}
+
+function serializeAdminAudio(audio: {
+  id: string
+  title: string
+  description: string
+  categoryId: string
+  category: { id: string; name: string; color: string | null } | null
+  level: Level
+  durationSec: number
+  audioFile: string
+  audioOriginalName: string
+  audioDisplayName: string
+  audioFormat: string
+  audioSize: number
+  streamingFormat: StreamingFormat
+  processingStatus: AudioProcessingStatus
+  processingError: string | null
+  status: Status
+  publishedAt: Date | null
+  createdAt: Date
+  updatedAt: Date
+  coverImage: string | null
+  coverImageOriginalName: string | null
+  coverImageDisplayName: string | null
+  audioTags: Array<{ tag: { id: string; label: string; slug: string } }>
+}) {
+  return {
+    id: audio.id,
+    title: audio.title,
+    description: audio.description,
+    categoryId: audio.categoryId,
+    category: audio.category,
+    level: audio.level,
+    durationSec: audio.durationSec,
+    audioFile: audio.audioFile,
+    audioFileOriginalName: audio.audioOriginalName,
+    audioFileDisplayName: audio.audioDisplayName,
+    audioFormat: audio.audioFormat,
+    audioSize: audio.audioSize,
+    streamingFormat: audio.streamingFormat,
+    processingStatus: audio.processingStatus,
+    processingError: audio.processingError,
+    status: audio.status,
+    publishedAt: audio.publishedAt,
+    createdAt: audio.createdAt,
+    updatedAt: audio.updatedAt,
+    coverImage: buildImageUrl(audio.coverImage),
+    coverImageOriginalName: audio.coverImageOriginalName,
+    coverImageDisplayName: audio.coverImageDisplayName,
+    tags: mapAudioTags(audio.audioTags),
+  }
+}
 
 // GET /api/admin/audio — elenco tutti gli audio (incluse bozze)
 router.get('/', paginationQuery, async (req: Request, res: Response) => {
@@ -64,29 +121,34 @@ router.get('/', paginationQuery, async (req: Request, res: Response) => {
   ])
 
   res.json({
-    data: audioItems.map((audio) => ({
-      id: audio.id,
-      title: audio.title,
-      description: audio.description,
-      categoryId: audio.categoryId,
-      category: audio.category,
-      level: audio.level,
-      durationSec: audio.durationSec,
-      audioFile: audio.audioFile,
-      audioFormat: audio.audioFormat,
-      audioSize: audio.audioSize,
-      streamingFormat: audio.streamingFormat,
-      processingStatus: audio.processingStatus,
-      processingError: audio.processingError,
-      status: audio.status,
-      publishedAt: audio.publishedAt,
-      createdAt: audio.createdAt,
-      updatedAt: audio.updatedAt,
-      coverImage: audio.coverImage ? `/api/files/images/${path.basename(audio.coverImage)}` : null,
-      tags: mapAudioTags(audio.audioTags),
-    })),
+    data: audioItems.map(serializeAdminAudio),
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   })
+})
+
+router.get('/:id', async (req: Request, res: Response) => {
+  const audioId = getSingleString(req.params.id)
+  if (!audioId) {
+    res.status(400).json({ error: 'ID audio non valido' })
+    return
+  }
+
+  const audio = await prisma.audio.findUnique({
+    where: { id: audioId },
+    include: {
+      category: { select: { id: true, name: true, color: true } },
+      audioTags: {
+        include: { tag: { select: { id: true, label: true, slug: true } } },
+      },
+    },
+  })
+
+  if (!audio) {
+    res.status(404).json({ error: 'Audio non trovato' })
+    return
+  }
+
+  res.json(serializeAdminAudio(audio))
 })
 
 // POST /api/admin/audio — crea audio
@@ -120,6 +182,10 @@ router.post('/',
     const durationSec = await getAudioDuration(audioFile.path)
     const audioFormat = getAudioFormat(audioFile.mimetype)
     const coverImageFile = files?.coverImage?.[0]
+    const audioNames = buildUploadMetadata(audioFile, getSingleString(req.body.audioFileDisplayName))
+    const coverImageNames = coverImageFile
+      ? buildUploadMetadata(coverImageFile, getSingleString(req.body.coverImageDisplayName))
+      : null
     const title = getSingleString(req.body.title)
     const description = getSingleString(req.body.description)
     const categoryId = getSingleString(req.body.categoryId)
@@ -153,6 +219,8 @@ router.post('/',
           level: (level as Level | undefined) || 'BEGINNER',
           durationSec,
           audioFile: `audio/${audioFile.filename}`,
+          audioOriginalName: audioNames.originalName,
+          audioDisplayName: audioNames.displayName,
           audioFormat,
           audioSize: audioFile.size,
           streamingFormat: StreamingFormat.HLS,
@@ -160,6 +228,8 @@ router.post('/',
           hlsManifestPath: hlsAsset.manifestPath,
           processingError: null,
           coverImage: coverImageFile ? `images/${coverImageFile.filename}` : null,
+          coverImageOriginalName: coverImageNames?.originalName ?? null,
+          coverImageDisplayName: coverImageNames?.displayName ?? null,
           status: status === 'PUBLISHED' ? 'PUBLISHED' : 'DRAFT',
           publishedAt: status === 'PUBLISHED' ? new Date() : null,
           audioTags: {
@@ -194,7 +264,7 @@ router.post('/',
         },
       })
 
-      res.status(201).json(audio)
+      res.status(201).json(serializeAdminAudio(audio))
     } catch (error) {
       removeUploadedFile(audioFile)
       removeUploadedFile(coverImageFile)
@@ -237,6 +307,9 @@ router.put('/:id',
     const categoryId = getSingleString(req.body.categoryId)
     const level = getSingleString(req.body.level)
     const status = getSingleString(req.body.status)
+    const requestedAudioDisplayName = getSingleString(req.body.audioFileDisplayName)
+    const requestedCoverImageDisplayName = getSingleString(req.body.coverImageDisplayName)
+    const removeCoverImage = getBoolean(req.body.removeCoverImage) === true
     const tagIds = parseTagIds(req.body.tagIds)
 
     if (tagIds.length > MAX_TAGS_PER_CONTENT) {
@@ -282,7 +355,10 @@ router.put('/:id',
     if (audioFile) {
       try {
         const hlsAsset = await transcodeAudioFileToHls(audioId, audioFile.path)
+        const audioNames = buildUploadMetadata(audioFile, requestedAudioDisplayName)
         data.audioFile = `audio/${audioFile.filename}`
+        data.audioOriginalName = audioNames.originalName
+        data.audioDisplayName = audioNames.displayName
         data.audioFormat = getAudioFormat(audioFile.mimetype)
         data.audioSize = audioFile.size
         data.durationSec = await getAudioDuration(audioFile.path)
@@ -297,12 +373,46 @@ router.put('/:id',
         res.status(422).json({ error: (error as Error).message || 'Impossibile aggiornare lo streaming HLS' })
         return
       }
+    } else if (requestedAudioDisplayName !== undefined) {
+      const audioNames = renameStoredUpload(
+        existing.audioOriginalName,
+        existing.audioDisplayName,
+        requestedAudioDisplayName,
+      )
+      if (audioNames.displayName !== existing.audioDisplayName || audioNames.originalName !== existing.audioOriginalName) {
+        data.audioOriginalName = audioNames.originalName
+        data.audioDisplayName = audioNames.displayName
+        changedFields.push('audioDisplayName')
+      }
     }
 
     if (coverImageFile) {
+      const coverImageNames = buildUploadMetadata(coverImageFile, requestedCoverImageDisplayName)
       if (existing.coverImage) deleteFile(existing.coverImage)
       data.coverImage = `images/${coverImageFile.filename}`
+      data.coverImageOriginalName = coverImageNames.originalName
+      data.coverImageDisplayName = coverImageNames.displayName
       changedFields.push('coverImage')
+    } else if (removeCoverImage && existing.coverImage) {
+      deleteFile(existing.coverImage)
+      data.coverImage = null
+      data.coverImageOriginalName = null
+      data.coverImageDisplayName = null
+      changedFields.push('coverImage')
+    } else if (requestedCoverImageDisplayName !== undefined && existing.coverImage) {
+      const coverImageNames = renameStoredUpload(
+        existing.coverImageOriginalName ?? '',
+        existing.coverImageDisplayName,
+        requestedCoverImageDisplayName,
+      )
+      if (
+        coverImageNames.displayName !== existing.coverImageDisplayName ||
+        coverImageNames.originalName !== existing.coverImageOriginalName
+      ) {
+        data.coverImageOriginalName = coverImageNames.originalName
+        data.coverImageDisplayName = coverImageNames.displayName
+        changedFields.push('coverImageDisplayName')
+      }
     }
 
     data.audioTags = {
@@ -343,7 +453,7 @@ router.put('/:id',
       },
     })
 
-    res.json(audio)
+    res.json(serializeAdminAudio(audio))
   }
 )
 

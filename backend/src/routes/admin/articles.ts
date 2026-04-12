@@ -7,14 +7,53 @@ import { uploadImage } from '../../middleware/upload'
 import { articleValidation, statusValidation, paginationQuery } from '../../utils/validators'
 import { extractPlainText, sanitizeBody } from '../../utils/sanitize'
 import { deleteFile } from '../../services/fileService'
-import { getSingleString } from '../../utils/request'
+import { getBoolean, getSingleString } from '../../utils/request'
 import { prisma } from '../../lib/prisma'
 import { getAuditActorFromRequest, logAuditEventSafe } from '../../services/auditLogService'
 import { MAX_TAGS_PER_CONTENT, createTagSlug, ensureTagsExist, mapArticleTags, parseTagIds } from '../../services/tagService'
+import { buildUploadMetadata, renameStoredUpload } from '../../services/uploadMetadataService'
 
 const router = Router()
 
 router.use(adminAuthMiddleware, requireAdmin)
+
+function buildImageUrl(filePath: string | null) {
+  return filePath ? `/api/files/images/${path.basename(filePath)}` : null
+}
+
+function serializeAdminArticle(article: {
+  id: string
+  title: string
+  slug: string
+  body: string
+  excerpt: string | null
+  author: string
+  status: Status
+  publishedAt: Date | null
+  createdAt: Date
+  updatedAt: Date
+  coverImage: string | null
+  coverImageOriginalName: string | null
+  coverImageDisplayName: string | null
+  articleTags: Array<{ tag: { id: string; label: string; slug: string } }>
+}) {
+  return {
+    id: article.id,
+    title: article.title,
+    slug: article.slug,
+    body: article.body,
+    excerpt: article.excerpt,
+    author: article.author,
+    status: article.status,
+    publishedAt: article.publishedAt,
+    createdAt: article.createdAt,
+    updatedAt: article.updatedAt,
+    coverImage: buildImageUrl(article.coverImage),
+    coverImageOriginalName: article.coverImageOriginalName,
+    coverImageDisplayName: article.coverImageDisplayName,
+    tags: mapArticleTags(article.articleTags),
+  }
+}
 
 // GET /api/admin/articles
 router.get('/', paginationQuery, async (req: Request, res: Response) => {
@@ -41,22 +80,33 @@ router.get('/', paginationQuery, async (req: Request, res: Response) => {
   ])
 
   res.json({
-    data: articles.map(a => ({
-      id: a.id,
-      title: a.title,
-      slug: a.slug,
-      body: a.body,
-      excerpt: a.excerpt,
-      author: a.author,
-      status: a.status,
-      publishedAt: a.publishedAt,
-      createdAt: a.createdAt,
-      updatedAt: a.updatedAt,
-      coverImage: a.coverImage ? `/api/files/images/${path.basename(a.coverImage)}` : null,
-      tags: mapArticleTags(a.articleTags),
-    })),
+    data: articles.map(serializeAdminArticle),
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   })
+})
+
+router.get('/:id', async (req: Request, res: Response) => {
+  const articleId = getSingleString(req.params.id)
+  if (!articleId) {
+    res.status(400).json({ error: 'ID articolo non valido' })
+    return
+  }
+
+  const article = await prisma.article.findUnique({
+    where: { id: articleId },
+    include: {
+      articleTags: {
+        include: { tag: { select: { id: true, label: true, slug: true } } },
+      },
+    },
+  })
+
+  if (!article) {
+    res.status(404).json({ error: 'Articolo non trovato' })
+    return
+  }
+
+  res.json(serializeAdminArticle(article))
 })
 
 // POST /api/admin/articles
@@ -77,6 +127,9 @@ router.post('/',
     const status = getSingleString(req.body.status)
     const tagIds = parseTagIds(req.body.tagIds)
     const slug = createTagSlug(title!)
+    const coverImageNames = req.file
+      ? buildUploadMetadata(req.file, getSingleString(req.body.coverImageDisplayName))
+      : null
 
     if (tagIds.length > MAX_TAGS_PER_CONTENT) {
       res.status(400).json({ error: `Massimo ${MAX_TAGS_PER_CONTENT} tag per contenuto` })
@@ -108,6 +161,8 @@ router.post('/',
         excerpt: excerpt || null,
         author: author!,
         coverImage: req.file ? `images/${req.file.filename}` : null,
+        coverImageOriginalName: coverImageNames?.originalName ?? null,
+        coverImageDisplayName: coverImageNames?.displayName ?? null,
         status: status === 'PUBLISHED' ? 'PUBLISHED' : 'DRAFT',
         publishedAt: status === 'PUBLISHED' ? new Date() : null,
         articleTags: {
@@ -139,7 +194,7 @@ router.post('/',
       },
     })
 
-    res.status(201).json(article)
+    res.status(201).json(serializeAdminArticle(article))
   }
 )
 
@@ -164,6 +219,8 @@ router.put('/:id',
     const author = getSingleString(req.body.author)
     const excerpt = getSingleString(req.body.excerpt)
     const status = getSingleString(req.body.status)
+    const requestedCoverImageDisplayName = getSingleString(req.body.coverImageDisplayName)
+    const removeCoverImage = getBoolean(req.body.removeCoverImage) === true
     const tagIds = parseTagIds(req.body.tagIds)
     const data: Prisma.ArticleUpdateInput = {}
     const changedFields: string[] = []
@@ -223,9 +280,32 @@ router.put('/:id',
     }
 
     if (req.file) {
+      const coverImageNames = buildUploadMetadata(req.file, requestedCoverImageDisplayName)
       if (existing.coverImage) deleteFile(existing.coverImage)
       data.coverImage = `images/${req.file.filename}`
+      data.coverImageOriginalName = coverImageNames.originalName
+      data.coverImageDisplayName = coverImageNames.displayName
       changedFields.push('coverImage')
+    } else if (removeCoverImage && existing.coverImage) {
+      deleteFile(existing.coverImage)
+      data.coverImage = null
+      data.coverImageOriginalName = null
+      data.coverImageDisplayName = null
+      changedFields.push('coverImage')
+    } else if (requestedCoverImageDisplayName !== undefined && existing.coverImage) {
+      const coverImageNames = renameStoredUpload(
+        existing.coverImageOriginalName ?? '',
+        existing.coverImageDisplayName,
+        requestedCoverImageDisplayName,
+      )
+      if (
+        coverImageNames.displayName !== existing.coverImageDisplayName ||
+        coverImageNames.originalName !== existing.coverImageOriginalName
+      ) {
+        data.coverImageOriginalName = coverImageNames.originalName
+        data.coverImageDisplayName = coverImageNames.displayName
+        changedFields.push('coverImageDisplayName')
+      }
     }
 
     data.articleTags = {
@@ -261,7 +341,7 @@ router.put('/:id',
       },
     })
 
-    res.json(article)
+    res.json(serializeAdminArticle(article))
   }
 )
 
