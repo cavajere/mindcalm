@@ -7,18 +7,15 @@ import AudioPlayer from './components/AudioPlayer.vue'
 import InstallPrompt from './components/InstallPrompt.vue'
 import AppHeader from './components/AppHeader.vue'
 import { usePlayerStore } from './stores/playerStore'
-import { useAuthStore } from './stores/authStore'
 
 const ui = useUiStore()
 const player = usePlayerStore()
-const auth = useAuthStore()
 const route = useRoute()
 
 useAudio()
 
 onMounted(() => {
   ui.initTheme()
-  auth.initialize()
 })
 </script>
 

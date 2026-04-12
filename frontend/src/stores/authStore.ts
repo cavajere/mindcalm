@@ -24,7 +24,7 @@ function isLicenseExpiredError(error: unknown): error is { response: { data?: { 
 }
 
 export const useAuthStore = defineStore('app-auth', () => {
-  const user = ref<AppUser | null>(null)
+  const user = ref<AppUser | null>(loadUserSnapshot())
   const initialized = ref(false)
   const licenseExpiredAt = ref<string | null>(null)
   const isAuthenticated = computed(() => !!user.value)

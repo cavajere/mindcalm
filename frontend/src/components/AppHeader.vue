@@ -79,6 +79,12 @@ async function handleLogout() {
 }
 
 async function loadContentAvailability() {
+  if (!auth.isAuthenticated) {
+    hasAudio.value = false
+    hasArticles.value = false
+    return
+  }
+
   const [audioResult, articlesResult] = await Promise.allSettled([
     axios.get('/api/v1/audio?limit=1'),
     axios.get('/api/v1/articles?limit=1'),

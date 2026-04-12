@@ -28,7 +28,11 @@ const router = createRouter({
 
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
-  await auth.initialize()
+  const shouldInitializeAuth = !auth.initialized && (Boolean(to.meta.requiresAuth) || auth.isAuthenticated)
+
+  if (shouldInitializeAuth) {
+    await auth.initialize()
+  }
 
   if (to.meta.requiresAuth && auth.isLicenseExpired) {
     return auth.getLicenseExpiredRouteLocation()
