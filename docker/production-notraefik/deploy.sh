@@ -16,6 +16,7 @@ KEEP_DATA=true
 RESET_DATA=false
 AUTO_YES=false
 API_PORT=3003
+DEPLOY_BRANCH=""
 
 compose() {
   docker compose -f "${COMPOSE_DIR}/docker-compose.yml" --env-file "${ENV_FILE}" "$@"
@@ -23,22 +24,23 @@ compose() {
 
 usage() {
   cat <<'EOF'
-Usage: ./deploy.sh [--keep-data] [--reset-data] [--yes] [--help]
+Usage: ./deploy.sh [--keep-data] [--reset-data] [--yes] [--branch <name>] [--help]
 
 Options:
   --keep-data   Preserva database e storage, esegue un aggiornamento conservativo (default)
   --reset-data  Reinstallazione completa: distrugge database, storage e volumi Docker
   --yes         Salta la conferma interattiva
+  --branch      Branch git da deployare (default: DEPLOY_BRANCH da .env oppure branch locale corrente)
   --help        Mostra questo messaggio
 
 Behavior:
   Default:
-    - aggiorna il repository con git pull --ff-only origin main
+    - aggiorna il repository con git pull --ff-only origin <branch-target>
     - preserva database e storage
     - ricostruisce e riavvia lo stack
 
   Con --reset-data:
-    - aggiorna il repository con git pull --ff-only origin main
+    - aggiorna il repository con git pull --ff-only origin <branch-target>
     - ferma e rimuove lo stack Docker
     - rimuove anche volumi Docker e directory dati bind-mounted
     - ricrea tutto da zero e rilancia il deploy
@@ -108,6 +110,11 @@ parse_args() {
       --yes)
         AUTO_YES=true
         ;;
+      --branch)
+        shift
+        [[ $# -gt 0 ]] || die "Valore mancante per --branch"
+        DEPLOY_BRANCH="$1"
+        ;;
       --help|-h)
         usage
         exit 0
@@ -148,6 +155,14 @@ load_env_file() {
   . "${ENV_FILE}"
   set +a
   API_PORT="${API_PORT:-3003}"
+
+  if [[ -z "${DEPLOY_BRANCH}" ]]; then
+    DEPLOY_BRANCH="${DEPLOY_BRANCH:-${CURRENT_BRANCH:-}}"
+  fi
+
+  if [[ -z "${DEPLOY_BRANCH}" ]]; then
+    DEPLOY_BRANCH="$(git -C "${REPO_ROOT}" branch --show-current)"
+  fi
 }
 
 check_git_worktree() {
@@ -161,9 +176,14 @@ check_git_worktree() {
 }
 
 print_mode_summary() {
+  local current_branch
+  current_branch="$(git -C "${REPO_ROOT}" branch --show-current)"
+
   log "Repository: ${REPO_ROOT}"
   log "Compose dir: ${COMPOSE_DIR}"
   log "File env: ${ENV_FILE}"
+  log "Branch locale corrente: ${current_branch:-detached}"
+  log "Branch target deploy: ${DEPLOY_BRANCH}"
   log "Commit locale: $(git -C "${REPO_ROOT}" rev-parse --short HEAD) $(git -C "${REPO_ROOT}" log -1 --pretty=%s)"
 
   if [[ "${KEEP_DATA}" == "true" ]]; then
@@ -173,9 +193,35 @@ print_mode_summary() {
   fi
 }
 
+ensure_deploy_branch() {
+  [[ -n "${DEPLOY_BRANCH}" ]] || die "Branch di deploy non determinabile. Imposta DEPLOY_BRANCH nel .env o usa --branch <nome>."
+
+  git -C "${REPO_ROOT}" fetch --prune origin
+
+  if ! git -C "${REPO_ROOT}" show-ref --verify --quiet "refs/remotes/origin/${DEPLOY_BRANCH}"; then
+    die "Il branch remoto origin/${DEPLOY_BRANCH} non esiste"
+  fi
+
+  local current_branch
+  current_branch="$(git -C "${REPO_ROOT}" branch --show-current)"
+
+  if [[ "${current_branch}" == "${DEPLOY_BRANCH}" ]]; then
+    return 0
+  fi
+
+  log "Switch branch locale: ${current_branch:-detached} -> ${DEPLOY_BRANCH}"
+
+  if git -C "${REPO_ROOT}" show-ref --verify --quiet "refs/heads/${DEPLOY_BRANCH}"; then
+    git -C "${REPO_ROOT}" checkout "${DEPLOY_BRANCH}"
+  else
+    git -C "${REPO_ROOT}" checkout -b "${DEPLOY_BRANCH}" --track "origin/${DEPLOY_BRANCH}"
+  fi
+}
+
 update_repository() {
-  log "Aggiornamento repository da origin/main"
-  git -C "${REPO_ROOT}" pull --ff-only origin main
+  ensure_deploy_branch
+  log "Aggiornamento repository da origin/${DEPLOY_BRANCH}"
+  git -C "${REPO_ROOT}" pull --ff-only origin "${DEPLOY_BRANCH}"
   log "Commit attivo: $(git -C "${REPO_ROOT}" rev-parse --short HEAD) $(git -C "${REPO_ROOT}" log -1 --pretty=%s)"
 }
 
@@ -229,7 +275,8 @@ show_post_deploy_status() {
   show_runtime_status
   wait_for_http_status "http://127.0.0.1:${API_PORT}/api/health" "Health check API" 200
   wait_for_http_status "http://127.0.0.1:${API_PORT}/" "Frontend root" 200
-  wait_for_http_status "http://127.0.0.1:${API_PORT}/admin/" "Admin root" 200
+  wait_for_http_status "http://127.0.0.1:${API_PORT}/admin/" "Admin root" 302
+  wait_for_http_status "http://127.0.0.1:${API_PORT}/admin/login" "Admin login" 200
 
   log "Deploy completato"
 }

@@ -60,6 +60,7 @@ nano .env
 | `ADMIN_PASSWORD` | Password bootstrap sicura a scelta |
 | `ADMIN_EMAIL` | Email dedicata al bootstrap admin |
 | `CORS_ORIGIN` | Dominio pubblico reale dell'istanza |
+| `DEPLOY_BRANCH` | Branch git da deployare (`main` in produzione) |
 
 ## 3. Creare le directory dati
 
@@ -115,7 +116,10 @@ cd /opt/mindcalm/docker/production-notraefik
 # 2. Verifica o modifica il file .env
 nano .env
 
-# 3. Esegui un aggiornamento senza perdere dati
+# 3. Verifica il branch di deploy
+grep '^DEPLOY_BRANCH=' .env
+
+# 4. Esegui un aggiornamento senza perdere dati
 ./deploy.sh
 ```
 
@@ -132,7 +136,7 @@ Attenzione:
 - `--reset-data` elimina completamente database, storage locale e volumi Docker
 - `--yes` salta solo la conferma interattiva, non rende il deploy meno distruttivo
 - se `.env` non esiste, viene creato automaticamente da `.env.example`
-- lo script lavora sempre sul branch `main` con `git pull --ff-only origin main`
+- lo script deploya il branch definito da `DEPLOY_BRANCH` nel `.env` oppure quello passato con `--branch`
 - se il repository ha modifiche locali tracciate, lo script si ferma prima del deploy
 - se il deploy fallisce, lo script mostra automaticamente `docker compose ps` e gli ultimi log di `api` e `postgres`
 
@@ -141,6 +145,9 @@ Modalita' disponibili:
 ```bash
 # Aggiornamento conservativo: mantiene DB e storage
 ./deploy.sh
+
+# Aggiornamento di un branch specifico
+./deploy.sh --branch codex/fix-admin-login-route
 
 # Aggiornamento conservativo senza prompt
 ./deploy.sh --yes
@@ -157,18 +164,22 @@ Significato opzioni:
 - `--keep-data`: alias esplicito del comportamento di default, mantiene `./data/postgres`, `./data/audio`, `./data/hls`, `./data/images`
 - `--reset-data`: esegue `docker compose down --volumes --remove-orphans --rmi local` e rimuove `./data`
 - `--yes`: accetta automaticamente il prompt di conferma
+- `--branch`: forza il branch git da deployare per questa esecuzione
 - nessuna opzione: aggiornamento conservativo con rebuild dello stack
 
 Comportamento dello script:
 
-- esegue `git pull --ff-only origin main`
+- esegue `git fetch --prune origin`
+- si posiziona sul branch target (`DEPLOY_BRANCH` o `--branch`)
+- esegue `git pull --ff-only origin <branch-target>`
 - crea `.env` da `.env.example` se manca
 - in modalita' predefinita preserva `./data`
 - con `--reset-data` esegue `docker compose down --volumes --remove-orphans --rmi local` e rimuove `./data`
 - ricostruisce lo stack e verifica:
   - `http://127.0.0.1:3003/api/health`
   - `http://127.0.0.1:3003/`
-  - `http://127.0.0.1:3003/admin/`
+  - `http://127.0.0.1:3003/admin/` -> `302`
+  - `http://127.0.0.1:3003/admin/login` -> `200`
 - se qualcosa va storto, stampa automaticamente stato container e log recenti
 
 ## 5. Verifica
