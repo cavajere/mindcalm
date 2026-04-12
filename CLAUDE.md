@@ -12,7 +12,7 @@ MindCalm is a Progressive Web App (PWA) for mindfulness sessions. Serves audio c
 - **Admin**: Vue 3 + Vite + Tailwind CSS + Tiptap editor
 - **Auth**: JWT (stateless, 1h expiry) for admin only. Public API has no auth.
 - **Storage**: Local filesystem with UUID naming for audio/images
-- **Deployment**: Docker on Synology NAS behind traefik-gateway at mindcalm.datagestio.com (port 3003)
+- **Deployment**: Docker on VM Proxmox/Ubuntu behind traefik-gateway at mindcalm.datagestio.com (port 3003)
 
 ## Key patterns
 
@@ -69,4 +69,4 @@ npm run dev:start
 - `frontend/src/composables/useAudio.ts` — HTML5 Audio logic
 - `frontend/vite.config.ts` — PWA configuration
 - `docker/production/Dockerfile` — Multi-stage production build
-- `docker/production-synology/docker-compose.yml` — Production deployment
+- `docker/production-notraefik/docker-compose.yml` — Production deployment (dietro gateway esterno)
