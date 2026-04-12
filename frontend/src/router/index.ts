@@ -3,6 +3,14 @@ import { useAuthStore } from '../stores/authStore'
 import HomeView from '../views/HomeView.vue'
 import LoginView from '../views/LoginView.vue'
 
+const ADMIN_DEV_ORIGIN = 'http://localhost:5474'
+
+function buildAdminDevUrl(fullPath: string) {
+  const adminPath = fullPath.startsWith('/admin') ? fullPath.slice('/admin'.length) || '/' : '/'
+  const normalizedPath = adminPath.startsWith('/') ? adminPath : `/${adminPath}`
+  return `${ADMIN_DEV_ORIGIN}/admin${normalizedPath}`
+}
+
 const router = createRouter({
   history: createWebHistory(),
   routes: [
@@ -28,6 +36,16 @@ const router = createRouter({
 
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
+
+  if (import.meta.env.DEV && to.path.startsWith('/admin')) {
+    window.location.replace(buildAdminDevUrl(to.fullPath))
+    return false
+  }
+
+  if (!to.matched.length) {
+    return auth.isAuthenticated ? '/' : '/login'
+  }
+
   const shouldInitializeAuth = !auth.initialized && (Boolean(to.meta.requiresAuth) || auth.isAuthenticated)
 
   if (shouldInitializeAuth) {
