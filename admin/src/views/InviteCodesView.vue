@@ -24,6 +24,7 @@ const submitting = ref(false)
 const error = ref('')
 const success = ref('')
 const copiedCode = ref('')
+const pageSizeOptions = [10, 20, 50, 100]
 const pagination = ref({ page: 1, limit: 20, total: 0, totalPages: 0 })
 const filters = ref({
   search: '',
@@ -44,6 +45,24 @@ const presets = [
 ]
 
 const canCreate = computed(() => form.value.licenseDurationDays > 0)
+const visiblePages = computed(() => {
+  const totalPages = pagination.value.totalPages
+  const currentPage = pagination.value.page
+
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1)
+  }
+
+  if (currentPage <= 4) {
+    return [1, 2, 3, 4, 5, 'ellipsis-end', totalPages]
+  }
+
+  if (currentPage >= totalPages - 3) {
+    return [1, 'ellipsis-start', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages]
+  }
+
+  return [1, 'ellipsis-start', currentPage - 1, currentPage, currentPage + 1, 'ellipsis-end', totalPages]
+})
 
 function buildQuery(page = pagination.value.page) {
   const params = new URLSearchParams({
@@ -175,8 +194,14 @@ function applyFilters() {
 }
 
 function changePage(nextPage: number) {
-  if (nextPage < 1 || nextPage > pagination.value.totalPages) return
+  if (loading.value || nextPage < 1 || nextPage > pagination.value.totalPages || nextPage === pagination.value.page) return
   fetchInviteCodes(nextPage)
+}
+
+function updatePageSize(limit: number) {
+  if (loading.value || limit === pagination.value.limit) return
+  pagination.value.limit = limit
+  fetchInviteCodes(1)
 }
 
 onMounted(() => {
@@ -350,16 +375,62 @@ onMounted(() => {
           </table>
         </div>
 
-        <div v-if="pagination.totalPages > 1" class="flex items-center justify-between gap-4">
-          <p class="text-sm text-text-secondary">
-            Pagina {{ pagination.page }} di {{ pagination.totalPages }}
-          </p>
+        <div v-if="pagination.total > 0" class="flex flex-col gap-4 rounded-2xl border border-gray-100 bg-white px-4 py-4 md:flex-row md:items-center md:justify-between">
+          <div class="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
+            <p class="text-sm text-text-secondary">
+              Pagina {{ pagination.page }} di {{ Math.max(pagination.totalPages, 1) }} · {{ pagination.total }} codici
+            </p>
 
-          <div class="flex items-center gap-2">
-            <button type="button" class="btn-secondary" :disabled="pagination.page <= 1" @click="changePage(pagination.page - 1)">
+            <label class="flex items-center gap-2 text-sm text-text-secondary">
+              <span>Per pagina</span>
+              <select
+                :value="pagination.limit"
+                class="input-field min-w-[88px] py-2"
+                :disabled="loading"
+                @change="updatePageSize(Number(($event.target as HTMLSelectElement).value))"
+              >
+                <option v-for="option in pageSizeOptions" :key="option" :value="option">
+                  {{ option }}
+                </option>
+              </select>
+            </label>
+          </div>
+
+          <div v-if="pagination.totalPages > 1" class="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              class="btn-secondary"
+              :disabled="pagination.page <= 1 || loading"
+              @click="changePage(pagination.page - 1)"
+            >
               Precedente
             </button>
-            <button type="button" class="btn-secondary" :disabled="pagination.page >= pagination.totalPages" @click="changePage(pagination.page + 1)">
+
+            <template v-for="pageItem in visiblePages" :key="pageItem">
+              <span
+                v-if="typeof pageItem !== 'number'"
+                class="px-2 text-sm text-text-secondary"
+                aria-hidden="true"
+              >
+                ...
+              </span>
+              <button
+                v-else
+                type="button"
+                :class="pageItem === pagination.page ? 'btn-primary' : 'btn-secondary'"
+                :disabled="loading"
+                @click="changePage(pageItem)"
+              >
+                {{ pageItem }}
+              </button>
+            </template>
+
+            <button
+              type="button"
+              class="btn-secondary"
+              :disabled="pagination.page >= pagination.totalPages || loading"
+              @click="changePage(pagination.page + 1)"
+            >
               Successiva
             </button>
           </div>
