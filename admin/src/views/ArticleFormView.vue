@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import PageHeader from '../components/PageHeader.vue'
 import TiptapEditor from '../components/TiptapEditor.vue'
 import TagSelector, { type SelectableTag } from '../components/TagSelector.vue'
+import AlbumImagePicker from '../components/AlbumImagePicker.vue'
+import type { AlbumImage } from '../types/album'
 
 type ExistingFileMeta = {
   url: string
@@ -33,8 +35,15 @@ const form = ref({
 const coverImage = ref<File | null>(null)
 const coverPreview = ref('')
 const existingCover = ref<ExistingFileMeta | null>(null)
+const existingAlbumCover = ref<AlbumImage | null>(null)
+const selectedAlbumImage = ref<AlbumImage | null>(null)
 const coverImageDisplayName = ref('')
 const removeExistingCover = ref(false)
+
+const effectiveAlbumCover = computed(() => {
+  if (removeExistingCover.value) return null
+  return selectedAlbumImage.value ?? existingAlbumCover.value
+})
 
 function handleCoverChange(e: Event) {
   const files = (e.target as HTMLInputElement).files
@@ -42,26 +51,45 @@ function handleCoverChange(e: Event) {
     coverImage.value = files[0]
     coverPreview.value = URL.createObjectURL(files[0])
     coverImageDisplayName.value = files[0].name
+    selectedAlbumImage.value = null
     removeExistingCover.value = false
   }
 }
 
+function handleAlbumImageSelect(image: AlbumImage) {
+  selectedAlbumImage.value = image
+  coverImage.value = null
+  coverPreview.value = ''
+  coverImageDisplayName.value = ''
+  removeExistingCover.value = false
+}
+
 function removeCover() {
-  if (coverImage.value && existingCover.value?.url) {
+  if (coverImage.value) {
     coverImage.value = null
     coverPreview.value = ''
-    coverImageDisplayName.value = existingCover.value.displayName
-    removeExistingCover.value = false
-    return
+    if (existingCover.value || existingAlbumCover.value) {
+      coverImageDisplayName.value = existingCover.value?.displayName || ''
+      removeExistingCover.value = false
+      return
+    }
+  }
+
+  if (selectedAlbumImage.value) {
+    selectedAlbumImage.value = null
+    if (existingCover.value || existingAlbumCover.value) {
+      coverImageDisplayName.value = existingCover.value?.displayName || ''
+      removeExistingCover.value = false
+      return
+    }
   }
 
   coverImage.value = null
   coverPreview.value = ''
   coverImageDisplayName.value = ''
-  if (existingCover.value?.url) {
+  if (existingCover.value || existingAlbumCover.value) {
     removeExistingCover.value = true
   }
-  existingCover.value = null
 }
 
 async function save() {
@@ -79,6 +107,7 @@ async function save() {
     fd.append('coverImageDisplayName', coverImageDisplayName.value)
 
     if (coverImage.value) fd.append('coverImage', coverImage.value)
+    if (selectedAlbumImage.value) fd.append('coverAlbumImageId', selectedAlbumImage.value.id)
     if (removeExistingCover.value) fd.append('removeCoverImage', 'true')
 
     if (isEdit.value) {
@@ -111,14 +140,18 @@ onMounted(async () => {
         status: article.status,
         tagIds: (article.tags || []).map((tag: any) => tag.id),
       }
-      existingCover.value = article.coverImage
-        ? {
-            url: article.coverImage,
-            originalName: article.coverImageOriginalName || '',
-            displayName: article.coverImageDisplayName || '',
-          }
-        : null
-      coverImageDisplayName.value = article.coverImageDisplayName || ''
+      existingAlbumCover.value = article.coverAlbumImage || null
+      existingCover.value = article.coverAlbumImage
+        ? null
+        : article.coverImage
+          ? {
+              url: article.coverImage,
+              originalName: article.coverImageOriginalName || '',
+              displayName: article.coverImageDisplayName || '',
+            }
+          : null
+      selectedAlbumImage.value = null
+      coverImageDisplayName.value = article.coverAlbumImage ? '' : (article.coverImageDisplayName || '')
       removeExistingCover.value = false
     } finally {
       loading.value = false
@@ -178,20 +211,46 @@ onMounted(async () => {
 
       <div>
         <label class="label">Immagine copertina</label>
-        <input type="file" accept="image/jpeg,image/png,image/webp" @change="handleCoverChange" class="input-field" />
-        <img v-if="coverPreview" :src="coverPreview" class="mt-2 h-32 rounded-lg object-cover" />
-        <img v-else-if="existingCover?.url" :src="existingCover.url" class="mt-2 h-32 rounded-lg object-cover" />
-        <div v-if="coverImage || existingCover" class="mt-3 space-y-3">
+        <AlbumImagePicker
+          :selected-image="effectiveAlbumCover"
+          @select="handleAlbumImageSelect"
+          @clear="removeCover"
+        />
+
+        <div class="mt-4 rounded-2xl border border-gray-100 bg-white p-4">
           <div>
-            <label class="label">Nome file visualizzato</label>
-            <input v-model="coverImageDisplayName" type="text" class="input-field" />
-            <p class="text-xs text-text-secondary mt-1">
-              Originale: {{ coverImage?.name || existingCover?.originalName }}. L'estensione viene mantenuta automaticamente.
-            </p>
+            <p class="text-sm font-medium text-text-primary">Upload diretto</p>
+            <p class="mt-1 text-xs text-text-secondary">Usalo se la copertina non deve entrare nell’album condiviso.</p>
           </div>
-          <button type="button" @click="removeCover" class="text-sm text-red-500 hover:underline">
-            Rimuovi immagine
-          </button>
+
+          <input type="file" accept="image/jpeg,image/png,image/webp" @change="handleCoverChange" class="input-field mt-4" />
+          <img v-if="coverPreview" :src="coverPreview" class="mt-3 h-32 rounded-lg object-cover" />
+          <img
+            v-else-if="existingCover?.url && !effectiveAlbumCover && !removeExistingCover"
+            :src="existingCover.url"
+            class="mt-3 h-32 rounded-lg object-cover"
+          />
+
+          <div v-if="(coverImage || existingCover) && !effectiveAlbumCover && !removeExistingCover" class="mt-3 space-y-3">
+            <div>
+              <label class="label">Nome file visualizzato</label>
+              <input v-model="coverImageDisplayName" type="text" class="input-field" />
+              <p class="text-xs text-text-secondary mt-1">
+                Originale: {{ coverImage?.name || existingCover?.originalName }}. L'estensione viene mantenuta automaticamente.
+              </p>
+            </div>
+            <button type="button" @click="removeCover" class="text-sm text-red-500 hover:underline">
+              Rimuovi immagine
+            </button>
+          </div>
+
+          <div v-else-if="effectiveAlbumCover" class="mt-3 rounded-xl border border-sky-100 bg-sky-50 px-3 py-2 text-sm text-sky-800">
+            La copertina viene letta dall’album condiviso.
+          </div>
+
+          <div v-else-if="removeExistingCover" class="mt-3 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            La copertina verrà rimossa al salvataggio.
+          </div>
         </div>
       </div>
 

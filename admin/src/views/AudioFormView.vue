@@ -1,16 +1,18 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import PageHeader from '../components/PageHeader.vue'
 import TagSelector, { type SelectableTag } from '../components/TagSelector.vue'
+import AlbumImagePicker from '../components/AlbumImagePicker.vue'
+import type { AlbumImage } from '../types/album'
+import { audioLevelOptions } from '../utils/audioLevels'
 
 type ExistingFileMeta = {
   url: string | null
   originalName: string
   displayName: string
 }
-import { audioLevelOptions } from '../utils/audioLevels'
 
 const route = useRoute()
 const router = useRouter()
@@ -79,6 +81,8 @@ function removeAudio() {
 // --- Cover image ---
 const coverImage = ref<File | null>(null)
 const existingCover = ref<ExistingFileMeta | null>(null)
+const existingAlbumCover = ref<AlbumImage | null>(null)
+const selectedAlbumImage = ref<AlbumImage | null>(null)
 const coverPreview = ref('')
 const coverImageDisplayName = ref('')
 const removeExistingCover = ref(false)
@@ -86,6 +90,11 @@ const coverDragging = ref(false)
 const coverInputRef = ref<HTMLInputElement | null>(null)
 
 const imageAccept = 'image/jpeg,image/png,image/webp'
+
+const effectiveAlbumCover = computed(() => {
+  if (removeExistingCover.value) return null
+  return selectedAlbumImage.value ?? existingAlbumCover.value
+})
 
 function handleCoverSelect(e: Event) {
   const files = (e.target as HTMLInputElement).files
@@ -113,26 +122,47 @@ function setCoverFile(file: File) {
   coverImage.value = file
   coverPreview.value = URL.createObjectURL(file)
   coverImageDisplayName.value = file.name
+  selectedAlbumImage.value = null
   removeExistingCover.value = false
 }
 
+function handleAlbumImageSelect(image: AlbumImage) {
+  selectedAlbumImage.value = image
+  coverImage.value = null
+  coverPreview.value = ''
+  coverImageDisplayName.value = ''
+  removeExistingCover.value = false
+  if (coverInputRef.value) coverInputRef.value.value = ''
+}
+
 function removeCover() {
-  if (coverImage.value && existingCover.value?.url) {
+  if (coverImage.value) {
     coverImage.value = null
     coverPreview.value = ''
-    coverImageDisplayName.value = existingCover.value.displayName
-    removeExistingCover.value = false
-    if (coverInputRef.value) coverInputRef.value.value = ''
-    return
+    if (existingCover.value || existingAlbumCover.value) {
+      coverImageDisplayName.value = existingCover.value?.displayName || ''
+      removeExistingCover.value = false
+      if (coverInputRef.value) coverInputRef.value.value = ''
+      return
+    }
+  }
+
+  if (selectedAlbumImage.value) {
+    selectedAlbumImage.value = null
+    if (existingCover.value || existingAlbumCover.value) {
+      coverImageDisplayName.value = existingCover.value?.displayName || ''
+      removeExistingCover.value = false
+      if (coverInputRef.value) coverInputRef.value.value = ''
+      return
+    }
   }
 
   coverImage.value = null
   coverPreview.value = ''
   coverImageDisplayName.value = ''
-  if (existingCover.value?.url) {
+  if (existingCover.value || existingAlbumCover.value) {
     removeExistingCover.value = true
   }
-  existingCover.value = null
   if (coverInputRef.value) coverInputRef.value.value = ''
 }
 
@@ -166,6 +196,7 @@ async function save() {
 
     if (audioFile.value) fd.append('audioFile', audioFile.value)
     if (coverImage.value) fd.append('coverImage', coverImage.value)
+    if (selectedAlbumImage.value) fd.append('coverAlbumImageId', selectedAlbumImage.value.id)
     if (removeExistingCover.value) fd.append('removeCoverImage', 'true')
 
     if (!isEdit.value && !audioFile.value) {
@@ -222,14 +253,18 @@ onMounted(async () => {
         displayName: audio.audioFileDisplayName,
       }
       audioDisplayName.value = audio.audioFileDisplayName
-      existingCover.value = audio.coverImage
-        ? {
-            url: audio.coverImage,
-            originalName: audio.coverImageOriginalName || '',
-            displayName: audio.coverImageDisplayName || '',
-          }
-        : null
-      coverImageDisplayName.value = audio.coverImageDisplayName || ''
+      existingAlbumCover.value = audio.coverAlbumImage || null
+      existingCover.value = audio.coverAlbumImage
+        ? null
+        : audio.coverImage
+          ? {
+              url: audio.coverImage,
+              originalName: audio.coverImageOriginalName || '',
+              displayName: audio.coverImageDisplayName || '',
+            }
+          : null
+      selectedAlbumImage.value = null
+      coverImageDisplayName.value = audio.coverAlbumImage ? '' : (audio.coverImageDisplayName || '')
       removeExistingCover.value = false
     } finally {
       loading.value = false
@@ -361,57 +396,78 @@ onMounted(async () => {
       <!-- Cover image upload -->
       <div>
         <label class="label">Immagine copertina</label>
+        <AlbumImagePicker
+          :selected-image="effectiveAlbumCover"
+          @select="handleAlbumImageSelect"
+          @clear="removeCover"
+        />
 
-        <!-- Preview immagine selezionata -->
-        <div v-if="coverPreview || (existingCover?.url && !coverImage)" class="relative rounded-lg overflow-hidden border border-gray-200">
-          <img :src="coverPreview || existingCover?.url || ''" class="w-full h-48 object-cover" />
-          <div class="absolute inset-0 bg-black/0 hover:bg-black/40 transition-colors group flex items-center justify-center gap-2">
-            <button
-              type="button"
-              @click="coverInputRef?.click()"
-              class="opacity-0 group-hover:opacity-100 transition-opacity bg-white text-text-primary text-xs font-medium px-3 py-1.5 rounded-lg shadow"
-            >
-              Sostituisci
-            </button>
-            <button
-              type="button"
-              @click="removeCover"
-              class="opacity-0 group-hover:opacity-100 transition-opacity bg-white text-red-500 text-xs font-medium px-3 py-1.5 rounded-lg shadow"
-            >
-              Rimuovi
-            </button>
+        <div class="mt-4 rounded-2xl border border-gray-100 bg-white p-4">
+          <div>
+            <p class="text-sm font-medium text-text-primary">Upload diretto</p>
+            <p class="mt-1 text-xs text-text-secondary">Usalo se la copertina deve restare dedicata solo a questo audio.</p>
           </div>
-        </div>
 
-        <!-- Dropzone -->
-        <div
-          v-else
-          @click="coverInputRef?.click()"
-          @dragover.prevent="coverDragging = true"
-          @dragleave.prevent="coverDragging = false"
-          @drop.prevent="handleCoverDrop"
-          :class="[
-            'border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors',
-            coverDragging ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-primary/40 hover:bg-gray-50'
-          ]"
-        >
-          <svg class="w-8 h-8 mx-auto text-text-secondary/50 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-          </svg>
-          <p class="text-sm text-text-secondary">
-            <span class="text-primary font-medium">Scegli un'immagine</span> o trascinala qui
-          </p>
-          <p class="text-xs text-text-secondary/70 mt-1">JPEG, PNG, WebP &middot; max 5 MB</p>
-        </div>
+          <div
+            v-if="coverPreview || (existingCover?.url && !coverImage && !effectiveAlbumCover && !removeExistingCover)"
+            class="relative mt-4 overflow-hidden rounded-lg border border-gray-200"
+          >
+            <img :src="coverPreview || existingCover?.url || ''" class="h-48 w-full object-cover" />
+            <div class="absolute inset-0 flex items-center justify-center gap-2 bg-black/0 transition-colors hover:bg-black/40">
+              <button
+                type="button"
+                @click="coverInputRef?.click()"
+                class="bg-white px-3 py-1.5 text-xs font-medium text-text-primary opacity-0 shadow transition-opacity hover:opacity-100"
+              >
+                Sostituisci
+              </button>
+              <button
+                type="button"
+                @click="removeCover"
+                class="bg-white px-3 py-1.5 text-xs font-medium text-red-500 opacity-0 shadow transition-opacity hover:opacity-100"
+              >
+                Rimuovi
+              </button>
+            </div>
+          </div>
 
-        <input ref="coverInputRef" type="file" :accept="imageAccept" @change="handleCoverSelect" class="hidden" />
+          <div
+            v-else
+            @click="coverInputRef?.click()"
+            @dragover.prevent="coverDragging = true"
+            @dragleave.prevent="coverDragging = false"
+            @drop.prevent="handleCoverDrop"
+            :class="[
+              'mt-4 cursor-pointer rounded-lg border-2 border-dashed p-6 text-center transition-colors',
+              coverDragging ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-primary/40 hover:bg-gray-50'
+            ]"
+          >
+            <svg class="mx-auto mb-2 h-8 w-8 text-text-secondary/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+            <p class="text-sm text-text-secondary">
+              <span class="font-medium text-primary">Scegli un'immagine</span> o trascinala qui
+            </p>
+            <p class="mt-1 text-xs text-text-secondary/70">JPEG, PNG, WebP &middot; max 5 MB</p>
+          </div>
 
-        <div v-if="coverImage || existingCover" class="mt-3">
-          <label class="label">Nome file visualizzato</label>
-          <input v-model="coverImageDisplayName" type="text" class="input-field" />
-          <p class="text-xs text-text-secondary mt-1">
-            Originale: {{ coverImage?.name || existingCover?.originalName }}. L'estensione viene mantenuta automaticamente.
-          </p>
+          <input ref="coverInputRef" type="file" :accept="imageAccept" @change="handleCoverSelect" class="hidden" />
+
+          <div v-if="(coverImage || existingCover) && !effectiveAlbumCover && !removeExistingCover" class="mt-3">
+            <label class="label">Nome file visualizzato</label>
+            <input v-model="coverImageDisplayName" type="text" class="input-field" />
+            <p class="text-xs text-text-secondary mt-1">
+              Originale: {{ coverImage?.name || existingCover?.originalName }}. L'estensione viene mantenuta automaticamente.
+            </p>
+          </div>
+
+          <div v-else-if="effectiveAlbumCover" class="mt-3 rounded-xl border border-sky-100 bg-sky-50 px-3 py-2 text-sm text-sky-800">
+            La copertina viene letta dall’album condiviso.
+          </div>
+
+          <div v-else-if="removeExistingCover" class="mt-3 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            La copertina verrà rimossa al salvataggio.
+          </div>
         </div>
       </div>
 

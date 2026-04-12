@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express'
 import { AuditAction, AuditEntityType, AudioProcessingStatus, Level, Prisma, Status, StreamingFormat } from '@prisma/client'
 import { validationResult } from 'express-validator'
-import path from 'path'
 import fs from 'fs'
 import { v4 as uuidv4 } from 'uuid'
 import { adminAuthMiddleware, requireAdmin } from '../../middleware/auth'
@@ -16,6 +15,7 @@ import { getAuditActorFromRequest, logAuditEventSafe } from '../../services/audi
 import { MAX_TAGS_PER_CONTENT, ensureTagsExist, mapAudioTags, parseTagIds } from '../../services/tagService'
 import { transcodeAudioFileToHls } from '../../services/audioDeliveryService'
 import { buildUploadMetadata, renameStoredUpload } from '../../services/uploadMetadataService'
+import { deleteDirectCoverImage, resolveCoverImageSource } from '../../services/albumImageService'
 
 const router = Router()
 
@@ -38,8 +38,22 @@ function validateAudioUploadSizes(files?: { [fieldname: string]: Express.Multer.
 
 router.use(adminAuthMiddleware, requireAdmin)
 
-function buildImageUrl(filePath: string | null) {
-  return filePath ? `/api/files/images/${path.basename(filePath)}` : null
+const albumImageSelect = {
+  id: true,
+  filePath: true,
+  originalName: true,
+  displayName: true,
+  title: true,
+  description: true,
+  mimeType: true,
+  size: true,
+} as const
+
+async function getAlbumImageOrNull(albumImageId: string) {
+  return prisma.albumImage.findUnique({
+    where: { id: albumImageId },
+    select: albumImageSelect,
+  })
 }
 
 function serializeAdminAudio(audio: {
@@ -65,8 +79,25 @@ function serializeAdminAudio(audio: {
   coverImage: string | null
   coverImageOriginalName: string | null
   coverImageDisplayName: string | null
+  coverAlbumImage?: {
+    id: string
+    filePath: string
+    originalName: string
+    displayName: string
+    title: string | null
+    description: string | null
+    mimeType: string
+    size: number
+  } | null
   audioTags: Array<{ tag: { id: string; label: string; slug: string } }>
 }) {
+  const cover = resolveCoverImageSource({
+    coverImage: audio.coverImage,
+    coverImageOriginalName: audio.coverImageOriginalName,
+    coverImageDisplayName: audio.coverImageDisplayName,
+    coverAlbumImage: audio.coverAlbumImage,
+  })
+
   return {
     id: audio.id,
     title: audio.title,
@@ -87,9 +118,7 @@ function serializeAdminAudio(audio: {
     publishedAt: audio.publishedAt,
     createdAt: audio.createdAt,
     updatedAt: audio.updatedAt,
-    coverImage: buildImageUrl(audio.coverImage),
-    coverImageOriginalName: audio.coverImageOriginalName,
-    coverImageDisplayName: audio.coverImageDisplayName,
+    ...cover,
     tags: mapAudioTags(audio.audioTags),
   }
 }
@@ -109,6 +138,7 @@ router.get('/', paginationQuery, async (req: Request, res: Response) => {
       where,
       include: {
         category: { select: { id: true, name: true, color: true } },
+        coverAlbumImage: { select: albumImageSelect },
         audioTags: {
           include: { tag: { select: { id: true, label: true, slug: true } } },
         },
@@ -137,6 +167,7 @@ router.get('/:id', async (req: Request, res: Response) => {
     where: { id: audioId },
     include: {
       category: { select: { id: true, name: true, color: true } },
+      coverAlbumImage: { select: albumImageSelect },
       audioTags: {
         include: { tag: { select: { id: true, label: true, slug: true } } },
       },
@@ -192,6 +223,14 @@ router.post('/',
     const level = getSingleString(req.body.level)
     const status = getSingleString(req.body.status)
     const tagIds = parseTagIds(req.body.tagIds)
+    const requestedCoverAlbumImageId = getSingleString(req.body.coverAlbumImageId)?.trim() || undefined
+
+    if (coverImageFile && requestedCoverAlbumImageId) {
+      removeUploadedFile(audioFile)
+      removeUploadedFile(coverImageFile)
+      res.status(400).json({ error: 'Seleziona una copertina da album oppure carica un file, non entrambe' })
+      return
+    }
 
     if (tagIds.length > MAX_TAGS_PER_CONTENT) {
       res.status(400).json({ error: `Massimo ${MAX_TAGS_PER_CONTENT} tag per contenuto` })
@@ -202,6 +241,17 @@ router.post('/',
       await ensureTagsExist(tagIds)
     } catch (error) {
       res.status(400).json({ error: (error as Error).message })
+      return
+    }
+
+    const selectedAlbumImage = requestedCoverAlbumImageId
+      ? await getAlbumImageOrNull(requestedCoverAlbumImageId)
+      : null
+
+    if (requestedCoverAlbumImageId && !selectedAlbumImage) {
+      removeUploadedFile(audioFile)
+      removeUploadedFile(coverImageFile)
+      res.status(404).json({ error: 'Immagine album non trovata' })
       return
     }
 
@@ -230,6 +280,7 @@ router.post('/',
           coverImage: coverImageFile ? `images/${coverImageFile.filename}` : null,
           coverImageOriginalName: coverImageNames?.originalName ?? null,
           coverImageDisplayName: coverImageNames?.displayName ?? null,
+          coverAlbumImageId: selectedAlbumImage?.id ?? null,
           status: status === 'PUBLISHED' ? 'PUBLISHED' : 'DRAFT',
           publishedAt: status === 'PUBLISHED' ? new Date() : null,
           audioTags: {
@@ -240,6 +291,7 @@ router.post('/',
         },
         include: {
           category: true,
+          coverAlbumImage: { select: albumImageSelect },
           audioTags: {
             include: { tag: { select: { id: true, label: true, slug: true } } },
           },
@@ -258,7 +310,7 @@ router.post('/',
           categoryId: audio.categoryId,
           level: audio.level,
           durationSec: audio.durationSec,
-          hasCoverImage: Boolean(audio.coverImage),
+          hasCoverImage: Boolean(audio.coverImage || audio.coverAlbumImageId),
           streamingFormat: audio.streamingFormat,
           tagIds,
         },
@@ -310,7 +362,18 @@ router.put('/:id',
     const requestedAudioDisplayName = getSingleString(req.body.audioFileDisplayName)
     const requestedCoverImageDisplayName = getSingleString(req.body.coverImageDisplayName)
     const removeCoverImage = getBoolean(req.body.removeCoverImage) === true
+    const hasCoverAlbumImageId = Object.prototype.hasOwnProperty.call(req.body, 'coverAlbumImageId')
+    const requestedCoverAlbumImageId = hasCoverAlbumImageId
+      ? (getSingleString(req.body.coverAlbumImageId)?.trim() || null)
+      : undefined
     const tagIds = parseTagIds(req.body.tagIds)
+
+    if (coverImageFile && requestedCoverAlbumImageId) {
+      removeUploadedFile(audioFile)
+      removeUploadedFile(coverImageFile)
+      res.status(400).json({ error: 'Seleziona una copertina da album oppure carica un file, non entrambe' })
+      return
+    }
 
     if (tagIds.length > MAX_TAGS_PER_CONTENT) {
       res.status(400).json({ error: `Massimo ${MAX_TAGS_PER_CONTENT} tag per contenuto` })
@@ -321,6 +384,17 @@ router.put('/:id',
       await ensureTagsExist(tagIds)
     } catch (error) {
       res.status(400).json({ error: (error as Error).message })
+      return
+    }
+
+    const selectedAlbumImage = requestedCoverAlbumImageId
+      ? await getAlbumImageOrNull(requestedCoverAlbumImageId)
+      : null
+
+    if (requestedCoverAlbumImageId && !selectedAlbumImage) {
+      removeUploadedFile(audioFile)
+      removeUploadedFile(coverImageFile)
+      res.status(404).json({ error: 'Immagine album non trovata' })
       return
     }
 
@@ -388,18 +462,32 @@ router.put('/:id',
 
     if (coverImageFile) {
       const coverImageNames = buildUploadMetadata(coverImageFile, requestedCoverImageDisplayName)
-      if (existing.coverImage) deleteFile(existing.coverImage)
+      deleteDirectCoverImage(existing.coverImage)
       data.coverImage = `images/${coverImageFile.filename}`
       data.coverImageOriginalName = coverImageNames.originalName
       data.coverImageDisplayName = coverImageNames.displayName
+      data.coverAlbumImage = { disconnect: true }
       changedFields.push('coverImage')
-    } else if (removeCoverImage && existing.coverImage) {
-      deleteFile(existing.coverImage)
+    } else if (hasCoverAlbumImageId && requestedCoverAlbumImageId) {
+      deleteDirectCoverImage(existing.coverImage)
       data.coverImage = null
       data.coverImageOriginalName = null
       data.coverImageDisplayName = null
+      data.coverAlbumImage = { connect: { id: selectedAlbumImage!.id } }
+      if (requestedCoverAlbumImageId !== existing.coverAlbumImageId || existing.coverImage) {
+        changedFields.push('coverImage')
+      }
+    } else if (removeCoverImage && (existing.coverImage || existing.coverAlbumImageId)) {
+      deleteDirectCoverImage(existing.coverImage)
+      data.coverImage = null
+      data.coverImageOriginalName = null
+      data.coverImageDisplayName = null
+      data.coverAlbumImage = { disconnect: true }
       changedFields.push('coverImage')
-    } else if (requestedCoverImageDisplayName !== undefined && existing.coverImage) {
+    } else if (hasCoverAlbumImageId && requestedCoverAlbumImageId === null && existing.coverAlbumImageId) {
+      data.coverAlbumImage = { disconnect: true }
+      changedFields.push('coverImage')
+    } else if (requestedCoverImageDisplayName !== undefined && existing.coverImage && !existing.coverAlbumImageId) {
       const coverImageNames = renameStoredUpload(
         existing.coverImageOriginalName ?? '',
         existing.coverImageDisplayName,
@@ -428,6 +516,7 @@ router.put('/:id',
       data,
       include: {
         category: true,
+        coverAlbumImage: { select: albumImageSelect },
         audioTags: {
           include: { tag: { select: { id: true, label: true, slug: true } } },
         },
@@ -475,7 +564,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
   if (audio.hlsManifestPath) {
     deleteDirectory(getHlsDirectoryPath(audio.id))
   }
-  if (audio.coverImage) deleteFile(audio.coverImage)
+  deleteDirectCoverImage(audio.coverImage)
 
   await prisma.audio.delete({ where: { id: audioId } })
 

@@ -1,13 +1,13 @@
 import { Router, Request, Response } from 'express'
 import { Prisma } from '@prisma/client'
 import { validationResult } from 'express-validator'
-import path from 'path'
 import { getSingleString, getStringList } from '../../utils/request'
 import { prisma } from '../../lib/prisma'
 import { appAuthMiddleware } from '../../middleware/auth'
 import { articleFilterQuery } from '../../utils/validators'
 import { getRankedPublishedArticleIds } from '../../services/searchService'
 import { mapArticleTags } from '../../services/tagService'
+import { resolveCoverImageSource } from '../../services/albumImageService'
 
 const router = Router()
 
@@ -22,18 +22,33 @@ function mapArticleListItem(article: {
   coverImage: string | null
   coverImageOriginalName: string | null
   coverImageDisplayName: string | null
+  coverAlbumImage?: {
+    id: string
+    filePath: string
+    originalName: string
+    displayName: string
+    title: string | null
+    description: string | null
+    mimeType: string
+    size: number
+  } | null
   publishedAt: Date | null
   articleTags: Array<{ tag: { id: string; label: string; slug: string } }>
 }) {
+  const cover = resolveCoverImageSource({
+    coverImage: article.coverImage,
+    coverImageOriginalName: article.coverImageOriginalName,
+    coverImageDisplayName: article.coverImageDisplayName,
+    coverAlbumImage: article.coverAlbumImage,
+  })
+
   return {
     id: article.id,
     title: article.title,
     slug: article.slug,
     excerpt: article.excerpt,
     author: article.author,
-    coverImage: article.coverImage ? `/api/files/images/${path.basename(article.coverImage)}` : null,
-    coverImageOriginalName: article.coverImageOriginalName,
-    coverImageDisplayName: article.coverImageDisplayName,
+    ...cover,
     publishedAt: article.publishedAt,
     tags: mapArticleTags(article.articleTags),
   }
@@ -62,6 +77,18 @@ router.get('/', articleFilterQuery, async (req: Request, res: Response) => {
   }
 
   const include = {
+    coverAlbumImage: {
+      select: {
+        id: true,
+        filePath: true,
+        originalName: true,
+        displayName: true,
+        title: true,
+        description: true,
+        mimeType: true,
+        size: true,
+      },
+    },
     articleTags: {
       include: { tag: { select: { id: true, label: true, slug: true } } },
     },
@@ -96,6 +123,7 @@ router.get('/', articleFilterQuery, async (req: Request, res: Response) => {
         coverImage: true,
         coverImageOriginalName: true,
         coverImageDisplayName: true,
+        coverAlbumImage: include.coverAlbumImage,
         publishedAt: true,
         articleTags: include.articleTags,
       },
@@ -147,6 +175,7 @@ router.get('/', articleFilterQuery, async (req: Request, res: Response) => {
         coverImage: true,
         coverImageOriginalName: true,
         coverImageDisplayName: true,
+        coverAlbumImage: include.coverAlbumImage,
         publishedAt: true,
         articleTags: include.articleTags,
       },
@@ -174,6 +203,18 @@ router.get('/:slug', async (req: Request, res: Response) => {
   const article = await prisma.article.findFirst({
     where: { slug, status: 'PUBLISHED' },
     include: {
+      coverAlbumImage: {
+        select: {
+          id: true,
+          filePath: true,
+          originalName: true,
+          displayName: true,
+          title: true,
+          description: true,
+          mimeType: true,
+          size: true,
+        },
+      },
       articleTags: {
         include: { tag: { select: { id: true, label: true, slug: true } } },
       },
@@ -185,6 +226,13 @@ router.get('/:slug', async (req: Request, res: Response) => {
     return
   }
 
+  const cover = resolveCoverImageSource({
+    coverImage: article.coverImage,
+    coverImageOriginalName: article.coverImageOriginalName,
+    coverImageDisplayName: article.coverImageDisplayName,
+    coverAlbumImage: article.coverAlbumImage,
+  })
+
   res.json({
     id: article.id,
     slug: article.slug,
@@ -192,9 +240,7 @@ router.get('/:slug', async (req: Request, res: Response) => {
     body: article.body,
     excerpt: article.excerpt,
     author: article.author,
-    coverImage: article.coverImage ? `/api/files/images/${path.basename(article.coverImage)}` : null,
-    coverImageOriginalName: article.coverImageOriginalName,
-    coverImageDisplayName: article.coverImageDisplayName,
+    ...cover,
     publishedAt: article.publishedAt,
     tags: mapArticleTags(article.articleTags),
   })

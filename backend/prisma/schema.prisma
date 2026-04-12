@@ -130,6 +130,8 @@ model Audio {
   coverImage  String?
   coverImageOriginalName String?
   coverImageDisplayName  String?
+  coverAlbumImageId String?
+  coverAlbumImage AlbumImage? @relation("AudioCoverAlbumImage", fields: [coverAlbumImageId], references: [id], onDelete: SetNull)
   status      Status    @default(DRAFT)
   publishedAt DateTime?
   createdAt   DateTime  @default(now())
@@ -139,6 +141,7 @@ model Audio {
   playbackSessions PlaybackSession[]
 
   @@index([categoryId])
+  @@index([coverAlbumImageId])
   @@index([status])
   @@index([level])
   @@map("audio")
@@ -155,6 +158,8 @@ model Article {
   coverImage  String?
   coverImageOriginalName String?
   coverImageDisplayName  String?
+  coverAlbumImageId String?
+  coverAlbumImage AlbumImage? @relation("ArticleCoverAlbumImage", fields: [coverAlbumImageId], references: [id], onDelete: SetNull)
   status      Status    @default(DRAFT)
   publishedAt DateTime?
   createdAt   DateTime  @default(now())
@@ -162,9 +167,29 @@ model Article {
   analyticsEvents AnalyticsEvent[]
   articleTags ArticleTag[]
 
+  @@index([coverAlbumImageId])
   @@index([status])
   @@index([slug])
   @@map("articles")
+}
+
+model AlbumImage {
+  id          String    @id @default(uuid())
+  filePath    String    @unique
+  originalName String
+  displayName String
+  title       String?
+  description String?
+  mimeType    String
+  size        Int
+  fileHash    String    @unique
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  audioCoverFor Audio[] @relation("AudioCoverAlbumImage")
+  articleCoverFor Article[] @relation("ArticleCoverAlbumImage")
+
+  @@index([createdAt])
+  @@map("album_images")
 }
 
 model Tag {
@@ -355,6 +380,9 @@ enum AuditAction {
   AUDIO_UPDATED
   AUDIO_DELETED
   AUDIO_STATUS_CHANGED
+  ALBUM_IMAGE_CREATED
+  ALBUM_IMAGE_UPDATED
+  ALBUM_IMAGE_DELETED
   ARTICLE_CREATED
   ARTICLE_UPDATED
   ARTICLE_DELETED
@@ -377,6 +405,7 @@ enum AuditEntityType {
   INVITE_CODE
   REGISTRATION
   AUDIO
+  ALBUM_IMAGE
   ARTICLE
   CATEGORY
   TAG

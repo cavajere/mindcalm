@@ -1,24 +1,37 @@
 import { Router, Request, Response } from 'express'
 import { AuditAction, AuditEntityType, Prisma, Status } from '@prisma/client'
 import { validationResult } from 'express-validator'
-import path from 'path'
 import { adminAuthMiddleware, requireAdmin } from '../../middleware/auth'
 import { uploadImage } from '../../middleware/upload'
 import { articleValidation, statusValidation, paginationQuery } from '../../utils/validators'
 import { extractPlainText, sanitizeBody } from '../../utils/sanitize'
-import { deleteFile } from '../../services/fileService'
 import { getBoolean, getSingleString } from '../../utils/request'
 import { prisma } from '../../lib/prisma'
 import { getAuditActorFromRequest, logAuditEventSafe } from '../../services/auditLogService'
 import { MAX_TAGS_PER_CONTENT, createTagSlug, ensureTagsExist, mapArticleTags, parseTagIds } from '../../services/tagService'
 import { buildUploadMetadata, renameStoredUpload } from '../../services/uploadMetadataService'
+import { deleteDirectCoverImage, resolveCoverImageSource } from '../../services/albumImageService'
 
 const router = Router()
 
 router.use(adminAuthMiddleware, requireAdmin)
 
-function buildImageUrl(filePath: string | null) {
-  return filePath ? `/api/files/images/${path.basename(filePath)}` : null
+const albumImageSelect = {
+  id: true,
+  filePath: true,
+  originalName: true,
+  displayName: true,
+  title: true,
+  description: true,
+  mimeType: true,
+  size: true,
+} as const
+
+async function getAlbumImageOrNull(albumImageId: string) {
+  return prisma.albumImage.findUnique({
+    where: { id: albumImageId },
+    select: albumImageSelect,
+  })
 }
 
 function serializeAdminArticle(article: {
@@ -35,8 +48,25 @@ function serializeAdminArticle(article: {
   coverImage: string | null
   coverImageOriginalName: string | null
   coverImageDisplayName: string | null
+  coverAlbumImage?: {
+    id: string
+    filePath: string
+    originalName: string
+    displayName: string
+    title: string | null
+    description: string | null
+    mimeType: string
+    size: number
+  } | null
   articleTags: Array<{ tag: { id: string; label: string; slug: string } }>
 }) {
+  const cover = resolveCoverImageSource({
+    coverImage: article.coverImage,
+    coverImageOriginalName: article.coverImageOriginalName,
+    coverImageDisplayName: article.coverImageDisplayName,
+    coverAlbumImage: article.coverAlbumImage,
+  })
+
   return {
     id: article.id,
     title: article.title,
@@ -48,9 +78,7 @@ function serializeAdminArticle(article: {
     publishedAt: article.publishedAt,
     createdAt: article.createdAt,
     updatedAt: article.updatedAt,
-    coverImage: buildImageUrl(article.coverImage),
-    coverImageOriginalName: article.coverImageOriginalName,
-    coverImageDisplayName: article.coverImageDisplayName,
+    ...cover,
     tags: mapArticleTags(article.articleTags),
   }
 }
@@ -68,6 +96,7 @@ router.get('/', paginationQuery, async (req: Request, res: Response) => {
     prisma.article.findMany({
       where,
       include: {
+        coverAlbumImage: { select: albumImageSelect },
         articleTags: {
           include: { tag: { select: { id: true, label: true, slug: true } } },
         },
@@ -95,6 +124,7 @@ router.get('/:id', async (req: Request, res: Response) => {
   const article = await prisma.article.findUnique({
     where: { id: articleId },
     include: {
+      coverAlbumImage: { select: albumImageSelect },
       articleTags: {
         include: { tag: { select: { id: true, label: true, slug: true } } },
       },
@@ -127,12 +157,29 @@ router.post('/',
     const status = getSingleString(req.body.status)
     const tagIds = parseTagIds(req.body.tagIds)
     const slug = createTagSlug(title!)
+    const requestedCoverAlbumImageId = getSingleString(req.body.coverAlbumImageId)?.trim() || undefined
     const coverImageNames = req.file
       ? buildUploadMetadata(req.file, getSingleString(req.body.coverImageDisplayName))
       : null
 
+    if (req.file && requestedCoverAlbumImageId) {
+      deleteDirectCoverImage(`images/${req.file.filename}`)
+      res.status(400).json({ error: 'Seleziona una copertina da album oppure carica un file, non entrambe' })
+      return
+    }
+
     if (tagIds.length > MAX_TAGS_PER_CONTENT) {
       res.status(400).json({ error: `Massimo ${MAX_TAGS_PER_CONTENT} tag per contenuto` })
+      return
+    }
+
+    const selectedAlbumImage = requestedCoverAlbumImageId
+      ? await getAlbumImageOrNull(requestedCoverAlbumImageId)
+      : null
+
+    if (requestedCoverAlbumImageId && !selectedAlbumImage) {
+      deleteDirectCoverImage(req.file ? `images/${req.file.filename}` : null)
+      res.status(404).json({ error: 'Immagine album non trovata' })
       return
     }
 
@@ -163,6 +210,7 @@ router.post('/',
         coverImage: req.file ? `images/${req.file.filename}` : null,
         coverImageOriginalName: coverImageNames?.originalName ?? null,
         coverImageDisplayName: coverImageNames?.displayName ?? null,
+        coverAlbumImageId: selectedAlbumImage?.id ?? null,
         status: status === 'PUBLISHED' ? 'PUBLISHED' : 'DRAFT',
         publishedAt: status === 'PUBLISHED' ? new Date() : null,
         articleTags: {
@@ -172,6 +220,7 @@ router.post('/',
         },
       },
       include: {
+        coverAlbumImage: { select: albumImageSelect },
         articleTags: {
           include: { tag: { select: { id: true, label: true, slug: true } } },
         },
@@ -189,7 +238,7 @@ router.post('/',
         slug: article.slug,
         author: article.author,
         status: article.status,
-        hasCoverImage: Boolean(article.coverImage),
+        hasCoverImage: Boolean(article.coverImage || article.coverAlbumImageId),
         tagIds,
       },
     })
@@ -221,9 +270,19 @@ router.put('/:id',
     const status = getSingleString(req.body.status)
     const requestedCoverImageDisplayName = getSingleString(req.body.coverImageDisplayName)
     const removeCoverImage = getBoolean(req.body.removeCoverImage) === true
+    const hasCoverAlbumImageId = Object.prototype.hasOwnProperty.call(req.body, 'coverAlbumImageId')
+    const requestedCoverAlbumImageId = hasCoverAlbumImageId
+      ? (getSingleString(req.body.coverAlbumImageId)?.trim() || null)
+      : undefined
     const tagIds = parseTagIds(req.body.tagIds)
     const data: Prisma.ArticleUpdateInput = {}
     const changedFields: string[] = []
+
+    if (req.file && requestedCoverAlbumImageId) {
+      deleteDirectCoverImage(`images/${req.file.filename}`)
+      res.status(400).json({ error: 'Seleziona una copertina da album oppure carica un file, non entrambe' })
+      return
+    }
 
     if (tagIds.length > MAX_TAGS_PER_CONTENT) {
       res.status(400).json({ error: `Massimo ${MAX_TAGS_PER_CONTENT} tag per contenuto` })
@@ -234,6 +293,16 @@ router.put('/:id',
       await ensureTagsExist(tagIds)
     } catch (error) {
       res.status(400).json({ error: (error as Error).message })
+      return
+    }
+
+    const selectedAlbumImage = requestedCoverAlbumImageId
+      ? await getAlbumImageOrNull(requestedCoverAlbumImageId)
+      : null
+
+    if (requestedCoverAlbumImageId && !selectedAlbumImage) {
+      deleteDirectCoverImage(req.file ? `images/${req.file.filename}` : null)
+      res.status(404).json({ error: 'Immagine album non trovata' })
       return
     }
 
@@ -281,18 +350,32 @@ router.put('/:id',
 
     if (req.file) {
       const coverImageNames = buildUploadMetadata(req.file, requestedCoverImageDisplayName)
-      if (existing.coverImage) deleteFile(existing.coverImage)
+      deleteDirectCoverImage(existing.coverImage)
       data.coverImage = `images/${req.file.filename}`
       data.coverImageOriginalName = coverImageNames.originalName
       data.coverImageDisplayName = coverImageNames.displayName
+      data.coverAlbumImage = { disconnect: true }
       changedFields.push('coverImage')
-    } else if (removeCoverImage && existing.coverImage) {
-      deleteFile(existing.coverImage)
+    } else if (hasCoverAlbumImageId && requestedCoverAlbumImageId) {
+      deleteDirectCoverImage(existing.coverImage)
       data.coverImage = null
       data.coverImageOriginalName = null
       data.coverImageDisplayName = null
+      data.coverAlbumImage = { connect: { id: selectedAlbumImage!.id } }
+      if (requestedCoverAlbumImageId !== existing.coverAlbumImageId || existing.coverImage) {
+        changedFields.push('coverImage')
+      }
+    } else if (removeCoverImage && (existing.coverImage || existing.coverAlbumImageId)) {
+      deleteDirectCoverImage(existing.coverImage)
+      data.coverImage = null
+      data.coverImageOriginalName = null
+      data.coverImageDisplayName = null
+      data.coverAlbumImage = { disconnect: true }
       changedFields.push('coverImage')
-    } else if (requestedCoverImageDisplayName !== undefined && existing.coverImage) {
+    } else if (hasCoverAlbumImageId && requestedCoverAlbumImageId === null && existing.coverAlbumImageId) {
+      data.coverAlbumImage = { disconnect: true }
+      changedFields.push('coverImage')
+    } else if (requestedCoverImageDisplayName !== undefined && existing.coverImage && !existing.coverAlbumImageId) {
       const coverImageNames = renameStoredUpload(
         existing.coverImageOriginalName ?? '',
         existing.coverImageDisplayName,
@@ -320,6 +403,7 @@ router.put('/:id',
       where: { id: articleId },
       data,
       include: {
+        coverAlbumImage: { select: albumImageSelect },
         articleTags: {
           include: { tag: { select: { id: true, label: true, slug: true } } },
         },
@@ -359,7 +443,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     return
   }
 
-  if (article.coverImage) deleteFile(article.coverImage)
+  deleteDirectCoverImage(article.coverImage)
 
   await prisma.article.delete({ where: { id: articleId } })
 

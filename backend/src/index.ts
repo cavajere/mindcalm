@@ -13,6 +13,7 @@ import categoriesPublicRouter from './routes/public/categories'
 import tagsPublicRouter from './routes/public/tags'
 import authRouter from './routes/admin/auth'
 import audioAdminRouter from './routes/admin/audio'
+import albumAdminRouter from './routes/admin/album'
 import articlesAdminRouter from './routes/admin/articles'
 import categoriesAdminRouter from './routes/admin/categories'
 import tagsAdminRouter from './routes/admin/tags'
@@ -61,6 +62,7 @@ app.use('/api/analytics', analyticsPublicRouter)
 // Admin API routes
 app.use('/api/auth', authRouter)
 app.use('/api/admin/audio', audioAdminRouter)
+app.use('/api/admin/album', albumAdminRouter)
 app.use('/api/admin/articles', articlesAdminRouter)
 app.use('/api/admin/categories', categoriesAdminRouter)
 app.use('/api/admin/tags', tagsAdminRouter)
@@ -143,8 +145,8 @@ app.listen(config.port, () => {
   console.log(`[MindCalm] Server avviato su porta ${config.port} (${config.nodeEnv})`)
 })
 
-export default app
-
 void startBackupScheduler().catch((error) => {
   console.error('[Backup] Impossibile avviare lo scheduler backup:', error)
 })
+
+export default app

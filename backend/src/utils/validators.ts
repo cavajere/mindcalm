@@ -24,6 +24,9 @@ const auditActions = [
   'AUDIO_UPDATED',
   'AUDIO_DELETED',
   'AUDIO_STATUS_CHANGED',
+  'ALBUM_IMAGE_CREATED',
+  'ALBUM_IMAGE_UPDATED',
+  'ALBUM_IMAGE_DELETED',
   'ARTICLE_CREATED',
   'ARTICLE_UPDATED',
   'ARTICLE_DELETED',
@@ -40,7 +43,7 @@ const auditActions = [
   'SMTP_TEST_SENT',
 ]
 
-const auditEntityTypes = ['AUTH', 'USER', 'INVITE_CODE', 'REGISTRATION', 'AUDIO', 'ARTICLE', 'CATEGORY', 'TAG', 'SETTINGS']
+const auditEntityTypes = ['AUTH', 'USER', 'INVITE_CODE', 'REGISTRATION', 'AUDIO', 'ALBUM_IMAGE', 'ARTICLE', 'CATEGORY', 'TAG', 'SETTINGS']
 const phonePattern = /^\+?[0-9\s().-]{7,20}$/
 const inviteCodePattern = /^[A-NP-Z1-9]{7}$/
 

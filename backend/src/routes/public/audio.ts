@@ -2,7 +2,6 @@ import { Router, Request, Response } from 'express'
 import { AudioProcessingStatus, Prisma, StreamingFormat } from '@prisma/client'
 import { validationResult } from 'express-validator'
 import fs from 'fs'
-import path from 'path'
 import { audioFilterQuery } from '../../utils/validators'
 import { config } from '../../config'
 import { getSingleString, getStringList } from '../../utils/request'
@@ -15,6 +14,7 @@ import {
   getHlsContentType,
   resolveProtectedHlsAssetPath,
 } from '../../services/audioDeliveryService'
+import { resolveCoverImageSource } from '../../services/albumImageService'
 import {
   buildPlaybackDirectStreamPath,
   buildPlaybackManifestPath,
@@ -104,9 +104,26 @@ function mapAudioListItem(audio: {
   coverImage: string | null
   coverImageOriginalName: string | null
   coverImageDisplayName: string | null
+  coverAlbumImage?: {
+    id: string
+    filePath: string
+    originalName: string
+    displayName: string
+    title: string | null
+    description: string | null
+    mimeType: string
+    size: number
+  } | null
   publishedAt: Date | null
   audioTags: Array<{ tag: { id: string; label: string; slug: string } }>
 }) {
+  const cover = resolveCoverImageSource({
+    coverImage: audio.coverImage,
+    coverImageOriginalName: audio.coverImageOriginalName,
+    coverImageDisplayName: audio.coverImageDisplayName,
+    coverAlbumImage: audio.coverAlbumImage,
+  })
+
   return {
     id: audio.id,
     title: audio.title,
@@ -114,9 +131,7 @@ function mapAudioListItem(audio: {
     category: audio.category,
     level: audio.level,
     durationSec: audio.durationSec,
-    coverImage: audio.coverImage ? `/api/files/images/${path.basename(audio.coverImage)}` : null,
-    coverImageOriginalName: audio.coverImageOriginalName,
-    coverImageDisplayName: audio.coverImageDisplayName,
+    ...cover,
     publishedAt: audio.publishedAt,
     tags: mapAudioTags(audio.audioTags),
   }
@@ -144,6 +159,18 @@ router.get('/', audioFilterQuery, async (req: Request, res: Response) => {
 
   const include = {
     category: { select: { id: true, name: true, color: true } },
+    coverAlbumImage: {
+      select: {
+        id: true,
+        filePath: true,
+        originalName: true,
+        displayName: true,
+        title: true,
+        description: true,
+        mimeType: true,
+        size: true,
+      },
+    },
     audioTags: {
       include: { tag: { select: { id: true, label: true, slug: true } } },
     },
@@ -246,6 +273,18 @@ router.get('/:id', async (req: Request, res: Response) => {
     where: { id: audioId, status: 'PUBLISHED' },
     include: {
       category: { select: { id: true, name: true, color: true } },
+      coverAlbumImage: {
+        select: {
+          id: true,
+          filePath: true,
+          originalName: true,
+          displayName: true,
+          title: true,
+          description: true,
+          mimeType: true,
+          size: true,
+        },
+      },
       audioTags: {
         include: { tag: { select: { id: true, label: true, slug: true } } },
       },
@@ -256,6 +295,13 @@ router.get('/:id', async (req: Request, res: Response) => {
     res.status(404).json({ error: 'Audio non trovato' })
     return
   }
+
+  const cover = resolveCoverImageSource({
+    coverImage: audio.coverImage,
+    coverImageOriginalName: audio.coverImageOriginalName,
+    coverImageDisplayName: audio.coverImageDisplayName,
+    coverAlbumImage: audio.coverAlbumImage,
+  })
 
   res.json({
     id: audio.id,
@@ -268,9 +314,7 @@ router.get('/:id', async (req: Request, res: Response) => {
     audioSize: audio.audioSize,
     audioFileOriginalName: audio.audioOriginalName,
     audioFileDisplayName: audio.audioDisplayName,
-    coverImage: audio.coverImage ? `/api/files/images/${path.basename(audio.coverImage)}` : null,
-    coverImageOriginalName: audio.coverImageOriginalName,
-    coverImageDisplayName: audio.coverImageDisplayName,
+    ...cover,
     publishedAt: audio.publishedAt,
     tags: mapAudioTags(audio.audioTags),
     streaming: {
