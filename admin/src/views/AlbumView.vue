@@ -484,7 +484,7 @@ onBeforeUnmount(() => {
 
         <div class="border-t border-gray-100 px-6 py-4">
           <div class="flex items-center justify-end gap-3">
-            <button type="button" class="btn-secondary" @click="closeCreateDialog">Annulla</button>
+            <button type="button" class="btn-secondary" @click="closeCreateDialog">Chiudi</button>
             <button type="button" class="btn-primary" :disabled="saving || !pendingFiles.length || uploadDone" @click="uploadImages">
               {{ saving ? 'Upload in corso...' : 'Carica immagini' }}
             </button>
