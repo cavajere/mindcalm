@@ -2,6 +2,8 @@
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
+import AppStatusMessage from '../components/AppStatusMessage.vue'
+import { getApiErrorMessage, getApiSuccessMessage } from '../utils/apiMessages'
 
 const route = useRoute()
 const router = useRouter()
@@ -29,14 +31,14 @@ async function handleSubmit() {
   loading.value = true
 
   try {
-    await axios.post('/api/v1/auth/reset-password', {
+    const { data } = await axios.post('/api/auth/reset-password', {
       token: token.value,
       password: password.value,
     })
-    success.value = 'Password aggiornata. Verrai reindirizzato al login.'
+    success.value = getApiSuccessMessage(data, 'Password aggiornata. Verrai reindirizzato al login.')
     setTimeout(() => router.push('/login'), 1200)
-  } catch (e: any) {
-    error.value = e.response?.data?.error || 'Reset password non riuscito'
+  } catch (apiError) {
+    error.value = getApiErrorMessage(apiError, 'Reset password non riuscito')
   } finally {
     loading.value = false
   }
@@ -52,12 +54,8 @@ async function handleSubmit() {
       </div>
 
       <form @submit.prevent="handleSubmit" class="card p-6 space-y-4">
-        <div v-if="success" class="bg-green-50 text-green-700 text-sm px-4 py-3 rounded-lg">
-          {{ success }}
-        </div>
-        <div v-if="error" class="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg">
-          {{ error }}
-        </div>
+        <AppStatusMessage v-if="success" :message="success" variant="success" />
+        <AppStatusMessage v-if="error" :message="error" variant="error" />
 
         <div>
           <label class="block text-sm font-medium text-text-primary mb-1">Nuova password</label>

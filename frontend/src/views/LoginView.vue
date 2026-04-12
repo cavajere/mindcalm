@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import AppStatusMessage from '../components/AppStatusMessage.vue'
 import { useAuthStore } from '../stores/authStore'
+import { getApiErrorMessage } from '../utils/apiMessages'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -20,13 +22,13 @@ async function handleLogin() {
   try {
     await auth.login(email.value, password.value)
     router.push('/')
-  } catch (e: any) {
+  } catch (apiError) {
     if (auth.isLicenseExpired) {
       await router.push(auth.getLicenseExpiredRouteLocation())
       return
     }
 
-    error.value = e.response?.data?.error || 'Errore di connessione'
+    error.value = getApiErrorMessage(apiError, 'Errore di connessione')
   } finally {
     loading.value = false
   }
@@ -57,9 +59,7 @@ async function handleLogin() {
       </div>
 
       <form @submit.prevent="handleLogin" class="card p-6 space-y-4">
-        <div v-if="error" class="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg">
-          {{ error }}
-        </div>
+        <AppStatusMessage v-if="error" :message="error" variant="error" />
 
         <div>
           <label class="block text-sm font-medium text-text-primary mb-1">Email</label>

@@ -2,7 +2,9 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
+import AppStatusMessage from '../components/AppStatusMessage.vue'
 import { useAuthStore } from '../stores/authStore'
+import { getApiErrorMessage, getApiSuccessMessage } from '../utils/apiMessages'
 
 const route = useRoute()
 const router = useRouter()
@@ -25,10 +27,10 @@ async function fetchInviteDetails() {
   }
 
   try {
-    const { data } = await axios.get(`/api/v1/auth/invite-details?token=${encodeURIComponent(token.value)}`)
+    const { data } = await axios.get(`/api/auth/invite-details?token=${encodeURIComponent(token.value)}`)
     invite.value = data
-  } catch (e: any) {
-    error.value = e.response?.data?.error || 'Invito non valido'
+  } catch (apiError) {
+    error.value = getApiErrorMessage(apiError, 'Invito non valido')
   } finally {
     loadingInvite.value = false
   }
@@ -51,15 +53,15 @@ async function handleSubmit() {
   loading.value = true
 
   try {
-    await axios.post('/api/v1/auth/accept-invite', {
+    const { data } = await axios.post('/api/auth/accept-invite', {
       token: token.value,
       password: password.value,
     })
     await auth.fetchMe()
-    success.value = 'Invito accettato. Accesso in corso.'
+    success.value = getApiSuccessMessage(data, 'Invito accettato. Accesso in corso.')
     setTimeout(() => router.push('/'), 500)
-  } catch (e: any) {
-    error.value = e.response?.data?.error || 'Accettazione invito non riuscita'
+  } catch (apiError) {
+    error.value = getApiErrorMessage(apiError, 'Accettazione invito non riuscita')
   } finally {
     loading.value = false
   }
@@ -77,12 +79,8 @@ onMounted(fetchInviteDetails)
       </div>
 
       <form @submit.prevent="handleSubmit" class="card p-6 space-y-4">
-        <div v-if="success" class="bg-green-50 text-green-700 text-sm px-4 py-3 rounded-lg">
-          {{ success }}
-        </div>
-        <div v-if="error" class="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg">
-          {{ error }}
-        </div>
+        <AppStatusMessage v-if="success" :message="success" variant="success" />
+        <AppStatusMessage v-if="error" :message="error" variant="error" />
 
         <div v-if="loadingInvite" class="text-sm text-text-secondary">
           Verifica invito...

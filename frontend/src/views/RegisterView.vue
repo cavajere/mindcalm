@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import axios from 'axios'
+import AppStatusMessage from '../components/AppStatusMessage.vue'
+import { getApiErrorMessage, getApiSuccessMessage } from '../utils/apiMessages'
 
 const PHONE_REGEX = /^\+?[0-9\s().-]{7,20}$/
 const INVITE_CODE_REGEX = /^[A-NP-Z1-9]{7}$/
@@ -73,15 +75,15 @@ async function lookupInviteCode() {
   validatingCode.value = true
 
   try {
-    const { data } = await axios.post('/api/v1/auth/validate-invite-code', {
+    const { data } = await axios.post('/api/auth/validate-invite-code', {
       code: normalizedCode.value,
     })
     inviteCodeDetails.value = {
       licenseDurationDays: data.licenseDurationDays,
     }
     return true
-  } catch (e: any) {
-    inviteCodeError.value = e.response?.data?.error || 'Codice invito non valido'
+  } catch (error) {
+    inviteCodeError.value = getApiErrorMessage(error, 'Codice invito non valido')
     return false
   } finally {
     validatingCode.value = false
@@ -111,7 +113,7 @@ async function handleSubmit() {
   loading.value = true
 
   try {
-    const { data } = await axios.post('/api/v1/auth/register-with-invite-code', {
+    const { data } = await axios.post('/api/auth/register-with-invite-code', {
       code: normalizedCode.value,
       email: form.value.email.trim(),
       firstName: form.value.firstName.trim(),
@@ -121,9 +123,9 @@ async function handleSubmit() {
       verificationBaseUrl: window.location.origin,
     })
 
-    success.value = data.message
-  } catch (e: any) {
-    error.value = e.response?.data?.error || 'Registrazione non riuscita'
+    success.value = getApiSuccessMessage(data, 'Controlla la tua email per completare la registrazione')
+  } catch (apiError) {
+    error.value = getApiErrorMessage(apiError, 'Registrazione non riuscita')
   } finally {
     loading.value = false
   }
@@ -139,12 +141,8 @@ async function handleSubmit() {
       </div>
 
       <form @submit.prevent="handleSubmit" class="card p-6 space-y-4">
-        <div v-if="success" class="bg-green-50 text-green-700 text-sm px-4 py-3 rounded-lg">
-          {{ success }}
-        </div>
-        <div v-if="error" class="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg">
-          {{ error }}
-        </div>
+        <AppStatusMessage v-if="success" :message="success" variant="success" />
+        <AppStatusMessage v-if="error" :message="error" variant="error" />
 
         <div class="grid gap-4 md:grid-cols-2">
           <div>

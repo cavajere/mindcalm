@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import axios from 'axios'
+import AppStatusMessage from '../components/AppStatusMessage.vue'
 import { useAuthStore } from '../stores/authStore'
+import { getApiErrorMessage, getApiSuccessMessage } from '../utils/apiMessages'
 
 const auth = useAuthStore()
 
@@ -30,7 +32,7 @@ async function handleChangePassword() {
   loading.value = true
 
   try {
-    const { data } = await axios.post('/api/v1/auth/app-change-password', {
+    const { data } = await axios.post('/api/auth/app-change-password', {
       currentPassword: currentPassword.value,
       newPassword: newPassword.value,
     })
@@ -38,9 +40,9 @@ async function handleChangePassword() {
     currentPassword.value = ''
     newPassword.value = ''
     confirmPassword.value = ''
-    success.value = data.message || 'Password aggiornata'
-  } catch (e: any) {
-    error.value = e.response?.data?.error || 'Errore di connessione'
+    success.value = getApiSuccessMessage(data, 'Password aggiornata')
+  } catch (apiError) {
+    error.value = getApiErrorMessage(apiError, 'Errore di connessione')
   } finally {
     loading.value = false
   }
@@ -82,13 +84,8 @@ async function handleChangePassword() {
       </div>
 
       <form @submit.prevent="handleChangePassword" class="space-y-4">
-        <div v-if="error" class="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg">
-          {{ error }}
-        </div>
-
-        <div v-if="success" class="bg-green-50 text-green-700 text-sm px-4 py-3 rounded-lg">
-          {{ success }}
-        </div>
+        <AppStatusMessage v-if="error" :message="error" variant="error" />
+        <AppStatusMessage v-if="success" :message="success" variant="success" />
 
         <div>
           <label class="block text-sm font-medium text-text-primary mb-1">Password attuale</label>

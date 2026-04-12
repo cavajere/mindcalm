@@ -2,7 +2,9 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
+import AppStatusMessage from '../components/AppStatusMessage.vue'
 import { useAuthStore } from '../stores/authStore'
+import { getApiErrorMessage, getApiSuccessMessage } from '../utils/apiMessages'
 
 const route = useRoute()
 const router = useRouter()
@@ -44,10 +46,10 @@ async function fetchDetails() {
   }
 
   try {
-    const { data } = await axios.get(`/api/v1/auth/registration-verification-details?token=${encodeURIComponent(token.value)}`)
+    const { data } = await axios.get(`/api/auth/registration-verification-details?token=${encodeURIComponent(token.value)}`)
     details.value = data
-  } catch (e: any) {
-    error.value = e.response?.data?.error || 'Registrazione non valida'
+  } catch (apiError) {
+    error.value = getApiErrorMessage(apiError, 'Registrazione non valida')
   } finally {
     loadingDetails.value = false
   }
@@ -65,16 +67,16 @@ async function handleVerify() {
   loading.value = true
 
   try {
-    await axios.post('/api/v1/auth/verify-registration', {
+    const { data } = await axios.post('/api/auth/verify-registration', {
       token: token.value,
     })
     await auth.fetchMe()
-    success.value = 'Registrazione confermata. Accesso in corso.'
+    success.value = getApiSuccessMessage(data, 'Registrazione confermata. Accesso in corso.')
     window.setTimeout(() => {
       router.push('/')
     }, 600)
-  } catch (e: any) {
-    error.value = e.response?.data?.error || 'Conferma registrazione non riuscita'
+  } catch (apiError) {
+    error.value = getApiErrorMessage(apiError, 'Conferma registrazione non riuscita')
   } finally {
     loading.value = false
   }
@@ -92,12 +94,8 @@ onMounted(fetchDetails)
       </div>
 
       <div class="card p-6 space-y-4">
-        <div v-if="success" class="bg-green-50 text-green-700 text-sm px-4 py-3 rounded-lg">
-          {{ success }}
-        </div>
-        <div v-if="error" class="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg">
-          {{ error }}
-        </div>
+        <AppStatusMessage v-if="success" :message="success" variant="success" />
+        <AppStatusMessage v-if="error" :message="error" variant="error" />
 
         <div v-if="loadingDetails" class="text-sm text-text-secondary">
           Verifica registrazione...

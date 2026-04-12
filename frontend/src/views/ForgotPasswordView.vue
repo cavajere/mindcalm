@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import axios from 'axios'
+import AppStatusMessage from '../components/AppStatusMessage.vue'
+import { getApiErrorMessage, getApiSuccessMessage } from '../utils/apiMessages'
 
 const email = ref('')
 const loading = ref(false)
@@ -13,13 +15,13 @@ async function handleSubmit() {
   loading.value = true
 
   try {
-    const { data } = await axios.post('/api/v1/auth/forgot-password', {
+    const { data } = await axios.post('/api/auth/forgot-password', {
       email: email.value,
       resetBaseUrl: window.location.origin,
     })
-    success.value = data.message
-  } catch (e: any) {
-    error.value = e.response?.data?.error || 'Invio email non riuscito'
+    success.value = getApiSuccessMessage(data, 'Se l’email esiste, riceverai un link per reimpostare la password')
+  } catch (apiError) {
+    error.value = getApiErrorMessage(apiError, 'Invio email non riuscito')
   } finally {
     loading.value = false
   }
@@ -35,12 +37,8 @@ async function handleSubmit() {
       </div>
 
       <form @submit.prevent="handleSubmit" class="card p-6 space-y-4">
-        <div v-if="success" class="bg-green-50 text-green-700 text-sm px-4 py-3 rounded-lg">
-          {{ success }}
-        </div>
-        <div v-if="error" class="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg">
-          {{ error }}
-        </div>
+        <AppStatusMessage v-if="success" :message="success" variant="success" />
+        <AppStatusMessage v-if="error" :message="error" variant="error" />
 
         <div>
           <label class="block text-sm font-medium text-text-primary mb-1">Email</label>
