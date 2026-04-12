@@ -26,6 +26,10 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        navigateFallbackDenylist: [
+          /^\/admin(?:\/|$)/,
+          /^\/api(?:\/|$)/,
+        ],
         runtimeCaching: [
           {
             urlPattern: /\/api\/v1\/audio\/[^/]+\/(playback-session|playback\/.*)(\?.*)?$/,
