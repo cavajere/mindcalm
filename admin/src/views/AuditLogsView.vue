@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import axios from 'axios'
+import PageHeader from '../components/PageHeader.vue'
 
 interface AuditLogItem {
   id: string
@@ -222,14 +223,10 @@ onMounted(() => {
 
 <template>
   <div>
-    <div class="flex items-center justify-between gap-4 mb-6">
-      <div>
-        <h1 class="text-2xl font-bold text-text-primary">Log attività</h1>
-        <p class="text-sm text-text-secondary mt-1">
-          Audit trail di autenticazione, operazioni admin e modifiche sensibili.
-        </p>
-      </div>
-    </div>
+    <PageHeader
+      title="Log attività"
+      description="Audit trail di autenticazione, operazioni admin e modifiche sensibili."
+    />
 
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
       <div class="card">

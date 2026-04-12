@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import axios from 'axios'
+import PageHeader from '../components/PageHeader.vue'
 
 type InviteCodeStatus = 'ACTIVE' | 'REDEEMED' | 'EXPIRED' | 'DISABLED'
 
@@ -185,14 +186,10 @@ onMounted(() => {
 
 <template>
   <div class="space-y-6">
-    <div class="flex items-center justify-between gap-4">
-      <div>
-        <h1 class="text-2xl font-bold text-text-primary">Codici invito</h1>
-        <p class="text-sm text-text-secondary mt-1">
-          Genera codici monouso per la registrazione self-service degli utenti standard.
-        </p>
-      </div>
-    </div>
+    <PageHeader
+      title="Codici invito"
+      description="Genera codici monouso per la registrazione self-service degli utenti standard."
+    />
 
     <div class="grid gap-6 xl:grid-cols-[minmax(0,360px),minmax(0,1fr)]">
       <div class="card space-y-4">

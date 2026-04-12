@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
+import PageHeader from '../components/PageHeader.vue'
 
 const router = useRouter()
 const users = ref<any[]>([])
@@ -70,13 +71,14 @@ onMounted(fetchUsers)
 
 <template>
   <div>
-    <div class="flex items-center justify-between mb-6">
-      <div>
-        <h1 class="text-2xl font-bold text-text-primary">Utenti</h1>
-        <p class="text-sm text-text-secondary mt-1">Gestisci account standard, admin e inviti</p>
-      </div>
-      <router-link to="/users/new" class="btn-primary">+ Nuovo utente</router-link>
-    </div>
+    <PageHeader
+      title="Utenti"
+      description="Gestisci account standard, admin e inviti."
+    >
+      <template #actions>
+        <router-link to="/users/new" class="btn-primary">+ Nuovo utente</router-link>
+      </template>
+    </PageHeader>
 
     <div class="table-container">
       <table class="w-full">

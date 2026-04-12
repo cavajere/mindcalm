@@ -2,8 +2,15 @@
 import { onMounted, ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
+import PageHeader from '../components/PageHeader.vue'
 import TiptapEditor from '../components/TiptapEditor.vue'
 import TagSelector, { type SelectableTag } from '../components/TagSelector.vue'
+
+type ExistingFileMeta = {
+  url: string
+  originalName: string
+  displayName: string
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -25,14 +32,36 @@ const form = ref({
 
 const coverImage = ref<File | null>(null)
 const coverPreview = ref('')
-const existingCover = ref('')
+const existingCover = ref<ExistingFileMeta | null>(null)
+const coverImageDisplayName = ref('')
+const removeExistingCover = ref(false)
 
 function handleCoverChange(e: Event) {
   const files = (e.target as HTMLInputElement).files
   if (files?.length) {
     coverImage.value = files[0]
     coverPreview.value = URL.createObjectURL(files[0])
+    coverImageDisplayName.value = files[0].name
+    removeExistingCover.value = false
   }
+}
+
+function removeCover() {
+  if (coverImage.value && existingCover.value?.url) {
+    coverImage.value = null
+    coverPreview.value = ''
+    coverImageDisplayName.value = existingCover.value.displayName
+    removeExistingCover.value = false
+    return
+  }
+
+  coverImage.value = null
+  coverPreview.value = ''
+  coverImageDisplayName.value = ''
+  if (existingCover.value?.url) {
+    removeExistingCover.value = true
+  }
+  existingCover.value = null
 }
 
 async function save() {
@@ -47,8 +76,10 @@ async function save() {
     fd.append('body', form.value.body)
     fd.append('status', form.value.status)
     fd.append('tagIds', JSON.stringify(form.value.tagIds))
+    fd.append('coverImageDisplayName', coverImageDisplayName.value)
 
     if (coverImage.value) fd.append('coverImage', coverImage.value)
+    if (removeExistingCover.value) fd.append('removeCoverImage', 'true')
 
     if (isEdit.value) {
       await axios.put(`/api/admin/articles/${route.params.id}`, fd)
@@ -71,19 +102,24 @@ onMounted(async () => {
   if (isEdit.value) {
     loading.value = true
     try {
-      const { data: articlesData } = await axios.get('/api/admin/articles?limit=100')
-      const article = articlesData.data.find((a: any) => a.id === route.params.id)
-      if (article) {
-        form.value = {
-          title: article.title,
-          author: article.author,
-          excerpt: article.excerpt || '',
-          body: article.body,
-          status: article.status,
-          tagIds: (article.tags || []).map((tag: any) => tag.id),
-        }
-        existingCover.value = article.coverImage || ''
+      const { data: article } = await axios.get(`/api/admin/articles/${route.params.id}`)
+      form.value = {
+        title: article.title,
+        author: article.author,
+        excerpt: article.excerpt || '',
+        body: article.body,
+        status: article.status,
+        tagIds: (article.tags || []).map((tag: any) => tag.id),
       }
+      existingCover.value = article.coverImage
+        ? {
+            url: article.coverImage,
+            originalName: article.coverImageOriginalName || '',
+            displayName: article.coverImageDisplayName || '',
+          }
+        : null
+      coverImageDisplayName.value = article.coverImageDisplayName || ''
+      removeExistingCover.value = false
     } finally {
       loading.value = false
     }
@@ -93,14 +129,14 @@ onMounted(async () => {
 
 <template>
   <div class="mx-auto w-full max-w-3xl">
-    <div class="flex items-center gap-4 mb-6">
-      <button @click="router.push('/articles')" class="text-text-secondary hover:text-text-primary">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-        </svg>
-      </button>
-      <h1 class="text-2xl font-bold text-text-primary">{{ isEdit ? 'Modifica articolo' : 'Nuovo articolo' }}</h1>
-    </div>
+    <PageHeader
+      :title="isEdit ? 'Modifica articolo' : 'Nuovo articolo'"
+      :description="isEdit ? 'Aggiorna contenuto, metadata e stato editoriale.' : 'Crea un nuovo articolo con contenuto, autore e metadata.'"
+    >
+      <template #actions>
+        <button type="button" @click="router.push('/articles')" class="btn-secondary">Annulla</button>
+      </template>
+    </PageHeader>
 
     <form @submit.prevent="save" class="card w-full space-y-5">
       <div v-if="error" class="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg">{{ error }}</div>
@@ -144,7 +180,19 @@ onMounted(async () => {
         <label class="label">Immagine copertina</label>
         <input type="file" accept="image/jpeg,image/png,image/webp" @change="handleCoverChange" class="input-field" />
         <img v-if="coverPreview" :src="coverPreview" class="mt-2 h-32 rounded-lg object-cover" />
-        <img v-else-if="existingCover" :src="existingCover" class="mt-2 h-32 rounded-lg object-cover" />
+        <img v-else-if="existingCover?.url" :src="existingCover.url" class="mt-2 h-32 rounded-lg object-cover" />
+        <div v-if="coverImage || existingCover" class="mt-3 space-y-3">
+          <div>
+            <label class="label">Nome file visualizzato</label>
+            <input v-model="coverImageDisplayName" type="text" class="input-field" />
+            <p class="text-xs text-text-secondary mt-1">
+              Originale: {{ coverImage?.name || existingCover?.originalName }}. L'estensione viene mantenuta automaticamente.
+            </p>
+          </div>
+          <button type="button" @click="removeCover" class="text-sm text-red-500 hover:underline">
+            Rimuovi immagine
+          </button>
+        </div>
       </div>
 
       <div class="flex gap-3 pt-2">

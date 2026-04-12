@@ -2,7 +2,14 @@
 import { onMounted, ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
+import PageHeader from '../components/PageHeader.vue'
 import TagSelector, { type SelectableTag } from '../components/TagSelector.vue'
+
+type ExistingFileMeta = {
+  url: string | null
+  originalName: string
+  displayName: string
+}
 import { audioLevelOptions } from '../utils/audioLevels'
 
 const route = useRoute()
@@ -27,7 +34,8 @@ const form = ref({
 
 // --- Audio ---
 const audioFile = ref<File | null>(null)
-const existingAudio = ref('')
+const existingAudio = ref<ExistingFileMeta | null>(null)
+const audioDisplayName = ref('')
 const audioDragging = ref(false)
 const audioInputRef = ref<HTMLInputElement | null>(null)
 
@@ -59,17 +67,21 @@ function setAudioFile(file: File) {
     return
   }
   audioFile.value = file
+  audioDisplayName.value = file.name
 }
 
 function removeAudio() {
   audioFile.value = null
+  audioDisplayName.value = existingAudio.value?.displayName || ''
   if (audioInputRef.value) audioInputRef.value.value = ''
 }
 
 // --- Cover image ---
 const coverImage = ref<File | null>(null)
-const existingCover = ref('')
+const existingCover = ref<ExistingFileMeta | null>(null)
 const coverPreview = ref('')
+const coverImageDisplayName = ref('')
+const removeExistingCover = ref(false)
 const coverDragging = ref(false)
 const coverInputRef = ref<HTMLInputElement | null>(null)
 
@@ -100,11 +112,27 @@ function setCoverFile(file: File) {
   }
   coverImage.value = file
   coverPreview.value = URL.createObjectURL(file)
+  coverImageDisplayName.value = file.name
+  removeExistingCover.value = false
 }
 
 function removeCover() {
+  if (coverImage.value && existingCover.value?.url) {
+    coverImage.value = null
+    coverPreview.value = ''
+    coverImageDisplayName.value = existingCover.value.displayName
+    removeExistingCover.value = false
+    if (coverInputRef.value) coverInputRef.value.value = ''
+    return
+  }
+
   coverImage.value = null
   coverPreview.value = ''
+  coverImageDisplayName.value = ''
+  if (existingCover.value?.url) {
+    removeExistingCover.value = true
+  }
+  existingCover.value = null
   if (coverInputRef.value) coverInputRef.value.value = ''
 }
 
@@ -133,9 +161,12 @@ async function save() {
     fd.append('level', form.value.level)
     fd.append('status', form.value.status)
     fd.append('tagIds', JSON.stringify(form.value.tagIds))
+    fd.append('audioFileDisplayName', audioDisplayName.value)
+    fd.append('coverImageDisplayName', coverImageDisplayName.value)
 
     if (audioFile.value) fd.append('audioFile', audioFile.value)
     if (coverImage.value) fd.append('coverImage', coverImage.value)
+    if (removeExistingCover.value) fd.append('removeCoverImage', 'true')
 
     if (!isEdit.value && !audioFile.value) {
       error.value = 'File audio obbligatorio'
@@ -174,22 +205,32 @@ onMounted(async () => {
   tags.value = tagsData
 
   if (isEdit.value) {
-      loading.value = true
+    loading.value = true
     try {
-      const { data: audioData } = await axios.get('/api/admin/audio?limit=100')
-      const audio = audioData.data.find((item: any) => item.id === route.params.id)
-      if (audio) {
-        form.value = {
-          title: audio.title,
-          description: audio.description,
-          categoryId: audio.categoryId,
-          level: audio.level,
-          status: audio.status,
-          tagIds: (audio.tags || []).map((tag: any) => tag.id),
-        }
-        existingAudio.value = audio.audioFile
-        existingCover.value = audio.coverImage || ''
+      const { data: audio } = await axios.get(`/api/admin/audio/${route.params.id}`)
+      form.value = {
+        title: audio.title,
+        description: audio.description,
+        categoryId: audio.categoryId,
+        level: audio.level,
+        status: audio.status,
+        tagIds: (audio.tags || []).map((tag: any) => tag.id),
       }
+      existingAudio.value = {
+        url: null,
+        originalName: audio.audioFileOriginalName,
+        displayName: audio.audioFileDisplayName,
+      }
+      audioDisplayName.value = audio.audioFileDisplayName
+      existingCover.value = audio.coverImage
+        ? {
+            url: audio.coverImage,
+            originalName: audio.coverImageOriginalName || '',
+            displayName: audio.coverImageDisplayName || '',
+          }
+        : null
+      coverImageDisplayName.value = audio.coverImageDisplayName || ''
+      removeExistingCover.value = false
     } finally {
       loading.value = false
     }
@@ -199,14 +240,14 @@ onMounted(async () => {
 
 <template>
   <div class="mx-auto w-full max-w-2xl">
-    <div class="flex items-center gap-4 mb-6">
-      <button @click="router.push('/audio')" class="text-text-secondary hover:text-text-primary">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-        </svg>
-      </button>
-      <h1 class="text-2xl font-bold text-text-primary">{{ isEdit ? 'Modifica audio' : 'Nuovo audio' }}</h1>
-    </div>
+    <PageHeader
+      :title="isEdit ? 'Modifica audio' : 'Nuovo audio'"
+      :description="isEdit ? 'Aggiorna metadata, file e stato del contenuto audio.' : 'Configura metadata, asset e pubblicazione del nuovo contenuto audio.'"
+    >
+      <template #actions>
+        <button type="button" @click="router.push('/audio')" class="btn-secondary">Annulla</button>
+      </template>
+    </PageHeader>
 
     <form @submit.prevent="save" class="card w-full space-y-5">
       <div v-if="error" class="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg">{{ error }}</div>
@@ -258,7 +299,7 @@ onMounted(async () => {
               </svg>
             </div>
             <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium text-text-primary truncate">{{ audioFile.name }}</p>
+              <p class="text-sm font-medium text-text-primary truncate">{{ audioDisplayName || audioFile.name }}</p>
               <p class="text-xs text-text-secondary">{{ fileExtension(audioFile.name) }} &middot; {{ formatFileSize(audioFile.size) }}</p>
             </div>
             <button type="button" @click="removeAudio" class="p-1.5 text-text-secondary hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Rimuovi">
@@ -278,7 +319,7 @@ onMounted(async () => {
               </svg>
             </div>
             <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium text-text-primary truncate">{{ existingAudio.split('/').pop() }}</p>
+              <p class="text-sm font-medium text-text-primary truncate">{{ existingAudio.displayName }}</p>
               <p class="text-xs text-text-secondary">File attuale</p>
             </div>
             <button type="button" @click="audioInputRef?.click()" class="text-xs text-primary hover:underline font-medium">Sostituisci</button>
@@ -307,6 +348,14 @@ onMounted(async () => {
         </div>
 
         <input ref="audioInputRef" type="file" :accept="audioAccept" @change="handleAudioSelect" class="hidden" />
+
+        <div v-if="audioFile || existingAudio" class="mt-3">
+          <label class="label">Nome file visualizzato</label>
+          <input v-model="audioDisplayName" type="text" class="input-field" />
+          <p class="text-xs text-text-secondary mt-1">
+            Originale: {{ audioFile?.name || existingAudio?.originalName }}. L'estensione viene mantenuta automaticamente.
+          </p>
+        </div>
       </div>
 
       <!-- Cover image upload -->
@@ -314,8 +363,8 @@ onMounted(async () => {
         <label class="label">Immagine copertina</label>
 
         <!-- Preview immagine selezionata -->
-        <div v-if="coverPreview || (existingCover && !coverImage)" class="relative rounded-lg overflow-hidden border border-gray-200">
-          <img :src="coverPreview || existingCover" class="w-full h-48 object-cover" />
+        <div v-if="coverPreview || (existingCover?.url && !coverImage)" class="relative rounded-lg overflow-hidden border border-gray-200">
+          <img :src="coverPreview || existingCover?.url || ''" class="w-full h-48 object-cover" />
           <div class="absolute inset-0 bg-black/0 hover:bg-black/40 transition-colors group flex items-center justify-center gap-2">
             <button
               type="button"
@@ -356,6 +405,14 @@ onMounted(async () => {
         </div>
 
         <input ref="coverInputRef" type="file" :accept="imageAccept" @change="handleCoverSelect" class="hidden" />
+
+        <div v-if="coverImage || existingCover" class="mt-3">
+          <label class="label">Nome file visualizzato</label>
+          <input v-model="coverImageDisplayName" type="text" class="input-field" />
+          <p class="text-xs text-text-secondary mt-1">
+            Originale: {{ coverImage?.name || existingCover?.originalName }}. L'estensione viene mantenuta automaticamente.
+          </p>
+        </div>
       </div>
 
       <div>

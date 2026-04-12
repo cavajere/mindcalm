@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import axios from 'axios'
+import PageHeader from '../components/PageHeader.vue'
 
 interface Tag {
   id: string
@@ -119,13 +120,14 @@ onMounted(fetchTags)
 
 <template>
   <div>
-    <div class="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-      <div>
-        <h1 class="text-2xl font-bold text-text-primary">Tag</h1>
-        <p class="mt-1 text-sm text-text-secondary">Tassonomia condivisa per audio e articoli</p>
-      </div>
-      <button @click="openNew" class="btn-primary">+ Nuovo tag</button>
-    </div>
+    <PageHeader
+      title="Tag"
+      description="Tassonomia condivisa per audio e articoli."
+    >
+      <template #actions>
+        <button @click="openNew" class="btn-primary">+ Nuovo tag</button>
+      </template>
+    </PageHeader>
 
     <div class="mb-4">
       <input v-model="search" type="text" placeholder="Cerca per nome, slug o alias..." class="input-field max-w-md" />

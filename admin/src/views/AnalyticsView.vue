@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import axios from 'axios'
+import PageHeader from '../components/PageHeader.vue'
 
 type PeriodPreset = '7' | '30' | '90' | 'custom'
 
@@ -284,12 +285,10 @@ onMounted(async () => {
 
 <template>
   <div>
-    <div class="flex items-center justify-between mb-6 gap-4">
-      <div>
-        <h1 class="text-2xl font-bold text-text-primary">Analytics</h1>
-        <p class="text-sm text-text-secondary mt-1">Consultazione contenuti, riproduzioni e dettaglio eventi della PWA</p>
-      </div>
-    </div>
+    <PageHeader
+      title="Analytics"
+      description="Consultazione contenuti, riproduzioni e dettaglio eventi della PWA."
+    />
 
     <div class="card mb-6">
       <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">

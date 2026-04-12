@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import axios from 'axios'
+import PageHeader from '../components/PageHeader.vue'
 
 const stats = ref({ audio: { published: 0, draft: 0 }, articles: { published: 0, draft: 0 }, categories: 0 })
 const recentAudio = ref<any[]>([])
@@ -34,7 +35,10 @@ onMounted(async () => {
 
 <template>
   <div>
-    <h1 class="text-2xl font-bold text-text-primary mb-6">Dashboard</h1>
+    <PageHeader
+      title="Dashboard"
+      description="Panoramica rapida di contenuti, stato editoriale e attività recenti."
+    />
 
     <!-- Stats -->
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">

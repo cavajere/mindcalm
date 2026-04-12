@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
+import PageHeader from '../components/PageHeader.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 
 const router = useRouter()
@@ -35,10 +36,14 @@ onMounted(fetchArticles)
 
 <template>
   <div>
-    <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold text-text-primary">Articoli</h1>
-      <router-link to="/articles/new" class="btn-primary">+ Nuovo articolo</router-link>
-    </div>
+    <PageHeader
+      title="Articoli"
+      description="Gestisci articoli, stato editoriale e routing pubblico."
+    >
+      <template #actions>
+        <router-link to="/articles/new" class="btn-primary">+ Nuovo articolo</router-link>
+      </template>
+    </PageHeader>
 
     <div class="table-container">
       <table class="w-full">

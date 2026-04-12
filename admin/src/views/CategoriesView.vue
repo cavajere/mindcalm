@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import axios from 'axios'
+import PageHeader from '../components/PageHeader.vue'
 
 interface Category {
   id: string
@@ -81,10 +82,14 @@ onMounted(fetchCategories)
 
 <template>
   <div>
-    <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold text-text-primary">Categorie</h1>
-      <button @click="openNew" class="btn-primary">+ Nuova categoria</button>
-    </div>
+    <PageHeader
+      title="Categorie"
+      description="Organizza il catalogo con categorie, colori e metadati visuali."
+    >
+      <template #actions>
+        <button @click="openNew" class="btn-primary">+ Nuova categoria</button>
+      </template>
+    </PageHeader>
 
     <div class="table-container">
       <table class="w-full">

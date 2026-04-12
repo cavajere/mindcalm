@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
+import PageHeader from '../components/PageHeader.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import { getAudioLevelLabel } from '../utils/audioLevels'
 
@@ -50,10 +51,14 @@ onMounted(fetchAudio)
 
 <template>
   <div>
-    <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold text-text-primary">Audio</h1>
-      <router-link to="/audio/new" class="btn-primary">+ Nuovo audio</router-link>
-    </div>
+    <PageHeader
+      title="Audio"
+      description="Gestisci catalogo, stato di pubblicazione e delivery dei contenuti audio."
+    >
+      <template #actions>
+        <router-link to="/audio/new" class="btn-primary">+ Nuovo audio</router-link>
+      </template>
+    </PageHeader>
 
     <div class="table-container">
       <table class="w-full">

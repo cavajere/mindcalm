@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
+import PageHeader from '../components/PageHeader.vue'
 
 const PHONE_REGEX = /^\+?[0-9\s().-]{7,20}$/
 const MAX_NOTES_LENGTH = 5000
@@ -178,15 +179,14 @@ onMounted(fetchUser)
 
 <template>
   <div class="mx-auto w-full max-w-2xl">
-    <div class="flex items-center justify-between mb-6">
-      <div>
-        <h1 class="text-2xl font-bold text-text-primary">{{ isEdit ? 'Modifica utente' : 'Nuovo utente' }}</h1>
-        <p class="text-sm text-text-secondary mt-1">
-          {{ isEdit ? 'Aggiorna ruolo, stato e credenziali' : 'Crea un account standard o admin' }}
-        </p>
-      </div>
-      <router-link to="/users" class="btn-secondary">Annulla</router-link>
-    </div>
+    <PageHeader
+      :title="isEdit ? 'Modifica utente' : 'Nuovo utente'"
+      :description="isEdit ? 'Aggiorna ruolo, stato e credenziali.' : 'Crea un account standard o admin.'"
+    >
+      <template #actions>
+        <router-link to="/users" class="btn-secondary">Annulla</router-link>
+      </template>
+    </PageHeader>
 
     <form @submit.prevent="handleSubmit" class="card space-y-4">
       <div v-if="error" class="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg">

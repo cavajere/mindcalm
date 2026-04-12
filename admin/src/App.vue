@@ -35,6 +35,7 @@ const primaryNavItems: NavLeafItem[] = [
 
 const adminNavItems: NavLeafItem[] = [
   { path: '/settings/smtp', label: 'SMTP', shortLabel: 'SMTP' },
+  { path: '/settings/backup-restore', label: 'Backup & Restore', shortLabel: 'BR' },
   { path: '/audit-logs', label: 'Log attivita', shortLabel: 'Log' },
   { path: '/categories', label: 'Categorie', shortLabel: 'Categorie' },
   { path: '/tags', label: 'Tag', shortLabel: 'Tag' },
@@ -58,20 +59,6 @@ const expandedGroupKey = ref<string | null>(null)
 function hasChildren(item: NavItem): item is NavGroupItem {
   return 'children' in item
 }
-
-const flatNavItems = computed(() =>
-  navItems.flatMap((item) => (hasChildren(item) ? item.children : [item])),
-)
-
-const currentSection = computed(() => {
-  if (route.path === '/profile') {
-    return { label: 'Profilo', shortLabel: 'Profilo' }
-  }
-
-  return flatNavItems.value.find((item) =>
-    item.path === '/' ? route.path === item.path : route.path.startsWith(item.path),
-  ) ?? { label: 'Amministrazione', shortLabel: 'AM' }
-})
 
 const userInitials = computed(() => {
   const source = auth.user?.name || auth.user?.email || 'MC'
@@ -343,8 +330,7 @@ onBeforeUnmount(() => {
               </svg>
             </button>
             <div class="min-w-0">
-              <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Admin</p>
-              <h1 class="truncate text-xl font-semibold text-slate-900">{{ currentSection.label }}</h1>
+              <h1 class="truncate text-xl font-semibold text-slate-900">MindCalm</h1>
             </div>
           </div>
 

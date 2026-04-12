@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import axios from 'axios'
+import PageHeader from '../components/PageHeader.vue'
 import { useAuthStore } from '../stores/authStore'
 
 const SMTP_MASKED_PASSWORD = '••••••••'
@@ -198,10 +199,10 @@ onMounted(fetchSettings)
 
 <template>
   <div class="mx-auto w-full max-w-3xl">
-    <div class="mb-6">
-      <h1 class="text-2xl font-bold text-text-primary">SMTP</h1>
-      <p class="text-sm text-text-secondary mt-1">Configura il server email usato per forgot/reset password</p>
-    </div>
+    <PageHeader
+      title="SMTP"
+      description="Configura il server email usato per recupero password e comunicazioni operative."
+    />
 
     <form @submit.prevent="saveSettings" class="card space-y-4">
       <input
