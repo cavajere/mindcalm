@@ -83,8 +83,6 @@ const userInitials = computed(() => {
     .join('')
 })
 
-const userRoleLabel = computed(() => (auth.user?.role === 'ADMIN' ? 'Admin' : 'Standard'))
-
 function isActivePath(path: string) {
   return path === '/' ? route.path === path : route.path.startsWith(path)
 }
@@ -369,11 +367,6 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="flex items-center gap-3">
-            <div class="hidden rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-right sm:block">
-              <p class="text-sm font-medium text-slate-900">{{ auth.user?.name }}</p>
-              <p class="text-xs text-slate-500">{{ userRoleLabel }}</p>
-            </div>
-
             <div class="relative" data-profile-menu>
               <button
                 type="button"
