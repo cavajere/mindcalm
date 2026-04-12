@@ -3,6 +3,7 @@ import { onMounted, ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import TagSelector, { type SelectableTag } from '../components/TagSelector.vue'
+import { audioLevelOptions } from '../utils/audioLevels'
 
 const route = useRoute()
 const router = useRouter()
@@ -231,9 +232,7 @@ onMounted(async () => {
         <div>
           <label class="label">Livello</label>
           <select v-model="form.level" class="input-field">
-            <option value="BEGINNER">Principiante</option>
-            <option value="INTERMEDIATE">Intermedio</option>
-            <option value="ADVANCED">Avanzato</option>
+            <option v-for="option in audioLevelOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
           </select>
         </div>
       </div>

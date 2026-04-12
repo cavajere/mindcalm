@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 import StatusBadge from '../components/StatusBadge.vue'
+import { getAudioLevelLabel } from '../utils/audioLevels'
 
 const router = useRouter()
 const audioItems = ref<any[]>([])
@@ -75,7 +76,7 @@ onMounted(fetchAudio)
                 {{ audio.category.name }}
               </span>
             </td>
-            <td class="px-4 py-3 text-sm text-text-secondary">{{ audio.level }}</td>
+            <td class="px-4 py-3 text-sm text-text-secondary">{{ getAudioLevelLabel(audio.level) }}</td>
             <td class="px-4 py-3 text-sm text-text-secondary">{{ formatDuration(audio.durationSec) }}</td>
             <td class="px-4 py-3">
               <div class="flex flex-col gap-1">
