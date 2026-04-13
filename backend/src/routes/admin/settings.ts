@@ -2,10 +2,11 @@ import { Router, Request, Response } from 'express'
 import { AuditAction, AuditEntityType } from '@prisma/client'
 import { validationResult } from 'express-validator'
 import { authMiddleware, requireAdmin } from '../../middleware/auth'
-import { smtpSettingsValidation } from '../../utils/validators'
+import { notificationScheduleValidation, smtpSettingsValidation } from '../../utils/validators'
 import { getBoolean, getNumber, getSingleString } from '../../utils/request'
 import { getSmtpSettingsForAdmin, saveSmtpSettings, sendTestMail } from '../../services/smtpService'
 import { getAuditActorFromRequest, logAuditEventSafe } from '../../services/auditLogService'
+import { getNotificationScheduleSettings, updateNotificationScheduleSettings } from '../../services/notificationService'
 
 const router = Router()
 
@@ -86,6 +87,29 @@ router.post('/smtp/test', async (req: Request, res: Response) => {
   })
 
   res.json({ message: `Email di test inviata a ${email}` })
+})
+
+router.get('/notifications/schedule', async (_req: Request, res: Response) => {
+  const schedule = await getNotificationScheduleSettings()
+  res.json(schedule)
+})
+
+router.put('/notifications/schedule', notificationScheduleValidation, async (req: Request, res: Response) => {
+  const errors = validationResult(req)
+  if (!errors.isEmpty()) {
+    res.status(400).json({ error: 'Dati non validi', details: errors.array() })
+    return
+  }
+
+  const schedule = await updateNotificationScheduleSettings({
+    immediateHourUtc: getNumber(req.body.immediateHourUtc) ?? 9,
+    weeklyHourUtc: getNumber(req.body.weeklyHourUtc) ?? 9,
+    weeklyDayOfWeek: getNumber(req.body.weeklyDayOfWeek) ?? 1,
+    monthlyHourUtc: getNumber(req.body.monthlyHourUtc) ?? 9,
+    monthlyDayOfMonth: getNumber(req.body.monthlyDayOfMonth) ?? 1,
+  })
+
+  res.json(schedule)
 })
 
 export default router

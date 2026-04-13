@@ -32,9 +32,38 @@ model User {
   playbackSessions       PlaybackSession[]
   createdInviteCodes     InviteCode[] @relation("InviteCodeCreator")
   redeemedInviteCodes    InviteCode[] @relation("InviteCodeRedeemer")
+  notificationPreference UserNotificationPreference?
 
   @@index([role])
   @@map("admin_users")
+}
+
+model UserNotificationPreference {
+  userId                     String                @id
+  user                       User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notifyOnAudio              Boolean               @default(true)
+  notifyOnArticles           Boolean               @default(true)
+  frequency                  NotificationFrequency @default(NONE)
+  lastImmediateContentAt     DateTime?
+  lastWeeklyDigestSentAt     DateTime?
+  lastMonthlyDigestSentAt    DateTime?
+  createdAt                  DateTime              @default(now())
+  updatedAt                  DateTime              @updatedAt
+
+  @@map("user_notification_preferences")
+}
+
+model NotificationScheduleSettings {
+  id               Int      @id
+  immediateHourUtc Int      @default(9)
+  weeklyHourUtc    Int      @default(9)
+  weeklyDayOfWeek  Int      @default(1)
+  monthlyHourUtc   Int      @default(9)
+  monthlyDayOfMonth Int     @default(1)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("notification_schedule_settings")
 }
 
 model InviteCode {
@@ -391,4 +420,11 @@ enum AnalyticsEventType {
   AUDIO_PLAY
   AUDIO_COMPLETE
   ARTICLE_VIEW
+}
+
+enum NotificationFrequency {
+  NONE
+  IMMEDIATE
+  WEEKLY
+  MONTHLY
 }
