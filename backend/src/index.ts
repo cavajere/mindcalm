@@ -22,6 +22,7 @@ import analyticsPublicRouter from './routes/public/analytics'
 import analyticsAdminRouter from './routes/admin/analytics'
 import auditLogsAdminRouter from './routes/admin/auditLogs'
 import inviteCodesAdminRouter from './routes/admin/inviteCodes'
+import { processNotificationDispatch } from './services/notificationService'
 
 const app = express()
 
@@ -97,5 +98,11 @@ app.use(errorHandler)
 app.listen(config.port, () => {
   console.log(`[MindCalm] Server avviato su porta ${config.port} (${config.nodeEnv})`)
 })
+
+setInterval(() => {
+  processNotificationDispatch().catch((error) => {
+    console.error('[MindCalm] Notification dispatch error:', error)
+  })
+}, 5 * 60 * 1000)
 
 export default app

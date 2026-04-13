@@ -9,8 +9,17 @@ const currentPassword = ref('')
 const newPassword = ref('')
 const confirmPassword = ref('')
 const loading = ref(false)
+const preferencesLoading = ref(false)
+const preferencesSaving = ref(false)
 const error = ref('')
 const success = ref('')
+const preferencesError = ref('')
+const preferencesSuccess = ref('')
+const notificationPrefs = ref({
+  notifyOnAudio: true,
+  notifyOnArticles: true,
+  frequency: 'NONE',
+})
 
 const isFormValid = computed(() =>
   currentPassword.value.trim().length > 0 &&
@@ -45,6 +54,41 @@ async function handleChangePassword() {
     loading.value = false
   }
 }
+
+async function loadNotificationPreferences() {
+  preferencesLoading.value = true
+  preferencesError.value = ''
+
+  try {
+    const { data } = await axios.get('/api/v1/auth/notification-preferences')
+    notificationPrefs.value = {
+      notifyOnAudio: Boolean(data.notifyOnAudio),
+      notifyOnArticles: Boolean(data.notifyOnArticles),
+      frequency: data.frequency || 'NONE',
+    }
+  } catch (e: any) {
+    preferencesError.value = e.response?.data?.error || 'Errore caricamento preferenze notifiche'
+  } finally {
+    preferencesLoading.value = false
+  }
+}
+
+async function saveNotificationPreferences() {
+  preferencesSaving.value = true
+  preferencesError.value = ''
+  preferencesSuccess.value = ''
+
+  try {
+    await axios.put('/api/v1/auth/notification-preferences', notificationPrefs.value)
+    preferencesSuccess.value = 'Preferenze notifiche aggiornate'
+  } catch (e: any) {
+    preferencesError.value = e.response?.data?.error || 'Errore aggiornamento preferenze notifiche'
+  } finally {
+    preferencesSaving.value = false
+  }
+}
+
+loadNotificationPreferences()
 </script>
 
 <template>
@@ -67,6 +111,50 @@ async function handleChangePassword() {
           <p class="text-text-primary font-medium">{{ auth.user?.role === 'ADMIN' ? 'Admin' : 'Standard' }}</p>
         </div>
       </div>
+    </div>
+
+    <div class="card p-6 space-y-4">
+      <div>
+        <h2 class="text-xl font-semibold text-text-primary">Notifiche email nuovi contenuti</h2>
+        <p class="text-text-secondary text-sm mt-1">
+          Scegli se ricevere aggiornamenti per Audio e Articoli e con quale frequenza.
+        </p>
+      </div>
+
+      <div v-if="preferencesError" class="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg">
+        {{ preferencesError }}
+      </div>
+      <div v-if="preferencesSuccess" class="bg-green-50 text-green-700 text-sm px-4 py-3 rounded-lg">
+        {{ preferencesSuccess }}
+      </div>
+
+      <div class="space-y-2">
+        <label class="inline-flex items-center gap-2">
+          <input v-model="notificationPrefs.notifyOnAudio" type="checkbox" />
+          <span>Aggiornami sui nuovi Audio</span>
+        </label>
+        <label class="inline-flex items-center gap-2">
+          <input v-model="notificationPrefs.notifyOnArticles" type="checkbox" />
+          <span>Aggiornami sui nuovi Articoli</span>
+        </label>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-text-primary mb-1">Frequenza invio</label>
+        <select
+          v-model="notificationPrefs.frequency"
+          class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+        >
+          <option value="NONE">Nessuna notifica</option>
+          <option value="IMMEDIATE">Una notifica per ogni nuova pubblicazione</option>
+          <option value="WEEKLY">Riepilogo settimanale</option>
+          <option value="MONTHLY">Riepilogo mensile</option>
+        </select>
+      </div>
+
+      <button type="button" class="btn-primary" :disabled="preferencesLoading || preferencesSaving" @click="saveNotificationPreferences">
+        {{ preferencesSaving ? 'Salvataggio...' : 'Salva preferenze notifiche' }}
+      </button>
     </div>
 
     <div class="card p-6">
