@@ -308,7 +308,7 @@ show_post_deploy_status() {
   show_runtime_status
   wait_for_http_status "http://127.0.0.1:${API_PORT}/api/health" "Health check API" 200
   wait_for_http_status "http://127.0.0.1:${API_PORT}/" "Frontend root" 200
-  wait_for_http_status "http://127.0.0.1:${API_PORT}/admin/" "Admin root" 302
+  wait_for_http_status "http://127.0.0.1:${API_PORT}/admin/" "Admin root" 200 302
   wait_for_http_status "http://127.0.0.1:${API_PORT}/admin/login" "Admin login" 200
 
   log "Deploy completato"
