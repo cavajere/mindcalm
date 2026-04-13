@@ -134,6 +134,11 @@ export const notificationScheduleValidation = [
   body('weeklyDayOfWeek').isInt({ min: 0, max: 6 }).withMessage('Giorno weekly non valido'),
   body('monthlyHourUtc').isInt({ min: 0, max: 23 }).withMessage('Orario monthly non valido'),
   body('monthlyDayOfMonth').isInt({ min: 1, max: 28 }).withMessage('Giorno monthly non valido'),
+  body('batchSize').isInt({ min: 1, max: 100 }).withMessage('Batch size non valido'),
+  body('maxAttempts').isInt({ min: 1, max: 10 }).withMessage('Max attempts non valido'),
+  body('retryBaseDelayMinutes').isInt({ min: 1, max: 120 }).withMessage('Retry delay non valido'),
+  body('lockTimeoutMinutes').isInt({ min: 1, max: 120 }).withMessage('Lock timeout non valido'),
+  body('retentionDays').isInt({ min: 1, max: 365 }).withMessage('Retention giorni non valida'),
 ]
 
 export const audioValidation = [

@@ -1,6 +1,10 @@
 import { Request, Response } from 'express'
 import { createAsyncRouter } from '../../utils/asyncRouter'
-import { AuditAction, AuditEntityType } from '@prisma/client'
+import {
+  AuditAction,
+  AuditEntityType,
+  NotificationDispatchStatus,
+} from '@prisma/client'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
@@ -24,7 +28,12 @@ import { notificationScheduleValidation, paginationQuery, smtpSettingsValidation
 import { getBoolean, getNumber, getSingleString } from '../../utils/request'
 import { getSmtpSettingsForAdmin, saveSmtpSettings, sendTestMail } from '../../services/smtpService'
 import { getAuditActorFromRequest, logAuditEventSafe } from '../../services/auditLogService'
-import { getNotificationScheduleSettings, updateNotificationScheduleSettings } from '../../services/notificationService'
+import {
+  getNotificationDispatchStats,
+  getNotificationScheduleSettings,
+  listNotificationDispatchJobs,
+  updateNotificationScheduleSettings,
+} from '../../services/notificationService'
 
 const backupUploadDir = path.join(os.tmpdir(), 'mindcalm-admin-backups')
 
@@ -46,6 +55,21 @@ const backupUpload = multer({
 const router = createAsyncRouter()
 
 router.use(adminAuthMiddleware, requireAdmin)
+
+function buildNotificationSettingsInput(req: Request) {
+  return {
+    immediateHourUtc: getNumber(req.body.immediateHourUtc) ?? 9,
+    weeklyHourUtc: getNumber(req.body.weeklyHourUtc) ?? 9,
+    weeklyDayOfWeek: getNumber(req.body.weeklyDayOfWeek) ?? 1,
+    monthlyHourUtc: getNumber(req.body.monthlyHourUtc) ?? 9,
+    monthlyDayOfMonth: getNumber(req.body.monthlyDayOfMonth) ?? 1,
+    batchSize: getNumber(req.body.batchSize) ?? 20,
+    maxAttempts: getNumber(req.body.maxAttempts) ?? 5,
+    retryBaseDelayMinutes: getNumber(req.body.retryBaseDelayMinutes) ?? 5,
+    lockTimeoutMinutes: getNumber(req.body.lockTimeoutMinutes) ?? 15,
+    retentionDays: getNumber(req.body.retentionDays) ?? 30,
+  }
+}
 
 router.get('/smtp', async (_req: Request, res: Response) => {
   const settings = await getSmtpSettingsForAdmin()
@@ -239,6 +263,32 @@ router.post('/backup/restore', async (req: Request, res: Response) => {
   }
 })
 
+router.get('/notifications', async (_req: Request, res: Response) => {
+  const [settings, stats] = await Promise.all([
+    getNotificationScheduleSettings(),
+    getNotificationDispatchStats(),
+  ])
+
+  res.json({
+    settings,
+    stats,
+  })
+})
+
+router.put('/notifications', notificationScheduleValidation, async (req: Request, res: Response) => {
+  const errors = validationResult(req)
+  if (!errors.isEmpty()) {
+    res.status(400).json({ error: 'Dati non validi', details: errors.array() })
+    return
+  }
+
+  const schedule = await updateNotificationScheduleSettings({
+    ...buildNotificationSettingsInput(req),
+  })
+
+  res.json(schedule)
+})
+
 router.get('/notifications/schedule', async (_req: Request, res: Response) => {
   const schedule = await getNotificationScheduleSettings()
   res.json(schedule)
@@ -251,15 +301,29 @@ router.put('/notifications/schedule', notificationScheduleValidation, async (req
     return
   }
 
-  const schedule = await updateNotificationScheduleSettings({
-    immediateHourUtc: getNumber(req.body.immediateHourUtc) ?? 9,
-    weeklyHourUtc: getNumber(req.body.weeklyHourUtc) ?? 9,
-    weeklyDayOfWeek: getNumber(req.body.weeklyDayOfWeek) ?? 1,
-    monthlyHourUtc: getNumber(req.body.monthlyHourUtc) ?? 9,
-    monthlyDayOfMonth: getNumber(req.body.monthlyDayOfMonth) ?? 1,
+  const schedule = await updateNotificationScheduleSettings(buildNotificationSettingsInput(req))
+  res.json(schedule)
+})
+
+router.get('/notifications/pipeline', paginationQuery, async (req: Request, res: Response) => {
+  const errors = validationResult(req)
+  if (!errors.isEmpty()) {
+    res.status(400).json({ error: 'Parametri paginazione non validi', details: errors.array() })
+    return
+  }
+
+  const statusInput = getSingleString(req.query.status)?.toUpperCase()
+  const status = statusInput && Object.values(NotificationDispatchStatus).includes(statusInput as NotificationDispatchStatus)
+    ? (statusInput as NotificationDispatchStatus)
+    : undefined
+
+  const result = await listNotificationDispatchJobs({
+    page: Number(req.query.page) || 1,
+    limit: Number(req.query.limit) || 20,
+    status,
   })
 
-  res.json(schedule)
+  res.json(result)
 })
 
 export default router
