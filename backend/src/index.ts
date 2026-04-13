@@ -149,8 +149,8 @@ app.use(errorHandler)
 async function startApplication() {
   await ensureDatabaseReady()
 
-  app.listen(config.port, () => {
-    console.log(`[MindCalm] Server avviato su porta ${config.port} (${config.nodeEnv})`)
+  app.listen(config.port, config.network.host, () => {
+    console.log(`[MindCalm] Server avviato su ${config.network.host}:${config.port} (${config.nodeEnv})`)
   })
 
   void startBackupScheduler().catch((error) => {

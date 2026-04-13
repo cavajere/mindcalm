@@ -78,6 +78,7 @@ export const config = {
   },
 
   network: {
+    host: process.env.HOST?.trim() || '0.0.0.0',
     trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
   },
 
