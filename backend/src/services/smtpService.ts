@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer'
 import { prisma } from '../lib/prisma'
 import { decryptText, encryptText } from './cryptoService'
+import { buildSmtpTestEmail } from './email/templates'
 
 export interface SmtpSettingsInput {
   host: string
@@ -111,10 +112,10 @@ export async function sendMail(input: {
 }
 
 export async function sendTestMail(to: string) {
+  const template = buildSmtpTestEmail()
+
   await sendMail({
     to,
-    subject: 'Test configurazione SMTP MindCalm',
-    text: 'La configurazione SMTP di MindCalm è valida.',
-    html: '<p>La configurazione SMTP di <strong>MindCalm</strong> è valida.</p>',
+    ...template,
   })
 }

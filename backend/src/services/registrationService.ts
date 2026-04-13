@@ -6,6 +6,8 @@ import { hashToken, generateRandomToken } from './cryptoService'
 import { sendMail } from './smtpService'
 import { calculateLicenseExpiresAtFromActivation } from './licenseService'
 import { getPublicInviteCodeDetails, normalizeInviteCode } from './inviteCodeService'
+import { buildAppUrl } from '../utils/appUrls'
+import { buildRegistrationVerificationEmail } from './email/templates'
 
 function normalizeNamePart(value: string) {
   return value.trim().replace(/\s+/g, ' ')
@@ -99,22 +101,19 @@ export async function startInviteCodeRegistration(input: {
     })
   })
 
-  const verificationUrl = `${input.verificationBaseUrl.replace(/\/$/, '')}/verify-registration?token=${encodeURIComponent(token)}`
+  const verificationUrl = `${buildAppUrl(input.verificationBaseUrl, '/verify-registration')}?token=${encodeURIComponent(token)}`
+  const template = buildRegistrationVerificationEmail({
+    firstName,
+    verificationUrl,
+    verificationExpiresAt,
+    verificationExpiresInHours: config.registration.verificationExpiresInHours,
+    licenseDurationDays: inviteCode.licenseDurationDays,
+  })
 
   try {
     await sendMail({
       to: email,
-      subject: 'Conferma la registrazione a MindCalm',
-      text:
-        `Ciao ${firstName},\n\n` +
-        `conferma la tua registrazione a MindCalm entro ${config.registration.verificationExpiresInHours} ore usando questo link:\n${verificationUrl}\n\n` +
-        `Dopo la conferma, la tua licenza di ${inviteCode.licenseDurationDays} giorni verra' attivata automaticamente.`,
-      html:
-        `<p>Ciao ${firstName},</p>` +
-        `<p>Conferma la tua registrazione a <strong>MindCalm</strong> entro <strong>${config.registration.verificationExpiresInHours} ore</strong>.</p>` +
-        `<p><a href="${verificationUrl}">${verificationUrl}</a></p>` +
-        `<p>Dopo la conferma, la tua licenza di <strong>${inviteCode.licenseDurationDays} giorni</strong> verra' attivata automaticamente.</p>` +
-        `<p>Scadenza link: ${verificationExpiresAt.toLocaleString('it-IT')}</p>`,
+      ...template,
     })
   } catch (error) {
     await prisma.pendingRegistration.update({

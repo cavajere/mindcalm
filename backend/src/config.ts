@@ -53,6 +53,11 @@ export const config = {
     origin: process.env.CORS_ORIGIN || 'http://localhost:5473,http://localhost:5474',
   },
 
+  appUrls: {
+    public: process.env.PUBLIC_APP_URL?.trim() || 'http://localhost:5473',
+    admin: process.env.ADMIN_APP_URL?.trim() || 'http://localhost:5474/admin',
+  },
+
   rateLimit: {
     public: parseInt(process.env.RATE_LIMIT_PUBLIC || '100', 10),
     login: parseInt(process.env.RATE_LIMIT_LOGIN || '30', 10),

@@ -47,6 +47,8 @@ import { getLicenseExpiredPayload, isLicenseExpired } from '../../services/licen
 import { getUserNotificationPreferences, updateUserNotificationPreferences } from '../../services/notificationService'
 import { getPublicInviteCodeDetails } from '../../services/inviteCodeService'
 import { hasActiveAdminUsers, isBootstrapAdminConfigured, validateBootstrapAdminCredentials } from '../../services/bootstrapAdminService'
+import { buildPasswordResetEmail } from '../../services/email/templates'
+import { buildAppUrl, resolveAppBaseUrl } from '../../utils/appUrls'
 import {
   completeInviteCodeRegistration,
   getRegistrationVerificationDetails,
@@ -389,7 +391,7 @@ router.post('/bootstrap/setup', adminAuthMiddleware, requireBootstrapAdmin, boot
   const email = getSingleString(req.body.email)!.trim().toLowerCase()
   const firstName = getSingleString(req.body.firstName)!.trim().replace(/\s+/g, ' ')
   const lastName = getSingleString(req.body.lastName)!.trim().replace(/\s+/g, ' ')
-  const phone = getSingleString(req.body.phone)!.trim().replace(/\s+/g, ' ')
+  const phone = getSingleString(req.body.phone)?.trim().replace(/\s+/g, ' ') || null
   const password = getSingleString(req.body.password)!
   const fullName = `${firstName} ${lastName}`.trim()
 
@@ -486,7 +488,14 @@ router.post('/forgot-password', forgotPasswordValidation, async (req: Request, r
   }
 
   const email = getSingleString(req.body.email)
-  const resetBaseUrl = getSingleString(req.body.resetBaseUrl)
+  let resetBaseUrl: string
+
+  try {
+    resetBaseUrl = resolveAppBaseUrl(getSingleString(req.body.resetBaseUrl), config.appUrls.admin, 'reset password admin')
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message })
+    return
+  }
 
   const user = await prisma.user.findUnique({ where: { email: email! } })
   if (!user || !user.isActive) {
@@ -505,22 +514,17 @@ router.post('/forgot-password', forgotPasswordValidation, async (req: Request, r
 
   try {
     const { token, expiresAt } = await createPasswordReset(user.id)
-    const resetUrl = `${resetBaseUrl!.replace(/\/$/, '')}/reset-password?token=${encodeURIComponent(token)}`
+    const resetUrl = `${buildAppUrl(resetBaseUrl, '/reset-password')}?token=${encodeURIComponent(token)}`
     const expiresMinutes = config.resetPassword.expiresInMinutes
+    const template = buildPasswordResetEmail({
+      resetUrl,
+      expiresAt,
+      expiresMinutes,
+    })
 
     await sendMail({
       to: user.email,
-      subject: 'Reimposta la password di MindCalm',
-      text:
-        `Hai richiesto il reset della password.\n\n` +
-        `Usa questo link entro ${expiresMinutes} minuti:\n${resetUrl}\n\n` +
-        `Se non hai richiesto il reset, ignora questa email.`,
-      html:
-        `<p>Hai richiesto il reset della password.</p>` +
-        `<p>Usa questo link entro <strong>${expiresMinutes} minuti</strong>:</p>` +
-        `<p><a href="${resetUrl}">${resetUrl}</a></p>` +
-        `<p>Scadenza: ${expiresAt.toLocaleString('it-IT')}</p>` +
-        `<p>Se non hai richiesto il reset, ignora questa email.</p>`,
+      ...template,
     })
 
     await logAuditEventSafe({
@@ -690,7 +694,14 @@ router.post('/register-with-invite-code', registrationRateLimiter, registerWithI
   const lastName = getSingleString(req.body.lastName)
   const phone = getSingleString(req.body.phone)
   const password = getSingleString(req.body.password)
-  const verificationBaseUrl = getSingleString(req.body.verificationBaseUrl)
+  let verificationBaseUrl: string
+
+  try {
+    verificationBaseUrl = resolveAppBaseUrl(getSingleString(req.body.verificationBaseUrl), config.appUrls.public, 'verifica registrazione')
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message })
+    return
+  }
 
   try {
     const registration = await startInviteCodeRegistration({
@@ -700,7 +711,7 @@ router.post('/register-with-invite-code', registrationRateLimiter, registerWithI
       lastName: lastName!,
       phone: phone!,
       password: password!,
-      verificationBaseUrl: verificationBaseUrl!,
+      verificationBaseUrl,
     })
 
     await logAuditEventSafe({

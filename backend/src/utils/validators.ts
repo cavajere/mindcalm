@@ -46,6 +46,10 @@ const auditActions = [
 const auditEntityTypes = ['AUTH', 'USER', 'INVITE_CODE', 'REGISTRATION', 'AUDIO', 'ALBUM_IMAGE', 'ARTICLE', 'CATEGORY', 'TAG', 'SETTINGS']
 const phonePattern = /^\+?[0-9\s().-]{7,20}$/
 const inviteCodePattern = /^[A-NP-Z1-9]{7}$/
+const appUrlValidationOptions = {
+  require_protocol: true,
+  require_tld: false,
+} as const
 
 function isValidPhoneNumber(value: string) {
   const normalized = value.trim()
@@ -61,7 +65,7 @@ export const loginValidation = [
 
 export const forgotPasswordValidation = [
   body('email').isEmail().withMessage('Email non valida'),
-  body('resetBaseUrl').isURL({ require_protocol: true }).withMessage('URL reset non valido'),
+  body('resetBaseUrl').optional({ values: 'falsy' }).isURL(appUrlValidationOptions).withMessage('URL reset non valido'),
 ]
 
 export const resetPasswordValidation = [
@@ -94,17 +98,16 @@ export const registerWithInviteCodeValidation = [
   body('firstName').trim().notEmpty().withMessage('Nome obbligatorio'),
   body('lastName').trim().notEmpty().withMessage('Cognome obbligatorio'),
   body('phone')
+    .optional({ values: 'falsy' })
     .trim()
-    .notEmpty()
-    .withMessage('Telefono obbligatorio')
-    .bail()
     .custom(isValidPhoneNumber)
     .withMessage('Numero di telefono non valido'),
   body('password')
     .isLength({ min: 8 })
     .withMessage('Password minima 8 caratteri'),
   body('verificationBaseUrl')
-    .isURL({ require_protocol: true })
+    .optional({ values: 'falsy' })
+    .isURL(appUrlValidationOptions)
     .withMessage('URL verifica non valido'),
 ]
 
@@ -169,10 +172,8 @@ export const userCreateValidation = [
   body('firstName').trim().notEmpty().withMessage('Nome obbligatorio'),
   body('lastName').trim().notEmpty().withMessage('Cognome obbligatorio'),
   body('phone')
+    .optional({ values: 'falsy' })
     .trim()
-    .notEmpty()
-    .withMessage('Telefono obbligatorio')
-    .bail()
     .custom(isValidPhoneNumber)
     .withMessage('Numero di telefono non valido'),
   body('notes').optional({ values: 'falsy' }).isLength({ max: 5000 }).withMessage('Note max 5000 caratteri'),
@@ -181,7 +182,7 @@ export const userCreateValidation = [
   body('isActive').optional().isBoolean().withMessage('isActive non valido'),
   body('licenseExpiresAt').optional({ values: 'falsy' }).isISO8601().withMessage('Data scadenza licenza non valida'),
   body('sendInvite').optional().isBoolean().withMessage('sendInvite non valido'),
-  body('inviteBaseUrl').optional({ values: 'falsy' }).isURL({ require_protocol: true }).withMessage('URL invito non valido'),
+  body('inviteBaseUrl').optional({ values: 'falsy' }).isURL(appUrlValidationOptions).withMessage('URL invito non valido'),
 ]
 
 export const bootstrapAdminSetupValidation = [
@@ -189,10 +190,8 @@ export const bootstrapAdminSetupValidation = [
   body('firstName').trim().notEmpty().withMessage('Nome obbligatorio'),
   body('lastName').trim().notEmpty().withMessage('Cognome obbligatorio'),
   body('phone')
+    .optional({ values: 'falsy' })
     .trim()
-    .notEmpty()
-    .withMessage('Telefono obbligatorio')
-    .bail()
     .custom(isValidPhoneNumber)
     .withMessage('Numero di telefono non valido'),
   body('password')
@@ -205,11 +204,8 @@ export const userUpdateValidation = [
   body('firstName').optional().trim().notEmpty().withMessage('Nome obbligatorio'),
   body('lastName').optional().trim().notEmpty().withMessage('Cognome obbligatorio'),
   body('phone')
-    .optional()
+    .optional({ values: 'falsy' })
     .trim()
-    .notEmpty()
-    .withMessage('Telefono obbligatorio')
-    .bail()
     .custom(isValidPhoneNumber)
     .withMessage('Numero di telefono non valido'),
   body('notes').optional({ nullable: true }).isLength({ max: 5000 }).withMessage('Note max 5000 caratteri'),

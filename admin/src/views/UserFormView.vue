@@ -10,12 +10,6 @@ const MAX_NOTES_LENGTH = 5000
 const route = useRoute()
 const router = useRouter()
 
-function getPublicAppBaseUrl() {
-  return window.location.origin.endsWith(':5474')
-    ? window.location.origin.replace(':5474', ':5473')
-    : window.location.origin
-}
-
 const isEdit = computed(() => !!route.params.id)
 const loading = ref(false)
 const resendingInvite = ref(false)
@@ -101,7 +95,7 @@ async function handleSubmit() {
   error.value = ''
   success.value = ''
 
-  if (!isPhoneValid(form.value.phone)) {
+  if (form.value.phone.trim() && !isPhoneValid(form.value.phone)) {
     error.value = 'Numero di telefono non valido'
     return
   }
@@ -127,7 +121,6 @@ async function handleSubmit() {
         ? (form.value.password || undefined)
         : (form.value.sendInvite ? undefined : (form.value.password || undefined)),
       sendInvite: !isEdit.value ? form.value.sendInvite : undefined,
-      inviteBaseUrl: !isEdit.value && form.value.sendInvite ? getPublicAppBaseUrl() : undefined,
     }
 
     if (isEdit.value) {
@@ -152,9 +145,7 @@ async function resendInvite() {
   resendingInvite.value = true
 
   try {
-    const { data } = await axios.post(`/api/admin/users/${route.params.id}/resend-invite`, {
-      inviteBaseUrl: getPublicAppBaseUrl(),
-    })
+    const { data } = await axios.post(`/api/admin/users/${route.params.id}/resend-invite`)
 
     success.value = data.message || 'Invito inviato'
     userMeta.value.hasPendingInvite = data.user?.hasPendingInvite ?? true
@@ -189,7 +180,7 @@ onMounted(fetchUser)
       </template>
     </PageHeader>
 
-    <form @submit.prevent="handleSubmit" class="card space-y-4">
+    <form @submit.prevent="handleSubmit" class="card space-y-4" autocomplete="off">
       <div v-if="error" class="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg">
         {{ error }}
       </div>
@@ -226,7 +217,7 @@ onMounted(fetchUser)
 
       <div>
         <label class="label">Email</label>
-        <input v-model="form.email" type="email" required class="input-field" placeholder="utente@example.com" />
+        <input v-model="form.email" type="email" required autocomplete="username" class="input-field" placeholder="utente@example.com" />
       </div>
 
       <div>
@@ -234,7 +225,6 @@ onMounted(fetchUser)
         <input
           v-model="form.phone"
           type="tel"
-          required
           class="input-field"
           placeholder="+39 333 123 4567"
         />

@@ -17,7 +17,6 @@ async function handleSubmit() {
   try {
     const { data } = await axios.post('/api/auth/forgot-password', {
       email: email.value,
-      resetBaseUrl: window.location.origin,
     })
     success.value = getApiSuccessMessage(data, 'Se l’email esiste, riceverai un link per reimpostare la password')
   } catch (apiError) {

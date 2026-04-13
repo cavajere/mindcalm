@@ -2,14 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
 import HomeView from '../views/HomeView.vue'
 import LoginView from '../views/LoginView.vue'
-
-const ADMIN_DEV_ORIGIN = 'http://localhost:5474'
-
-function buildAdminDevUrl(fullPath: string) {
-  const adminPath = fullPath.startsWith('/admin') ? fullPath.slice('/admin'.length) || '/' : '/'
-  const normalizedPath = adminPath.startsWith('/') ? adminPath : `/${adminPath}`
-  return `${ADMIN_DEV_ORIGIN}/admin${normalizedPath}`
-}
+import { buildAdminUrl } from '../utils/appUrls'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -38,7 +31,7 @@ router.beforeEach(async (to) => {
   const auth = useAuthStore()
 
   if (import.meta.env.DEV && to.path.startsWith('/admin')) {
-    window.location.replace(buildAdminDevUrl(to.fullPath))
+    window.location.replace(buildAdminUrl(to.fullPath))
     return false
   }
 

@@ -9,12 +9,6 @@ const users = ref<any[]>([])
 const loading = ref(true)
 const pagination = ref({ page: 1, limit: 20, total: 0, totalPages: 0 })
 
-function getPublicAppBaseUrl() {
-  return window.location.origin.endsWith(':5474')
-    ? window.location.origin.replace(':5474', ':5473')
-    : window.location.origin
-}
-
 async function fetchUsers() {
   loading.value = true
   try {
@@ -33,9 +27,7 @@ async function deleteUser(user: any) {
 }
 
 async function resendInvite(user: any) {
-  await axios.post(`/api/admin/users/${user.id}/resend-invite`, {
-    inviteBaseUrl: getPublicAppBaseUrl(),
-  })
+  await axios.post(`/api/admin/users/${user.id}/resend-invite`)
   await fetchUsers()
 }
 

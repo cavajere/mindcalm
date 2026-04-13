@@ -11,6 +11,8 @@ import { getAdminUsersCount, sendUserInvite } from '../../services/userService'
 import { generateRandomToken } from '../../services/cryptoService'
 import { getAuditActorFromRequest, logAuditEventSafe } from '../../services/auditLogService'
 import { parseLicenseExpiresAtInput } from '../../services/licenseService'
+import { resolveAppBaseUrl } from '../../utils/appUrls'
+import { config } from '../../config'
 
 function serializeUser(user: {
   id: string
@@ -103,6 +105,11 @@ function normalizeOptionalText(value: string | undefined) {
   return normalized ? normalized : null
 }
 
+function normalizeOptionalPhone(value: string | undefined) {
+  const normalized = value?.trim().replace(/\s+/g, ' ')
+  return normalized ? normalized : null
+}
+
 router.use(adminAuthMiddleware, requireAdmin)
 
 router.get('/', paginationQuery, async (req: Request, res: Response) => {
@@ -156,14 +163,14 @@ router.post('/', userCreateValidation, async (req: Request, res: Response) => {
   const email = getSingleString(req.body.email)!
   const firstName = normalizeNamePart(getSingleString(req.body.firstName)!)
   const lastName = normalizeNamePart(getSingleString(req.body.lastName)!)
-  const phone = normalizeNamePart(getSingleString(req.body.phone)!)
+  const phone = normalizeOptionalPhone(getSingleString(req.body.phone))
   const notes = normalizeOptionalText(getSingleString(req.body.notes))
   const role = (getSingleString(req.body.role) as UserRole | undefined) || UserRole.STANDARD
   const password = getSingleString(req.body.password)
   const isActive = getBoolean(req.body.isActive) ?? true
   const licenseExpiresAtInput = getSingleString(req.body.licenseExpiresAt)
   const sendInvite = getBoolean(req.body.sendInvite) ?? false
-  const inviteBaseUrl = getSingleString(req.body.inviteBaseUrl)
+  let inviteBaseUrl: string | null = null
   const licenseExpiresAt = role === UserRole.STANDARD ? parseLicenseExpiresAtInput(licenseExpiresAtInput) ?? null : null
 
   if (sendInvite && password) {
@@ -176,14 +183,18 @@ router.post('/', userCreateValidation, async (req: Request, res: Response) => {
     return
   }
 
-  if (sendInvite && !inviteBaseUrl) {
-    res.status(400).json({ error: 'URL invito mancante' })
-    return
-  }
-
   if (sendInvite && !isActive) {
     res.status(400).json({ error: 'L’utente deve essere attivo per poter ricevere un invito' })
     return
+  }
+
+  if (sendInvite) {
+    try {
+      inviteBaseUrl = resolveAppBaseUrl(getSingleString(req.body.inviteBaseUrl), config.appUrls.public, 'invito utente')
+    } catch (error) {
+      res.status(500).json({ error: (error as Error).message })
+      return
+    }
   }
 
   const existing = await prisma.user.findUnique({ where: { email } })
@@ -358,7 +369,7 @@ router.put('/:id', userUpdateValidation, async (req: Request, res: Response) => 
     email !== undefined && email !== existing.email ? 'email' : null,
     firstName !== undefined && normalizeNamePart(firstName) !== currentNames.firstName ? 'firstName' : null,
     lastName !== undefined && normalizeNamePart(lastName) !== currentNames.lastName ? 'lastName' : null,
-    phone !== undefined && normalizeNamePart(phone) !== (existing.phone ?? '') ? 'phone' : null,
+    phone !== undefined && normalizeOptionalPhone(phone) !== (existing.phone ?? null) ? 'phone' : null,
     notes !== undefined && notes !== (existing.notes ?? null) ? 'notes' : null,
     role !== undefined && role !== existing.role ? 'role' : null,
     isActive !== undefined && isActive !== existing.isActive ? 'isActive' : null,
@@ -376,7 +387,7 @@ router.put('/:id', userUpdateValidation, async (req: Request, res: Response) => 
       name: (firstName !== undefined || lastName !== undefined) ? buildFullName(nextFirstName, nextLastName) : undefined,
       firstName: firstName !== undefined ? nextFirstName : undefined,
       lastName: lastName !== undefined ? nextLastName : undefined,
-      phone: phone !== undefined ? normalizeNamePart(phone) : undefined,
+      phone: phone !== undefined ? normalizeOptionalPhone(phone) : undefined,
       notes,
       role: role ?? undefined,
       isActive: isActive ?? undefined,
@@ -415,15 +426,17 @@ router.put('/:id', userUpdateValidation, async (req: Request, res: Response) => 
 
 router.post('/:id/resend-invite', async (req: Request, res: Response) => {
   const userId = getSingleString(req.params.id)
-  const inviteBaseUrl = getSingleString(req.body.inviteBaseUrl)
+  let inviteBaseUrl: string
 
   if (!userId) {
     res.status(400).json({ error: 'ID utente non valido' })
     return
   }
 
-  if (!inviteBaseUrl) {
-    res.status(400).json({ error: 'URL invito mancante' })
+  try {
+    inviteBaseUrl = resolveAppBaseUrl(getSingleString(req.body.inviteBaseUrl), config.appUrls.public, 'invito utente')
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message })
     return
   }
 

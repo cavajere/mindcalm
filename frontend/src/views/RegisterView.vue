@@ -120,7 +120,6 @@ async function handleSubmit() {
       lastName: form.value.lastName.trim(),
       phone: form.value.phone.trim(),
       password: form.value.password,
-      verificationBaseUrl: window.location.origin,
     })
 
     success.value = getApiSuccessMessage(data, 'Controlla la tua email per completare la registrazione')

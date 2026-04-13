@@ -4,6 +4,8 @@ import { config } from '../config'
 import { generateRandomToken, hashToken } from './cryptoService'
 import { comparePassword, hashPassword } from './authService'
 import { sendMail } from './smtpService'
+import { buildUserInviteEmail } from './email/templates'
+import { buildAppUrl } from '../utils/appUrls'
 
 export async function createPasswordReset(userId: string) {
   const token = generateRandomToken()
@@ -40,23 +42,18 @@ export async function createUserInvite(userId: string) {
 
 export async function sendUserInvite(user: { id: string; email: string; name: string }, inviteBaseUrl: string) {
   const { token, expiresAt } = await createUserInvite(user.id)
-  const inviteUrl = `${inviteBaseUrl.replace(/\/$/, '')}/accept-invite?token=${encodeURIComponent(token)}`
+  const inviteUrl = `${buildAppUrl(inviteBaseUrl, '/accept-invite')}?token=${encodeURIComponent(token)}`
   const expiresHours = config.invitation.expiresInHours
+  const template = buildUserInviteEmail({
+    name: user.name,
+    inviteUrl,
+    expiresAt,
+    expiresHours,
+  })
 
   await sendMail({
     to: user.email,
-    subject: 'Sei stato invitato su MindCalm',
-    text:
-      `Ciao ${user.name},\n\n` +
-      `il tuo account MindCalm è pronto. Imposta la password entro ${expiresHours} ore usando questo link:\n${inviteUrl}\n\n` +
-      `Se non ti aspettavi questa email, puoi ignorarla.`,
-    html:
-      `<p>Ciao ${user.name},</p>` +
-      `<p>Il tuo account <strong>MindCalm</strong> è pronto.</p>` +
-      `<p>Imposta la password entro <strong>${expiresHours} ore</strong> usando questo link:</p>` +
-      `<p><a href="${inviteUrl}">${inviteUrl}</a></p>` +
-      `<p>Scadenza: ${expiresAt.toLocaleString('it-IT')}</p>` +
-      `<p>Se non ti aspettavi questa email, puoi ignorarla.</p>`,
+    ...template,
   })
 
   return { expiresAt }

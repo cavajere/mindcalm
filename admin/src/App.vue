@@ -2,12 +2,13 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useAuthStore } from './stores/authStore'
 import { useRouter, useRoute } from 'vue-router'
+import { getPublicAppUrl } from './utils/appUrls'
 
 const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
 
-const publicUrl = import.meta.env.DEV ? 'http://localhost:5473' : '/'
+const publicUrl = getPublicAppUrl()
 
 type NavLeafItem = {
   path: string

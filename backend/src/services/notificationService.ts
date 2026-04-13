@@ -1,6 +1,7 @@
 import { NotificationFrequency, Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma'
 import { sendMail } from './smtpService'
+import { buildContentNotificationEmail, type ContentNotificationItem } from './email/templates'
 
 const SCHEDULE_ROW_ID = 1
 
@@ -86,25 +87,40 @@ export async function updateNotificationScheduleSettings(input: NotificationSche
   })
 }
 
-function toAudioLine(item: { title: string; publishedAt: Date | null }) {
-  const published = item.publishedAt ? new Date(item.publishedAt).toLocaleDateString('it-IT') : 'data non disponibile'
-  return `🎧 ${item.title} (${published})`
+function toAudioItem(item: { title: string; publishedAt: Date | null }): ContentNotificationItem {
+  return {
+    type: 'audio',
+    title: item.title,
+    publishedAt: item.publishedAt,
+  }
 }
 
-function toArticleLine(item: { title: string; publishedAt: Date | null }) {
-  const published = item.publishedAt ? new Date(item.publishedAt).toLocaleDateString('it-IT') : 'data non disponibile'
-  return `📰 ${item.title} (${published})`
+function toArticleItem(item: { title: string; publishedAt: Date | null }): ContentNotificationItem {
+  return {
+    type: 'article',
+    title: item.title,
+    publishedAt: item.publishedAt,
+  }
 }
 
-async function sendContentEmail(user: { email: string; name: string }, subject: string, lines: string[]) {
-  const text = [`Ciao ${user.name},`, '', ...lines, '', 'Puoi modificare le preferenze dalla pagina Profilo.'].join('\n')
-  const html = `<p>Ciao ${user.name},</p><ul>${lines.map((line) => `<li>${line}</li>`).join('')}</ul><p>Puoi modificare le preferenze dalla pagina Profilo.</p>`
+async function sendContentEmail(input: {
+  user: { email: string; name: string }
+  subject: string
+  title: string
+  intro: string
+  items: ContentNotificationItem[]
+}) {
+  const template = buildContentNotificationEmail({
+    name: input.user.name,
+    subject: input.subject,
+    title: input.title,
+    intro: input.intro,
+    items: input.items,
+  })
 
   await sendMail({
-    to: user.email,
-    subject,
-    text,
-    html,
+    to: input.user.email,
+    ...template,
   })
 }
 
@@ -158,9 +174,13 @@ export async function processNotificationDispatch(now = new Date()) {
       if (audio.length === 0 && articles.length === 0) continue
 
       await sendContentEmail(
-        user,
-        'MindCalm: nuovi contenuti pubblicati',
-        [...audio.map(toAudioLine), ...articles.map(toArticleLine)],
+        {
+          user,
+          subject: 'MindCalm: nuovi contenuti pubblicati',
+          title: 'Nuovi contenuti disponibili',
+          intro: 'Abbiamo pubblicato nuovi contenuti che corrispondono alle tue preferenze.',
+          items: [...audio.map(toAudioItem), ...articles.map(toArticleItem)],
+        },
       )
 
       await prisma.userNotificationPreference.update({
@@ -195,9 +215,13 @@ export async function processNotificationDispatch(now = new Date()) {
       if (audio.length === 0 && articles.length === 0) continue
 
       await sendContentEmail(
-        user,
-        'MindCalm: riepilogo settimanale contenuti',
-        [...audio.map(toAudioLine), ...articles.map(toArticleLine)],
+        {
+          user,
+          subject: 'MindCalm: riepilogo settimanale contenuti',
+          title: 'Riepilogo settimanale',
+          intro: "Ecco i contenuti pubblicati nell'ultima settimana.",
+          items: [...audio.map(toAudioItem), ...articles.map(toArticleItem)],
+        },
       )
 
       await prisma.userNotificationPreference.update({
@@ -232,9 +256,13 @@ export async function processNotificationDispatch(now = new Date()) {
       if (audio.length === 0 && articles.length === 0) continue
 
       await sendContentEmail(
-        user,
-        'MindCalm: riepilogo mensile contenuti',
-        [...audio.map(toAudioLine), ...articles.map(toArticleLine)],
+        {
+          user,
+          subject: 'MindCalm: riepilogo mensile contenuti',
+          title: 'Riepilogo mensile',
+          intro: "Ecco i contenuti pubblicati nell'ultimo mese.",
+          items: [...audio.map(toAudioItem), ...articles.map(toArticleItem)],
+        },
       )
 
       await prisma.userNotificationPreference.update({

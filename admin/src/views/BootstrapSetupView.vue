@@ -40,7 +40,7 @@ async function handleSubmit() {
     return
   }
 
-  if (!isPhoneValid(form.value.phone)) {
+  if (form.value.phone.trim() && !isPhoneValid(form.value.phone)) {
     error.value = 'Numero di telefono non valido'
     return
   }
@@ -89,7 +89,7 @@ async function handleSubmit() {
 
         <div>
           <label class="label">Email admin</label>
-          <input v-model="form.email" type="email" required class="input-field" placeholder="admin@mindcalm.com" />
+          <input v-model="form.email" type="email" required autocomplete="username" class="input-field" placeholder="admin@mindcalm.com" />
         </div>
 
         <div class="grid gap-4 md:grid-cols-2">
@@ -105,7 +105,7 @@ async function handleSubmit() {
 
         <div>
           <label class="label">Telefono</label>
-          <input v-model="form.phone" type="tel" required class="input-field" placeholder="+39 333 123 4567" />
+          <input v-model="form.phone" type="tel" class="input-field" placeholder="+39 333 123 4567" />
         </div>
 
         <div class="grid gap-4 md:grid-cols-2">
