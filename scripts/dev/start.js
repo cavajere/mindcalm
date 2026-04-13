@@ -50,8 +50,40 @@ function killExistingProcesses() {
   });
 }
 
+function ensureDocker() {
+  return new Promise((resolve) => {
+    const composePath = path.resolve(ROOT, 'docker/development');
+    exec(
+      'docker compose ps --services --filter status=running',
+      { cwd: composePath },
+      (err, stdout) => {
+        const running = (stdout || '').trim().split('\n').filter(Boolean);
+        const required = ['postgres', 'mailhog'];
+        const missing = required.filter(s => !running.includes(s));
+
+        if (missing.length === 0) {
+          console.log('[MindCalm] Docker services already running');
+          resolve();
+          return;
+        }
+
+        console.log(`[MindCalm] Starting docker services (${missing.join(', ')})...`);
+        exec('docker compose up -d', { cwd: composePath }, (err2) => {
+          if (err2) {
+            console.error('[MindCalm] Failed to start docker services:', err2.message);
+          } else {
+            console.log('[MindCalm] Docker services started');
+          }
+          resolve();
+        });
+      }
+    );
+  });
+}
+
 async function start() {
   await killExistingProcesses();
+  await ensureDocker();
 
   const children = [];
 
@@ -97,6 +129,7 @@ async function start() {
 ║  Frontend:  http://localhost:5473            ║
 ║  Admin:     http://localhost:5474/admin/     ║
 ║  Postgres:  localhost:5435                   ║
+║  MailHog:   http://localhost:3326            ║
 ╚══════════════════════════════════════════════╝
   `);
 }

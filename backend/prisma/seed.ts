@@ -185,15 +185,34 @@ async function seedDemoAudio() {
   })
 }
 
+async function seedSmtpSettings() {
+  await prisma.smtpSettings.upsert({
+    where: { id: 1 },
+    update: {},
+    create: {
+      id: 1,
+      host: process.env.SMTP_HOST || 'localhost',
+      port: Number(process.env.SMTP_PORT) || 3325,
+      secure: false,
+      username: null,
+      passwordEncrypted: null,
+      fromEmail: process.env.SMTP_FROM_EMAIL || 'noreply@mindcalm.local',
+      fromName: 'MindCalm',
+    },
+  })
+}
+
 async function main() {
   await seedUsers()
   await seedCategories()
   await seedTags()
   await seedDemoAudio()
+  await seedSmtpSettings()
 
   console.log('Seed minimo completato')
   console.log('Admin: admin@mindcalm.com / admin123! (override con ADMIN_EMAIL/ADMIN_PASSWORD)')
   console.log('Utente demo: user@mindcalm.com / user123! (override con DEMO_USER_EMAIL/DEMO_USER_PASSWORD)')
+  console.log('SMTP: MailHog su localhost:3325 (UI: http://localhost:3326)')
 }
 
 main()

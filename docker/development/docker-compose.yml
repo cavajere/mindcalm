@@ -34,6 +34,14 @@ services:
       timeout: 5s
       retries: 5
 
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: mindcalm_dev_mailhog
+    restart: unless-stopped
+    ports:
+      - "${MAILHOG_SMTP_PORT:-3325}:1025"
+      - "${MAILHOG_UI_PORT:-3326}:8025"
+
 volumes:
   pgdata:
     name: mindcalm_dev_pgdata

@@ -27,5 +27,14 @@ if (!fs.existsSync(PID_FILE)) {
 // Fallback: kill anything still listening on our ports
 const portList = PORTS.join(',');
 exec(`lsof -ti :${portList} 2>/dev/null | xargs -r kill -9 2>/dev/null || true`, () => {
-  console.log('[MindCalm] Dev stack stopped.');
+  // Stop docker services
+  const composePath = path.resolve(__dirname, '../../docker/development');
+  exec('docker compose stop', { cwd: composePath }, (err) => {
+    if (err) {
+      console.error('[MindCalm] Failed to stop docker services:', err.message);
+    } else {
+      console.log('[MindCalm] Docker services stopped.');
+    }
+    console.log('[MindCalm] Dev stack stopped.');
+  });
 });

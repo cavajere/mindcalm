@@ -48,6 +48,8 @@ npm run dev:start
 - Admin: http://localhost:5474/admin/
 - API: http://localhost:3300
 - PostgreSQL: localhost:5435
+- MailHog UI: http://localhost:3326
+- MailHog SMTP: localhost:3325
 - Admin login: admin@mindcalm.com / admin123!
 
 ### Port allocation (no conflicts with other projects)
@@ -58,6 +60,8 @@ npm run dev:start
 | Frontend | 5173 | 5273 | 5373 | **5473** |
 | Admin | 5174 | 5274 | 5374 | **5474** |
 | PostgreSQL | 5432 | 5433 | 5434 | **5435** |
+| MailHog SMTP | — | — | — | **3325** |
+| MailHog UI | — | — | — | **3326** |
 
 ## Important files
 
