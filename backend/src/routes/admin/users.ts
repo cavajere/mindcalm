@@ -1,6 +1,6 @@
 import { Request, Response } from 'express'
 import { createAsyncRouter } from '../../utils/asyncRouter'
-import { AuditAction, AuditEntityType, AuditOutcome, UserRole } from '@prisma/client'
+import { AuditAction, AuditEntityType, AuditOutcome, NotificationFrequency, UserRole } from '@prisma/client'
 import { validationResult } from 'express-validator'
 import { adminAuthMiddleware, requireAdmin } from '../../middleware/auth'
 import { paginationQuery, userCreateValidation, userUpdateValidation } from '../../utils/validators'
@@ -11,6 +11,7 @@ import { getAdminUsersCount, sendUserInvite } from '../../services/userService'
 import { generateRandomToken } from '../../services/cryptoService'
 import { getAuditActorFromRequest, logAuditEventSafe } from '../../services/auditLogService'
 import { parseLicenseExpiresAtInput } from '../../services/licenseService'
+import { updateUserNotificationPreferences } from '../../services/notificationService'
 import { resolveAppBaseUrl } from '../../utils/appUrls'
 import { config } from '../../config'
 
@@ -29,10 +30,16 @@ function serializeUser(user: {
   updatedAt: Date
   invitedAt: Date | null
   inviteTokenHash: string | null
+  notificationPreference: {
+    notifyOnAudio: boolean
+    notifyOnArticles: boolean
+    frequency: NotificationFrequency
+  } | null
 }) {
   const fallbackName = user.name.trim().replace(/\s+/g, ' ')
   const { firstName, lastName } = getResolvedNameParts(user)
   const fullName = `${firstName} ${lastName}`.trim() || fallbackName
+  const notificationPreferences = serializeNotificationPreferences(user.notificationPreference)
 
   return {
     id: user.id,
@@ -49,6 +56,7 @@ function serializeUser(user: {
     updatedAt: user.updatedAt,
     invitedAt: user.invitedAt,
     hasPendingInvite: Boolean(user.inviteTokenHash),
+    notificationPreferences,
   }
 }
 
@@ -68,6 +76,13 @@ const userSelect = {
   updatedAt: true,
   invitedAt: true,
   inviteTokenHash: true,
+  notificationPreference: {
+    select: {
+      notifyOnAudio: true,
+      notifyOnArticles: true,
+      frequency: true,
+    },
+  },
 } as const
 
 function normalizeNamePart(value: string) {
@@ -108,6 +123,55 @@ function normalizeOptionalText(value: string | undefined) {
 function normalizeOptionalPhone(value: string | undefined) {
   const normalized = value?.trim().replace(/\s+/g, ' ')
   return normalized ? normalized : null
+}
+
+function getDefaultNotificationPreferences() {
+  return {
+    notifyOnAudio: true,
+    notifyOnArticles: true,
+    frequency: NotificationFrequency.NONE,
+  }
+}
+
+function serializeNotificationPreferences(preference: {
+  notifyOnAudio: boolean
+  notifyOnArticles: boolean
+  frequency: NotificationFrequency
+} | null | undefined) {
+  if (preference) {
+    return {
+      notifyOnAudio: preference.notifyOnAudio,
+      notifyOnArticles: preference.notifyOnArticles,
+      frequency: preference.frequency,
+    }
+  }
+
+  return getDefaultNotificationPreferences()
+}
+
+function resolveNotificationPreferencesInput(
+  body: Request['body'],
+  basePreferences: {
+    notifyOnAudio: boolean
+    notifyOnArticles: boolean
+    frequency: NotificationFrequency
+  },
+) {
+  const hasNotifyOnAudio = Object.prototype.hasOwnProperty.call(body, 'notifyOnAudio')
+  const hasNotifyOnArticles = Object.prototype.hasOwnProperty.call(body, 'notifyOnArticles')
+  const hasFrequency = Object.prototype.hasOwnProperty.call(body, 'frequency')
+
+  if (!hasNotifyOnAudio && !hasNotifyOnArticles && !hasFrequency) {
+    return undefined
+  }
+
+  return {
+    notifyOnAudio: hasNotifyOnAudio ? (getBoolean(body.notifyOnAudio) ?? basePreferences.notifyOnAudio) : basePreferences.notifyOnAudio,
+    notifyOnArticles: hasNotifyOnArticles ? (getBoolean(body.notifyOnArticles) ?? basePreferences.notifyOnArticles) : basePreferences.notifyOnArticles,
+    frequency: hasFrequency
+      ? ((getSingleString(body.frequency) as NotificationFrequency | undefined) ?? basePreferences.frequency)
+      : basePreferences.frequency,
+  }
 }
 
 router.use(adminAuthMiddleware, requireAdmin)
@@ -172,6 +236,7 @@ router.post('/', userCreateValidation, async (req: Request, res: Response) => {
   const sendInvite = getBoolean(req.body.sendInvite) ?? false
   let inviteBaseUrl: string | null = null
   const licenseExpiresAt = role === UserRole.STANDARD ? parseLicenseExpiresAtInput(licenseExpiresAtInput) ?? null : null
+  const notificationPreferencesInput = resolveNotificationPreferencesInput(req.body, getDefaultNotificationPreferences())
 
   if (sendInvite && password) {
     res.status(400).json({ error: 'Scegli se impostare una password o inviare un invito, non entrambi' })
@@ -218,6 +283,10 @@ router.post('/', userCreateValidation, async (req: Request, res: Response) => {
     },
     select: userSelect,
   })
+
+  if (notificationPreferencesInput) {
+    await updateUserNotificationPreferences(user.id, notificationPreferencesInput)
+  }
 
   if (sendInvite) {
     try {
@@ -307,7 +376,10 @@ router.put('/:id', userUpdateValidation, async (req: Request, res: Response) => 
     return
   }
 
-  const existing = await prisma.user.findUnique({ where: { id: userId } })
+  const existing = await prisma.user.findUnique({
+    where: { id: userId },
+    select: userSelect,
+  })
   if (!existing) {
     res.status(404).json({ error: 'Utente non trovato' })
     return
@@ -325,6 +397,8 @@ router.put('/:id', userUpdateValidation, async (req: Request, res: Response) => 
   const isActive = getBoolean(req.body.isActive)
   const hasLicenseExpiresAtInput = Object.prototype.hasOwnProperty.call(req.body, 'licenseExpiresAt')
   const licenseExpiresAtInput = hasLicenseExpiresAtInput ? getSingleString(req.body.licenseExpiresAt) : undefined
+  const currentNotificationPreferences = serializeNotificationPreferences(existing.notificationPreference)
+  const notificationPreferencesInput = resolveNotificationPreferencesInput(req.body, currentNotificationPreferences)
 
   if (email && email !== existing.email) {
     const emailInUse = await prisma.user.findUnique({ where: { email } })
@@ -375,6 +449,9 @@ router.put('/:id', userUpdateValidation, async (req: Request, res: Response) => 
     isActive !== undefined && isActive !== existing.isActive ? 'isActive' : null,
     licenseExpiresAtChanged ? 'licenseExpiresAt' : null,
     password ? 'password' : null,
+    notificationPreferencesInput && notificationPreferencesInput.notifyOnAudio !== currentNotificationPreferences.notifyOnAudio ? 'notifyOnAudio' : null,
+    notificationPreferencesInput && notificationPreferencesInput.notifyOnArticles !== currentNotificationPreferences.notifyOnArticles ? 'notifyOnArticles' : null,
+    notificationPreferencesInput && notificationPreferencesInput.frequency !== currentNotificationPreferences.frequency ? 'frequency' : null,
   ].filter((field): field is string => Boolean(field))
 
   const nextFirstName = firstName !== undefined ? normalizeNamePart(firstName) : currentNames.firstName
@@ -403,6 +480,17 @@ router.put('/:id', userUpdateValidation, async (req: Request, res: Response) => 
     select: userSelect,
   })
 
+  if (notificationPreferencesInput) {
+    await updateUserNotificationPreferences(updated.id, notificationPreferencesInput)
+  }
+
+  const responseUser = notificationPreferencesInput
+    ? await prisma.user.findUnique({
+        where: { id: updated.id },
+        select: userSelect,
+      })
+    : updated
+
   await logAuditEventSafe({
     req,
     action: AuditAction.USER_UPDATED,
@@ -418,10 +506,12 @@ router.put('/:id', userUpdateValidation, async (req: Request, res: Response) => 
       nextIsActive: updated.isActive,
       previousLicenseExpiresAt: existing.licenseExpiresAt,
       nextLicenseExpiresAt: updated.licenseExpiresAt,
+      previousNotificationFrequency: currentNotificationPreferences.frequency,
+      nextNotificationFrequency: notificationPreferencesInput?.frequency ?? currentNotificationPreferences.frequency,
     },
   })
 
-  res.json(serializeUser(updated))
+  res.json(serializeUser(responseUser!))
 })
 
 router.post('/:id/resend-invite', async (req: Request, res: Response) => {

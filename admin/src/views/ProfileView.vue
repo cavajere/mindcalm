@@ -1,8 +1,15 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import axios from 'axios'
 import { useAuthStore } from '../stores/authStore'
 
 const auth = useAuthStore()
+const notificationPrefs = ref({
+  notifyOnAudio: true,
+  notifyOnArticles: true,
+  frequency: 'NONE',
+})
+const notificationError = ref('')
 
 const userRoleLabel = computed(() => (auth.user?.role === 'ADMIN' ? 'Amministratore' : 'Standard'))
 const accountStatusLabel = computed(() => (auth.user?.isActive === false ? 'Disattivato' : 'Attivo'))
@@ -15,6 +22,36 @@ const initials = computed(() => {
     .map((part) => part[0]?.toUpperCase() ?? '')
     .join('')
 })
+
+const notificationFrequencyLabel = computed(() => {
+  switch (notificationPrefs.value.frequency) {
+    case 'IMMEDIATE':
+      return 'Una notifica per ogni nuova pubblicazione'
+    case 'WEEKLY':
+      return 'Riepilogo settimanale'
+    case 'MONTHLY':
+      return 'Riepilogo mensile'
+    default:
+      return 'Nessuna notifica'
+  }
+})
+
+async function loadNotificationPreferences() {
+  notificationError.value = ''
+
+  try {
+    const { data } = await axios.get('/api/auth/notification-preferences')
+    notificationPrefs.value = {
+      notifyOnAudio: data.notifyOnAudio ?? true,
+      notifyOnArticles: data.notifyOnArticles ?? true,
+      frequency: data.frequency ?? 'NONE',
+    }
+  } catch (error: any) {
+    notificationError.value = error.response?.data?.error || 'Errore caricamento preferenze notifiche'
+  }
+}
+
+onMounted(loadNotificationPreferences)
 </script>
 
 <template>
@@ -68,6 +105,37 @@ const initials = computed(() => {
           <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
             <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Stato</p>
             <p class="mt-2 text-sm font-medium text-slate-900">{{ accountStatusLabel }}</p>
+          </div>
+        </div>
+
+        <div class="rounded-3xl border border-slate-200 bg-white px-5 py-5">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <p class="text-sm font-semibold text-text-primary">Notifiche contenuti</p>
+              <p class="mt-1 text-sm text-text-secondary">Riepilogo delle preferenze email attive per questo account admin.</p>
+            </div>
+            <span class="inline-flex rounded-full bg-indigo-100 px-3 py-1 text-xs font-medium text-indigo-700">
+              {{ notificationFrequencyLabel }}
+            </span>
+          </div>
+
+          <div v-if="notificationError" class="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">
+            {{ notificationError }}
+          </div>
+
+          <div v-else class="mt-4 flex flex-wrap gap-2">
+            <span
+              class="inline-flex rounded-full px-3 py-1 text-xs font-medium"
+              :class="notificationPrefs.notifyOnAudio ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'"
+            >
+              {{ notificationPrefs.notifyOnAudio ? 'Audio attivi' : 'Audio disattivati' }}
+            </span>
+            <span
+              class="inline-flex rounded-full px-3 py-1 text-xs font-medium"
+              :class="notificationPrefs.notifyOnArticles ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'"
+            >
+              {{ notificationPrefs.notifyOnArticles ? 'Articoli attivi' : 'Articoli disattivati' }}
+            </span>
           </div>
         </div>
       </div>

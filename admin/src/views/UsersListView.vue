@@ -58,6 +58,41 @@ function getLicenseStatus(user: any) {
   }
 }
 
+function getNotificationFrequencyLabel(frequency: string) {
+  switch (frequency) {
+    case 'IMMEDIATE':
+      return 'Immediate'
+    case 'WEEKLY':
+      return 'Settimanali'
+    case 'MONTHLY':
+      return 'Mensili'
+    default:
+      return 'Disattivate'
+  }
+}
+
+function getNotificationSummary(user: any) {
+  const preferences = user.notificationPreferences
+  if (!preferences || preferences.frequency === 'NONE') {
+    return {
+      frequency: getNotificationFrequencyLabel('NONE'),
+      channels: [] as string[],
+      className: 'bg-gray-100 text-text-secondary',
+    }
+  }
+
+  const channels = [
+    preferences.notifyOnAudio ? 'Audio' : null,
+    preferences.notifyOnArticles ? 'Articoli' : null,
+  ].filter((value): value is string => Boolean(value))
+
+  return {
+    frequency: getNotificationFrequencyLabel(preferences.frequency),
+    channels,
+    className: 'bg-indigo-100 text-indigo-700',
+  }
+}
+
 onMounted(fetchUsers)
 </script>
 
@@ -81,16 +116,17 @@ onMounted(fetchUsers)
             <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Ruolo</th>
             <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Stato</th>
             <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Licenza</th>
+            <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Notifiche</th>
             <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Creato</th>
             <th class="table-actions-header px-4 py-3 text-xs font-medium text-text-secondary uppercase">Azioni</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-50">
           <tr v-if="loading">
-            <td colspan="7" class="px-4 py-8 text-center text-text-secondary">Caricamento...</td>
+            <td colspan="8" class="px-4 py-8 text-center text-text-secondary">Caricamento...</td>
           </tr>
           <tr v-else-if="!users.length">
-            <td colspan="7" class="px-4 py-8 text-center text-text-secondary">Nessun utente</td>
+            <td colspan="8" class="px-4 py-8 text-center text-text-secondary">Nessun utente</td>
           </tr>
           <tr v-for="user in users" :key="user.id" class="hover:bg-gray-50/50">
             <td class="px-4 py-3 text-sm font-medium text-text-primary">{{ user.name }}</td>
@@ -114,6 +150,20 @@ onMounted(fetchUsers)
               <span :class="['inline-flex px-2 py-1 rounded-full text-xs font-medium', getLicenseStatus(user).className]">
                 {{ getLicenseStatus(user).label }}
               </span>
+            </td>
+            <td class="px-4 py-3 text-sm">
+              <div class="flex flex-wrap items-center gap-2">
+                <span :class="['inline-flex px-2 py-1 rounded-full text-xs font-medium', getNotificationSummary(user).className]">
+                  {{ getNotificationSummary(user).frequency }}
+                </span>
+                <span
+                  v-for="channel in getNotificationSummary(user).channels"
+                  :key="channel"
+                  class="inline-flex px-2 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700"
+                >
+                  {{ channel }}
+                </span>
+              </div>
             </td>
             <td class="px-4 py-3 text-sm text-text-secondary">{{ formatDate(user.createdAt) }}</td>
             <td class="table-actions-cell">

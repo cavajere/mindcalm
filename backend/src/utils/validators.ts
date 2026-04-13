@@ -183,6 +183,9 @@ export const userCreateValidation = [
   body('licenseExpiresAt').optional({ values: 'falsy' }).isISO8601().withMessage('Data scadenza licenza non valida'),
   body('sendInvite').optional().isBoolean().withMessage('sendInvite non valido'),
   body('inviteBaseUrl').optional({ values: 'falsy' }).isURL(appUrlValidationOptions).withMessage('URL invito non valido'),
+  body('notifyOnAudio').optional().isBoolean().withMessage('notifyOnAudio non valido'),
+  body('notifyOnArticles').optional().isBoolean().withMessage('notifyOnArticles non valido'),
+  body('frequency').optional().isIn(['NONE', 'IMMEDIATE', 'WEEKLY', 'MONTHLY']).withMessage('Frequenza non valida'),
 ]
 
 export const bootstrapAdminSetupValidation = [
@@ -213,6 +216,9 @@ export const userUpdateValidation = [
   body('password').optional({ values: 'falsy' }).isLength({ min: 8 }).withMessage('Password minima 8 caratteri'),
   body('isActive').optional().isBoolean().withMessage('isActive non valido'),
   body('licenseExpiresAt').optional({ values: 'falsy' }).isISO8601().withMessage('Data scadenza licenza non valida'),
+  body('notifyOnAudio').optional().isBoolean().withMessage('notifyOnAudio non valido'),
+  body('notifyOnArticles').optional().isBoolean().withMessage('notifyOnArticles non valido'),
+  body('frequency').optional().isIn(['NONE', 'IMMEDIATE', 'WEEKLY', 'MONTHLY']).withMessage('Frequenza non valida'),
 ]
 
 export const inviteCodeCreateValidation = [
