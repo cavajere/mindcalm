@@ -26,6 +26,7 @@ import inviteCodesAdminRouter from './routes/admin/inviteCodes'
 import { startBackupScheduler } from './services/backupService'
 import { ensureDatabaseReady } from './services/startupService'
 import { asyncHandler } from './utils/asyncRouter'
+import { processNotificationDispatch } from './services/notificationService'
 
 const app = express()
 
@@ -159,5 +160,11 @@ void startApplication().catch((error) => {
   console.error('[MindCalm] Avvio backend fallito:', error)
   process.exit(1)
 })
+
+setInterval(() => {
+  processNotificationDispatch().catch((error) => {
+    console.error('[MindCalm] Notification dispatch error:', error)
+  })
+}, 5 * 60 * 1000)
 
 export default app

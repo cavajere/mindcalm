@@ -119,6 +119,20 @@ export const changePasswordValidation = [
     .withMessage('Nuova password minima 8 caratteri'),
 ]
 
+export const notificationPreferencesValidation = [
+  body('notifyOnAudio').isBoolean().withMessage('notifyOnAudio non valido'),
+  body('notifyOnArticles').isBoolean().withMessage('notifyOnArticles non valido'),
+  body('frequency').isIn(['NONE', 'IMMEDIATE', 'WEEKLY', 'MONTHLY']).withMessage('Frequenza non valida'),
+]
+
+export const notificationScheduleValidation = [
+  body('immediateHourUtc').isInt({ min: 0, max: 23 }).withMessage('Orario immediate non valido'),
+  body('weeklyHourUtc').isInt({ min: 0, max: 23 }).withMessage('Orario weekly non valido'),
+  body('weeklyDayOfWeek').isInt({ min: 0, max: 6 }).withMessage('Giorno weekly non valido'),
+  body('monthlyHourUtc').isInt({ min: 0, max: 23 }).withMessage('Orario monthly non valido'),
+  body('monthlyDayOfMonth').isInt({ min: 1, max: 28 }).withMessage('Giorno monthly non valido'),
+]
+
 export const audioValidation = [
   body('title').trim().notEmpty().withMessage('Titolo obbligatorio'),
   body('description').optional({ values: 'falsy' }).trim(),

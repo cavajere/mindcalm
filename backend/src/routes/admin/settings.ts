@@ -20,10 +20,11 @@ import {
   saveBackupSettings,
 } from '../../services/backupService'
 import { getPaginatedUnlinkedStorageItems, getStorageOverview } from '../../services/storageOverviewService'
-import { paginationQuery, smtpSettingsValidation } from '../../utils/validators'
+import { notificationScheduleValidation, paginationQuery, smtpSettingsValidation } from '../../utils/validators'
 import { getBoolean, getNumber, getSingleString } from '../../utils/request'
 import { getSmtpSettingsForAdmin, saveSmtpSettings, sendTestMail } from '../../services/smtpService'
 import { getAuditActorFromRequest, logAuditEventSafe } from '../../services/auditLogService'
+import { getNotificationScheduleSettings, updateNotificationScheduleSettings } from '../../services/notificationService'
 
 const backupUploadDir = path.join(os.tmpdir(), 'mindcalm-admin-backups')
 
@@ -236,6 +237,29 @@ router.post('/backup/restore', async (req: Request, res: Response) => {
     const message = error instanceof Error ? error.message : 'Ripristino backup fallito'
     res.status(400).json({ error: message })
   }
+})
+
+router.get('/notifications/schedule', async (_req: Request, res: Response) => {
+  const schedule = await getNotificationScheduleSettings()
+  res.json(schedule)
+})
+
+router.put('/notifications/schedule', notificationScheduleValidation, async (req: Request, res: Response) => {
+  const errors = validationResult(req)
+  if (!errors.isEmpty()) {
+    res.status(400).json({ error: 'Dati non validi', details: errors.array() })
+    return
+  }
+
+  const schedule = await updateNotificationScheduleSettings({
+    immediateHourUtc: getNumber(req.body.immediateHourUtc) ?? 9,
+    weeklyHourUtc: getNumber(req.body.weeklyHourUtc) ?? 9,
+    weeklyDayOfWeek: getNumber(req.body.weeklyDayOfWeek) ?? 1,
+    monthlyHourUtc: getNumber(req.body.monthlyHourUtc) ?? 9,
+    monthlyDayOfMonth: getNumber(req.body.monthlyDayOfMonth) ?? 1,
+  })
+
+  res.json(schedule)
 })
 
 export default router

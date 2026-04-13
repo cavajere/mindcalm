@@ -9,6 +9,7 @@ import {
   forgotPasswordValidation,
   inviteCodeLookupValidation,
   loginValidation,
+  notificationPreferencesValidation,
   registerWithInviteCodeValidation,
   resetPasswordValidation,
   verifyRegistrationValidation,
@@ -30,7 +31,7 @@ import {
   registrationVerificationRateLimiter,
 } from '../../middleware/rateLimiter'
 import { prisma } from '../../lib/prisma'
-import { getSingleString } from '../../utils/request'
+import { getBoolean, getSingleString } from '../../utils/request'
 import {
   acceptUserInvite,
   changeUserPassword,
@@ -43,6 +44,7 @@ import { config } from '../../config'
 import { getAuditActorFromRequest, logAuditEventSafe } from '../../services/auditLogService'
 import { revokeAllPlaybackSessionsForUser } from '../../services/playbackSessionService'
 import { getLicenseExpiredPayload, isLicenseExpired } from '../../services/licenseService'
+import { getUserNotificationPreferences, updateUserNotificationPreferences } from '../../services/notificationService'
 import { getPublicInviteCodeDetails } from '../../services/inviteCodeService'
 import { hasActiveAdminUsers, isBootstrapAdminConfigured, validateBootstrapAdminCredentials } from '../../services/bootstrapAdminService'
 import {
@@ -316,6 +318,27 @@ router.get('/app-me', appAuthMiddleware, async (req: Request, res: Response) => 
   }
 
   res.json(user)
+})
+
+router.get('/notification-preferences', appAuthMiddleware, async (req: Request, res: Response) => {
+  const prefs = await getUserNotificationPreferences(req.adminUser!.id)
+  res.json(prefs)
+})
+
+router.put('/notification-preferences', appAuthMiddleware, notificationPreferencesValidation, async (req: Request, res: Response) => {
+  const errors = validationResult(req)
+  if (!errors.isEmpty()) {
+    res.status(400).json({ error: 'Dati non validi', details: errors.array() })
+    return
+  }
+
+  const prefs = await updateUserNotificationPreferences(req.adminUser!.id, {
+    notifyOnAudio: getBoolean(req.body.notifyOnAudio) ?? true,
+    notifyOnArticles: getBoolean(req.body.notifyOnArticles) ?? true,
+    frequency: getSingleString(req.body.frequency) as 'NONE' | 'IMMEDIATE' | 'WEEKLY' | 'MONTHLY',
+  })
+
+  res.json(prefs)
 })
 
 // POST /api/auth/logout
