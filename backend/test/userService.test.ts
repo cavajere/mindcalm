@@ -77,9 +77,13 @@ describe('userService', () => {
     expect(sendMail).toHaveBeenCalledWith(expect.objectContaining({
       to: 'utente@example.com',
       subject: 'Sei stato invitato su MindCalm',
-      text: expect.stringContaining('/accept-invite?token=invite-token'),
-      html: expect.stringContaining('/accept-invite?token=invite-token'),
     }))
+
+    const emailPayload = sendMail.mock.calls[0]?.[0]
+    expect(emailPayload?.text).toContain('entro 30 giorni')
+    expect(emailPayload?.text).toContain('/accept-invite?token=invite-token')
+    expect(emailPayload?.html).toContain('entro 30 giorni')
+    expect(emailPayload?.html).toContain('/accept-invite?token=invite-token')
   })
 
   it('accetta un invito, imposta la password e invalida token precedenti', async () => {

@@ -7,6 +7,15 @@ import { sendMail } from './smtpService'
 import { buildUserInviteEmail } from './email/templates'
 import { buildAppUrl } from '../utils/appUrls'
 
+function formatInvitationExpiry(expiresInHours: number) {
+  if (expiresInHours % 24 === 0) {
+    const days = expiresInHours / 24
+    return `${days} ${days === 1 ? 'giorno' : 'giorni'}`
+  }
+
+  return `${expiresInHours} ${expiresInHours === 1 ? 'ora' : 'ore'}`
+}
+
 export async function createPasswordReset(userId: string) {
   const token = generateRandomToken()
   const tokenHash = hashToken(token)
@@ -43,12 +52,12 @@ export async function createUserInvite(userId: string) {
 export async function sendUserInvite(user: { id: string; email: string; name: string }, inviteBaseUrl: string) {
   const { token, expiresAt } = await createUserInvite(user.id)
   const inviteUrl = `${buildAppUrl(inviteBaseUrl, '/accept-invite')}?token=${encodeURIComponent(token)}`
-  const expiresHours = config.invitation.expiresInHours
+  const expiresIn = formatInvitationExpiry(config.invitation.expiresInHours)
   const template = buildUserInviteEmail({
     name: user.name,
     inviteUrl,
     expiresAt,
-    expiresHours,
+    expiresIn,
   })
 
   await sendMail({

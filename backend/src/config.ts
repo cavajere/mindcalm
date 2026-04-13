@@ -71,7 +71,7 @@ export const config = {
   },
 
   invitation: {
-    expiresInHours: parseInt(process.env.INVITATION_EXPIRES_IN_HOURS || '72', 10),
+    expiresInHours: parseInt(process.env.INVITATION_EXPIRES_IN_HOURS || '720', 10),
   },
 
   registration: {
