@@ -17,6 +17,7 @@ import { MAX_TAGS_PER_CONTENT, ensureTagsExist, mapAudioTags, parseTagIds } from
 import { transcodeAudioFileToHls } from '../../services/audioDeliveryService'
 import { buildUploadMetadata, renameStoredUpload } from '../../services/uploadMetadataService'
 import { deleteDirectCoverImage, resolveCoverImageSource } from '../../services/albumImageService'
+import { queuePublishedContentOutboxEntry } from '../../services/notificationService'
 
 const router = createAsyncRouter()
 
@@ -54,6 +55,27 @@ async function getAlbumImageOrNull(albumImageId: string) {
   return prisma.albumImage.findUnique({
     where: { id: albumImageId },
     select: albumImageSelect,
+  })
+}
+
+async function queueAudioPublicationOutbox(
+  tx: Prisma.TransactionClient,
+  audio: {
+  id: string
+  title: string
+  status: Status
+  publishedAt: Date | null
+},
+) {
+  if (audio.status !== 'PUBLISHED' || !audio.publishedAt) {
+    return
+  }
+
+  await queuePublishedContentOutboxEntry(tx, {
+    contentId: audio.id,
+    type: 'audio',
+    title: audio.title,
+    publishedAt: audio.publishedAt,
   })
 }
 
@@ -261,42 +283,48 @@ router.post('/',
     try {
       const hlsAsset = await transcodeAudioFileToHls(audioId, audioFile.path)
 
-      const audio = await prisma.audio.create({
-        data: {
-          id: audioId,
-          title: title!,
-          description: description ?? '',
-          categoryId: categoryId!,
-          level: (level as Level | undefined) || 'BEGINNER',
-          durationSec,
-          audioFile: `audio/${audioFile.filename}`,
-          audioOriginalName: audioNames.originalName,
-          audioDisplayName: audioNames.displayName,
-          audioFormat,
-          audioSize: audioFile.size,
-          streamingFormat: StreamingFormat.HLS,
-          processingStatus: AudioProcessingStatus.READY,
-          hlsManifestPath: hlsAsset.manifestPath,
-          processingError: null,
-          coverImage: coverImageFile ? `images/${coverImageFile.filename}` : null,
-          coverImageOriginalName: coverImageNames?.originalName ?? null,
-          coverImageDisplayName: coverImageNames?.displayName ?? null,
-          coverAlbumImageId: selectedAlbumImage?.id ?? null,
-          status: status === 'PUBLISHED' ? 'PUBLISHED' : 'DRAFT',
-          publishedAt: status === 'PUBLISHED' ? new Date() : null,
-          audioTags: {
-            create: tagIds.map(tagId => ({
-              tag: { connect: { id: tagId } },
-            })),
+      const audio = await prisma.$transaction(async (tx) => {
+        const created = await tx.audio.create({
+          data: {
+            id: audioId,
+            title: title!,
+            description: description ?? '',
+            categoryId: categoryId!,
+            level: (level as Level | undefined) || 'BEGINNER',
+            durationSec,
+            audioFile: `audio/${audioFile.filename}`,
+            audioOriginalName: audioNames.originalName,
+            audioDisplayName: audioNames.displayName,
+            audioFormat,
+            audioSize: audioFile.size,
+            streamingFormat: StreamingFormat.HLS,
+            processingStatus: AudioProcessingStatus.READY,
+            hlsManifestPath: hlsAsset.manifestPath,
+            processingError: null,
+            coverImage: coverImageFile ? `images/${coverImageFile.filename}` : null,
+            coverImageOriginalName: coverImageNames?.originalName ?? null,
+            coverImageDisplayName: coverImageNames?.displayName ?? null,
+            coverAlbumImageId: selectedAlbumImage?.id ?? null,
+            status: status === 'PUBLISHED' ? 'PUBLISHED' : 'DRAFT',
+            publishedAt: status === 'PUBLISHED' ? new Date() : null,
+            audioTags: {
+              create: tagIds.map(tagId => ({
+                tag: { connect: { id: tagId } },
+              })),
+            },
           },
-        },
-        include: {
-          category: true,
-          coverAlbumImage: { select: albumImageSelect },
-          audioTags: {
-            include: { tag: { select: { id: true, label: true, slug: true } } },
+          include: {
+            category: true,
+            coverAlbumImage: { select: albumImageSelect },
+            audioTags: {
+              include: { tag: { select: { id: true, label: true, slug: true } } },
+            },
           },
-        },
+        })
+
+        await queueAudioPublicationOutbox(tx, created)
+
+        return created
       })
 
       await logAuditEventSafe({
@@ -512,16 +540,24 @@ router.put('/:id',
     }
     changedFields.push('tags')
 
-    const audio = await prisma.audio.update({
-      where: { id: audioId },
-      data,
-      include: {
-        category: true,
-        coverAlbumImage: { select: albumImageSelect },
-        audioTags: {
-          include: { tag: { select: { id: true, label: true, slug: true } } },
+    const audio = await prisma.$transaction(async (tx) => {
+      const updated = await tx.audio.update({
+        where: { id: audioId },
+        data,
+        include: {
+          category: true,
+          coverAlbumImage: { select: albumImageSelect },
+          audioTags: {
+            include: { tag: { select: { id: true, label: true, slug: true } } },
+          },
         },
-      },
+      })
+
+      if (existing.status !== 'PUBLISHED' && updated.status === 'PUBLISHED') {
+        await queueAudioPublicationOutbox(tx, updated)
+      }
+
+      return updated
     })
 
     if (audioFile) {
@@ -600,13 +636,36 @@ router.patch('/:id/status', statusValidation, async (req: Request, res: Response
     return
   }
 
-  const audio = await prisma.audio.update({
+  const existing = await prisma.audio.findUnique({
     where: { id: audioId },
-    data: {
-      status: status as Status,
-      publishedAt: status === 'PUBLISHED' ? new Date() : null,
+    select: {
+      id: true,
+      title: true,
+      status: true,
+      publishedAt: true,
     },
-    include: { category: true },
+  })
+
+  if (!existing) {
+    res.status(404).json({ error: 'Audio non trovato' })
+    return
+  }
+
+  const audio = await prisma.$transaction(async (tx) => {
+    const updated = await tx.audio.update({
+      where: { id: audioId },
+      data: {
+        status: status as Status,
+        publishedAt: status === 'PUBLISHED' ? new Date() : null,
+      },
+      include: { category: true },
+    })
+
+    if (existing.status !== 'PUBLISHED' && updated.status === 'PUBLISHED') {
+      await queueAudioPublicationOutbox(tx, updated)
+    }
+
+    return updated
   })
 
   await logAuditEventSafe({

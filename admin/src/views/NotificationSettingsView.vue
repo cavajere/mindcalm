@@ -225,7 +225,7 @@ onMounted(() => {
           <div class="mt-4 space-y-4 text-sm text-text-secondary">
             <div class="rounded-2xl bg-slate-50 px-4 py-3">
               <p class="font-medium text-text-primary">Immediate</p>
-              <p class="mt-1">Finestra giornaliera alle {{ formatHour(form.immediateHourUtc) }}</p>
+              <p class="mt-1">Un job viene accodato appena un nuovo contenuto viene pubblicato.</p>
             </div>
             <div class="rounded-2xl bg-slate-50 px-4 py-3">
               <p class="font-medium text-text-primary">Weekly</p>
@@ -245,11 +245,14 @@ onMounted(() => {
           <p class="mt-1 text-sm text-text-secondary">
             Tutti gli orari sono salvati in UTC per mantenere stabile il comportamento del motore.
           </p>
+          <p class="mt-2 text-sm text-text-secondary">
+            La frequenza Immediate non usa finestre orarie: ogni nuova pubblicazione alimenta subito la pipeline.
+          </p>
 
           <div class="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
             <div>
-              <label class="label">Immediate - ora UTC</label>
-              <input v-model.number="form.immediateHourUtc" type="number" min="0" max="23" class="input-field" />
+              <label class="label">Immediate - ora UTC (legacy)</label>
+              <input v-model.number="form.immediateHourUtc" type="number" min="0" max="23" class="input-field" disabled />
             </div>
             <div>
               <label class="label">Weekly - giorno</label>

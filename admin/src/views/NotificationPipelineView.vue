@@ -56,6 +56,7 @@ type NotificationPipelineResponse = {
 const loading = ref(true)
 const refreshing = ref(false)
 const error = ref('')
+const success = ref('')
 const jobs = ref<NotificationPipelineJob[]>([])
 const summary = ref<Record<NotificationPipelineStatus, number>>({
   PENDING: 0,
@@ -70,6 +71,7 @@ const pagination = ref({
   totalPages: 1,
 })
 const statusFilter = ref<'ALL' | NotificationPipelineStatus>('ALL')
+const retryingJobId = ref<string | null>(null)
 
 let refreshTimer: ReturnType<typeof setInterval> | null = null
 
@@ -158,6 +160,9 @@ async function fetchPipeline(background = false) {
   }
 
   error.value = ''
+  if (!background) {
+    success.value = ''
+  }
 
   try {
     const { data } = await axios.get<NotificationPipelineResponse>('/api/admin/settings/notifications/pipeline', {
@@ -176,6 +181,22 @@ async function fetchPipeline(background = false) {
   } finally {
     loading.value = false
     refreshing.value = false
+  }
+}
+
+async function retryJob(jobId: string) {
+  retryingJobId.value = jobId
+  error.value = ''
+  success.value = ''
+
+  try {
+    await axios.post(`/api/admin/settings/notifications/pipeline/${jobId}/retry`)
+    success.value = 'Job rimesso in coda'
+    await fetchPipeline(true)
+  } catch (e: any) {
+    error.value = e.response?.data?.error || 'Retry job fallito'
+  } finally {
+    retryingJobId.value = null
   }
 }
 
@@ -234,6 +255,9 @@ onBeforeUnmount(() => {
     <div v-if="error" class="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
       {{ error }}
     </div>
+    <div v-if="success" class="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+      {{ success }}
+    </div>
 
     <div class="mb-6 flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
       <div>
@@ -285,6 +309,17 @@ onBeforeUnmount(() => {
             <p class="mt-1 text-sm text-text-secondary">
               {{ job.recipientName }} · {{ job.recipientEmail }}
             </p>
+
+            <div v-if="job.status === 'FAILED'" class="mt-4">
+              <button
+                type="button"
+                class="btn-secondary"
+                :disabled="retryingJobId === job.id"
+                @click="retryJob(job.id)"
+              >
+                {{ retryingJobId === job.id ? 'Retry...' : 'Rimetti in coda' }}
+              </button>
+            </div>
 
             <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
               <div>

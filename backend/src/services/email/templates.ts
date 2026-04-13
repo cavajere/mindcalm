@@ -10,6 +10,7 @@ export interface ContentNotificationItem {
   type: 'audio' | 'article'
   title: string
   publishedAt: Date | null
+  url?: string | null
 }
 
 interface EmailLayoutInput {
@@ -181,6 +182,9 @@ function renderContentItems(items: ContentNotificationItem[]) {
       `<div style="font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:${EMAIL_COLORS.primaryDark};">${escapeHtml(toContentTypeLabel(item.type))}</div>` +
       `<div style="margin-top:6px;color:${EMAIL_COLORS.textPrimary};font-size:17px;line-height:1.5;font-weight:600;">${escapeHtml(item.title)}</div>` +
       `<div style="margin-top:4px;color:${EMAIL_COLORS.textSecondary};font-size:13px;line-height:1.6;">Pubblicato il ${escapeHtml(formatDate(item.publishedAt))}</div>` +
+      (item.url
+        ? `<div style="margin-top:10px;"><a href="${escapeHtml(item.url)}" style="color:${EMAIL_COLORS.primary};font-size:14px;font-weight:700;text-decoration:underline;">Apri contenuto</a></div>`
+        : '') +
       `</div>`
     )).join('') +
     `</div>`
@@ -289,7 +293,10 @@ export function buildContentNotificationEmail(input: {
   const text = joinTextBlocks([
     `Ciao ${input.name},`,
     input.intro,
-    ...input.items.map((item) => `${toContentTypeLabel(item.type)}: ${item.title} (${formatDate(item.publishedAt)})`),
+    ...input.items.map((item) => [
+      `${toContentTypeLabel(item.type)}: ${item.title} (${formatDate(item.publishedAt)})`,
+      item.url ? `Apri: ${item.url}` : null,
+    ].filter(Boolean).join('\n')),
     'Puoi modificare le preferenze dalla pagina Profilo.',
   ])
   const html = renderEmailLayout({

@@ -1,9 +1,13 @@
 import {
+  ContentPublicationType,
   NotificationDispatchStatus,
   NotificationFrequency,
   Prisma,
+  PublicationOutboxStatus,
 } from '@prisma/client'
 import { prisma } from '../lib/prisma'
+import { config } from '../config'
+import { buildAppUrl } from '../utils/appUrls'
 import { sendMail } from './smtpService'
 import {
   buildContentNotificationEmail,
@@ -71,13 +75,71 @@ const notificationDispatchJobSelect = {
   },
 } satisfies Prisma.NotificationDispatchJobSelect
 
+const contentPublicationOutboxSelect = {
+  id: true,
+  dedupeKey: true,
+  contentType: true,
+  contentId: true,
+  title: true,
+  publishedAt: true,
+  status: true,
+  availableAt: true,
+  lockedAt: true,
+  processedAt: true,
+  lastError: true,
+  attemptCount: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.ContentPublicationOutboxSelect
+
 type NotificationDispatchJobRecord = Prisma.NotificationDispatchJobGetPayload<{
   select: typeof notificationDispatchJobSelect
+}>
+
+type ContentPublicationOutboxRecord = Prisma.ContentPublicationOutboxGetPayload<{
+  select: typeof contentPublicationOutboxSelect
 }>
 
 type NotificationScheduleSettingsRecord = Awaited<
   ReturnType<typeof getNotificationScheduleSettings>
 >
+
+export interface ContentPublicationOutboxInput {
+  contentId: string
+  type: ContentNotificationItem['type']
+  title: string
+  publishedAt: Date
+}
+
+async function buildImmediateNotificationItem(input: ContentPublicationOutboxInput): Promise<ContentNotificationItem> {
+  if (input.type === 'audio') {
+    return toAudioItem({
+      id: input.contentId,
+      title: input.title,
+      publishedAt: input.publishedAt,
+    })
+  }
+
+  const article = await prisma.article.findUnique({
+    where: {
+      id: input.contentId,
+    },
+    select: {
+      slug: true,
+      status: true,
+    },
+  })
+
+  if (!article || article.status !== 'PUBLISHED') {
+    throw new Error('Articolo pubblicato non trovato per la generazione del link notifica')
+  }
+
+  return toArticleItem({
+    slug: article.slug,
+    title: input.title,
+    publishedAt: input.publishedAt,
+  })
+}
 
 function asUtcDateRange(from: Date, to: Date): Prisma.DateTimeFilter {
   return { gt: from, lte: to }
@@ -99,26 +161,13 @@ function getInitialWindowStart(frequency: NotificationFrequency, now: Date) {
   return new Date(now.getTime() - 24 * 60 * 60 * 1000)
 }
 
-function getImmediateSlotDate(now: Date, hourUtc: number) {
-  return new Date(Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate(),
-    hourUtc,
-    0,
-    0,
-    0,
-  ))
-}
-
 function getDueSlotForFrequency(
   frequency: NotificationFrequency,
   schedule: NotificationScheduleSettingsRecord,
   now: Date,
 ) {
   if (frequency === NotificationFrequency.IMMEDIATE) {
-    if (now.getUTCHours() !== schedule.immediateHourUtc) return null
-    return getImmediateSlotDate(now, schedule.immediateHourUtc)
+    return null
   }
 
   if (frequency === NotificationFrequency.WEEKLY) {
@@ -180,20 +229,72 @@ function getNotificationCopy(frequency: NotificationFrequency) {
   }
 }
 
-function toAudioItem(item: { title: string; publishedAt: Date | null }): ContentNotificationItem {
+function toAudioItem(item: { id: string; title: string; publishedAt: Date | null }): ContentNotificationItem {
   return {
     type: 'audio',
     title: item.title,
     publishedAt: item.publishedAt,
+    url: buildAudioContentUrl(item.id),
   }
 }
 
-function toArticleItem(item: { title: string; publishedAt: Date | null }): ContentNotificationItem {
+function toArticleItem(item: { slug: string; title: string; publishedAt: Date | null }): ContentNotificationItem {
   return {
     type: 'article',
     title: item.title,
     publishedAt: item.publishedAt,
+    url: buildArticleContentUrl(item.slug),
   }
+}
+
+function buildAudioContentUrl(audioId: string) {
+  return buildAppUrl(config.appUrls.public, `/audio/${audioId}`)
+}
+
+function buildArticleContentUrl(slug: string) {
+  return buildAppUrl(config.appUrls.public, `/articles/${slug}`)
+}
+
+function serializeContentItems(items: ContentNotificationItem[]): Prisma.InputJsonValue {
+  return items.map((item) => ({
+    type: item.type,
+    title: item.title,
+    publishedAt: item.publishedAt ? item.publishedAt.toISOString() : null,
+    url: item.url ?? null,
+  })) as unknown as Prisma.InputJsonValue
+}
+
+function buildImmediateNotificationDedupeKey(input: {
+  userId: string
+  contentId: string
+  type: ContentNotificationItem['type']
+  publishedAt: Date
+}) {
+  return [
+    input.userId,
+    NotificationFrequency.IMMEDIATE,
+    input.type,
+    input.contentId,
+    input.publishedAt.toISOString(),
+  ].join(':')
+}
+
+function toContentPublicationType(type: ContentNotificationItem['type']) {
+  return type === 'audio'
+    ? ContentPublicationType.AUDIO
+    : ContentPublicationType.ARTICLE
+}
+
+function toNotificationItemType(type: ContentPublicationType): ContentNotificationItem['type'] {
+  return type === ContentPublicationType.AUDIO ? 'audio' : 'article'
+}
+
+function buildContentPublicationOutboxDedupeKey(input: ContentPublicationOutboxInput) {
+  return [
+    toContentPublicationType(input.type),
+    input.contentId,
+    input.publishedAt.toISOString(),
+  ].join(':')
 }
 
 function parseContentItems(items: Prisma.JsonValue): ContentNotificationItem[] {
@@ -212,6 +313,7 @@ function parseContentItems(items: Prisma.JsonValue): ContentNotificationItem[] {
     const publishedAt = typeof candidate.publishedAt === 'string'
       ? new Date(candidate.publishedAt)
       : null
+    const url = typeof candidate.url === 'string' ? candidate.url : null
 
     if (!type || !title || (publishedAt && Number.isNaN(publishedAt.getTime()))) {
       return []
@@ -221,6 +323,7 @@ function parseContentItems(items: Prisma.JsonValue): ContentNotificationItem[] {
       type,
       title,
       publishedAt,
+      url,
     }]
   })
 }
@@ -255,6 +358,24 @@ function serializeNotificationDispatchJob(job: NotificationDispatchJobRecord) {
     createdAt: job.createdAt,
     updatedAt: job.updatedAt,
   }
+}
+
+export async function queuePublishedContentOutboxEntry(
+  tx: Prisma.TransactionClient,
+  input: ContentPublicationOutboxInput,
+) {
+  return tx.contentPublicationOutbox.createMany({
+    data: {
+      dedupeKey: buildContentPublicationOutboxDedupeKey(input),
+      contentType: toContentPublicationType(input.type),
+      contentId: input.contentId,
+      title: input.title,
+      publishedAt: input.publishedAt,
+      status: PublicationOutboxStatus.PENDING,
+      availableAt: input.publishedAt,
+    },
+    skipDuplicates: true,
+  })
 }
 
 function getNextRetryDelayMinutes(
@@ -304,10 +425,11 @@ async function getNotificationCursor(input: {
   fallback: Date | null | undefined
   now: Date
 }) {
-  const latestQueued = await prisma.notificationDispatchJob.findFirst({
+  const latestSent = await prisma.notificationDispatchJob.findFirst({
     where: {
       userId: input.userId,
       frequency: input.frequency,
+      status: NotificationDispatchStatus.SENT,
     },
     orderBy: {
       windowEndedAt: 'desc',
@@ -317,11 +439,39 @@ async function getNotificationCursor(input: {
     },
   })
 
-  if (latestQueued?.windowEndedAt) {
-    return latestQueued.windowEndedAt
+  if (latestSent?.windowEndedAt) {
+    return latestSent.windowEndedAt
   }
 
   return input.fallback ?? getInitialWindowStart(input.frequency, input.now)
+}
+
+async function hasOutstandingDigestJob(input: {
+  userId: string
+  frequency: NotificationFrequency
+  after: Date
+}) {
+  const unresolved = await prisma.notificationDispatchJob.findFirst({
+    where: {
+      userId: input.userId,
+      frequency: input.frequency,
+      status: {
+        in: [
+          NotificationDispatchStatus.PENDING,
+          NotificationDispatchStatus.PROCESSING,
+          NotificationDispatchStatus.FAILED,
+        ],
+      },
+      windowEndedAt: {
+        gt: input.after,
+      },
+    },
+    select: {
+      id: true,
+    },
+  })
+
+  return Boolean(unresolved)
 }
 
 async function enqueueNotificationJob(input: {
@@ -331,10 +481,12 @@ async function enqueueNotificationJob(input: {
   windowStartedAt: Date
   windowEndedAt: Date
   scheduledFor: Date
+  availableAt?: Date
+  dedupeKey?: string
   items: ContentNotificationItem[]
 }) {
   const copy = getNotificationCopy(input.frequency)
-  const dedupeKey = `${input.user.id}:${input.frequency}:${input.scheduledFor.toISOString()}`
+  const dedupeKey = input.dedupeKey ?? `${input.user.id}:${input.frequency}:${input.scheduledFor.toISOString()}`
 
   try {
     await prisma.notificationDispatchJob.create({
@@ -348,12 +500,12 @@ async function enqueueNotificationJob(input: {
         subject: copy.subject,
         title: copy.title,
         intro: copy.intro,
-        items: input.items as unknown as Prisma.InputJsonValue,
+        items: serializeContentItems(input.items),
         itemCount: input.items.length,
         windowStartedAt: input.windowStartedAt,
         windowEndedAt: input.windowEndedAt,
         scheduledFor: input.scheduledFor,
-        availableAt: input.windowEndedAt,
+        availableAt: input.availableAt ?? input.windowEndedAt,
         maxAttempts: input.schedule.maxAttempts,
       },
     })
@@ -364,6 +516,155 @@ async function enqueueNotificationJob(input: {
 
     throw error
   }
+}
+
+async function releaseStalePublicationOutboxEntries(
+  schedule: NotificationScheduleSettingsRecord,
+  now: Date,
+) {
+  const staleBefore = new Date(now.getTime() - schedule.lockTimeoutMinutes * 60 * 1000)
+
+  await prisma.contentPublicationOutbox.updateMany({
+    where: {
+      status: PublicationOutboxStatus.PROCESSING,
+      lockedAt: {
+        lt: staleBefore,
+      },
+    },
+    data: {
+      status: PublicationOutboxStatus.PENDING,
+      availableAt: now,
+      lockedAt: null,
+      lastError: `Lock scaduto e outbox rimesso in coda alle ${now.toISOString()}`,
+    },
+  })
+}
+
+async function claimNextPublicationOutboxEntry(now: Date) {
+  return prisma.$transaction(async (tx) => {
+    const candidate = await tx.contentPublicationOutbox.findFirst({
+      where: {
+        status: PublicationOutboxStatus.PENDING,
+        availableAt: {
+          lte: now,
+        },
+      },
+      orderBy: [
+        { availableAt: 'asc' },
+        { createdAt: 'asc' },
+      ],
+      select: {
+        id: true,
+      },
+    })
+
+    if (!candidate) {
+      return null
+    }
+
+    const claimed = await tx.contentPublicationOutbox.updateMany({
+      where: {
+        id: candidate.id,
+        status: PublicationOutboxStatus.PENDING,
+      },
+      data: {
+        status: PublicationOutboxStatus.PROCESSING,
+        lockedAt: now,
+      },
+    })
+
+    if (claimed.count === 0) {
+      return null
+    }
+
+    return tx.contentPublicationOutbox.findUnique({
+      where: {
+        id: candidate.id,
+      },
+      select: contentPublicationOutboxSelect,
+    })
+  })
+}
+
+async function claimPublicationOutboxEntries(
+  schedule: NotificationScheduleSettingsRecord,
+  now: Date,
+) {
+  const items: ContentPublicationOutboxRecord[] = []
+  const limit = Math.min(schedule.batchSize, NOTIFICATION_MAX_BATCH_SIZE)
+
+  for (let index = 0; index < limit; index += 1) {
+    const entry = await claimNextPublicationOutboxEntry(now)
+
+    if (!entry) {
+      break
+    }
+
+    items.push(entry)
+  }
+
+  return items
+}
+
+async function finalizeSuccessfulPublicationOutboxEntry(
+  entry: ContentPublicationOutboxRecord,
+  now: Date,
+) {
+  await prisma.contentPublicationOutbox.update({
+    where: {
+      id: entry.id,
+    },
+    data: {
+      status: PublicationOutboxStatus.PROCESSED,
+      lockedAt: null,
+      processedAt: now,
+      lastError: null,
+      attemptCount: {
+        increment: 1,
+      },
+    },
+  })
+}
+
+async function finalizeFailedPublicationOutboxEntry(
+  entry: ContentPublicationOutboxRecord,
+  schedule: NotificationScheduleSettingsRecord,
+  now: Date,
+  errorMessage: string,
+) {
+  const nextAttemptCount = entry.attemptCount + 1
+
+  await prisma.contentPublicationOutbox.update({
+    where: {
+      id: entry.id,
+    },
+    data: {
+      status: PublicationOutboxStatus.PENDING,
+      attemptCount: nextAttemptCount,
+      lockedAt: null,
+      availableAt: addMinutes(
+        now,
+        getNextRetryDelayMinutes(nextAttemptCount, schedule.retryBaseDelayMinutes),
+      ),
+      lastError: errorMessage,
+    },
+  })
+}
+
+async function pruneProcessedPublicationOutboxEntries(
+  schedule: NotificationScheduleSettingsRecord,
+  now: Date,
+) {
+  const cutoff = new Date(now.getTime() - schedule.retentionDays * 24 * 60 * 60 * 1000)
+
+  await prisma.contentPublicationOutbox.deleteMany({
+    where: {
+      status: PublicationOutboxStatus.PROCESSED,
+      updatedAt: {
+        lt: cutoff,
+      },
+    },
+  })
 }
 
 async function releaseStaleNotificationJobs(
@@ -554,6 +855,12 @@ async function runNotificationSchedulingCycle() {
 }
 
 async function runNotificationWorkerCycle() {
+  try {
+    await processPublicationOutbox()
+  } catch (error) {
+    console.error('[MindCalm] Publication outbox worker error:', error)
+  }
+
   try {
     await processNotificationQueue()
   } catch (error) {
@@ -769,6 +1076,126 @@ export async function listNotificationDispatchJobs(input: {
   }
 }
 
+export async function enqueueImmediateContentNotifications(input: ContentPublicationOutboxInput) {
+  const [schedule, users] = await Promise.all([
+    getNotificationScheduleSettings(),
+    prisma.user.findMany({
+      where: {
+        isActive: true,
+        notificationPreference: {
+          is: {
+            frequency: NotificationFrequency.IMMEDIATE,
+            ...(input.type === 'audio' ? { notifyOnAudio: true } : { notifyOnArticles: true }),
+          },
+        },
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+      },
+    }),
+  ])
+
+  if (!users.length) {
+    return 0
+  }
+
+  const copy = getNotificationCopy(NotificationFrequency.IMMEDIATE)
+  const item = await buildImmediateNotificationItem(input)
+
+  const result = await prisma.notificationDispatchJob.createMany({
+    data: users.map((user) => ({
+      userId: user.id,
+      dedupeKey: buildImmediateNotificationDedupeKey({
+        userId: user.id,
+        contentId: input.contentId,
+        type: input.type,
+        publishedAt: input.publishedAt,
+      }),
+      frequency: NotificationFrequency.IMMEDIATE,
+      status: NotificationDispatchStatus.PENDING,
+      recipientEmail: user.email,
+      recipientName: user.name,
+      subject: copy.subject,
+      title: copy.title,
+      intro: copy.intro,
+      items: serializeContentItems([item]),
+      itemCount: 1,
+      windowStartedAt: input.publishedAt,
+      windowEndedAt: input.publishedAt,
+      scheduledFor: input.publishedAt,
+      availableAt: input.publishedAt,
+      maxAttempts: schedule.maxAttempts,
+    })),
+    skipDuplicates: true,
+  })
+
+  return result.count
+}
+
+export async function retryFailedNotificationDispatchJob(jobId: string) {
+  const existing = await prisma.notificationDispatchJob.findUnique({
+    where: { id: jobId },
+    select: notificationDispatchJobSelect,
+  })
+
+  if (!existing) {
+    return null
+  }
+
+  if (existing.status !== NotificationDispatchStatus.FAILED) {
+    throw new Error('Solo i job falliti possono essere rimessi in coda manualmente')
+  }
+
+  const retried = await prisma.notificationDispatchJob.update({
+    where: {
+      id: jobId,
+    },
+    data: {
+      status: NotificationDispatchStatus.PENDING,
+      availableAt: new Date(),
+      lockedAt: null,
+      startedAt: null,
+      failedAt: null,
+      lastError: null,
+      attemptCount: 0,
+    },
+    select: notificationDispatchJobSelect,
+  })
+
+  return serializeNotificationDispatchJob(retried)
+}
+
+export async function processPublicationOutbox(now = new Date()) {
+  const schedule = await getNotificationScheduleSettings()
+
+  await releaseStalePublicationOutboxEntries(schedule, now)
+
+  const entries = await claimPublicationOutboxEntries(schedule, now)
+
+  for (const entry of entries) {
+    try {
+      await enqueueImmediateContentNotifications({
+        contentId: entry.contentId,
+        type: toNotificationItemType(entry.contentType),
+        title: entry.title,
+        publishedAt: entry.publishedAt,
+      })
+
+      await finalizeSuccessfulPublicationOutboxEntry(entry, new Date())
+    } catch (error) {
+      const errorMessage = error instanceof Error
+        ? error.message
+        : 'Alimentazione outbox notifiche fallita'
+
+      await finalizeFailedPublicationOutboxEntry(entry, schedule, new Date(), errorMessage)
+    }
+  }
+
+  await pruneProcessedPublicationOutboxEntries(schedule, now)
+}
+
 export async function enqueueDueNotifications(now = new Date()) {
   const schedule = await getNotificationScheduleSettings()
   const users = await prisma.user.findMany({
@@ -789,7 +1216,11 @@ export async function enqueueDueNotifications(now = new Date()) {
   for (const user of users) {
     const preference = user.notificationPreference
 
-    if (!preference || preference.frequency === NotificationFrequency.NONE) {
+    if (
+      !preference
+      || preference.frequency === NotificationFrequency.NONE
+      || preference.frequency === NotificationFrequency.IMMEDIATE
+    ) {
       continue
     }
 
@@ -815,6 +1246,14 @@ export async function enqueueDueNotifications(now = new Date()) {
       continue
     }
 
+    if (await hasOutstandingDigestJob({
+      userId: user.id,
+      frequency: preference.frequency,
+      after: windowStartedAt,
+    })) {
+      continue
+    }
+
     const [audio, articles] = await Promise.all([
       preference.notifyOnAudio
         ? prisma.audio.findMany({
@@ -823,6 +1262,7 @@ export async function enqueueDueNotifications(now = new Date()) {
               publishedAt: asUtcDateRange(windowStartedAt, now),
             },
             select: {
+              id: true,
               title: true,
               publishedAt: true,
             },
@@ -838,6 +1278,7 @@ export async function enqueueDueNotifications(now = new Date()) {
               publishedAt: asUtcDateRange(windowStartedAt, now),
             },
             select: {
+              slug: true,
               title: true,
               publishedAt: true,
             },

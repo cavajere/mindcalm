@@ -12,6 +12,7 @@ import { getAuditActorFromRequest, logAuditEventSafe } from '../../services/audi
 import { MAX_TAGS_PER_CONTENT, createTagSlug, ensureTagsExist, mapArticleTags, parseTagIds } from '../../services/tagService'
 import { buildUploadMetadata, renameStoredUpload } from '../../services/uploadMetadataService'
 import { deleteDirectCoverImage, resolveCoverImageSource } from '../../services/albumImageService'
+import { queuePublishedContentOutboxEntry } from '../../services/notificationService'
 
 const router = createAsyncRouter()
 
@@ -32,6 +33,27 @@ async function getAlbumImageOrNull(albumImageId: string) {
   return prisma.albumImage.findUnique({
     where: { id: albumImageId },
     select: albumImageSelect,
+  })
+}
+
+async function queueArticlePublicationOutbox(
+  tx: Prisma.TransactionClient,
+  article: {
+  id: string
+  title: string
+  status: Status
+  publishedAt: Date | null
+},
+) {
+  if (article.status !== 'PUBLISHED' || !article.publishedAt) {
+    return
+  }
+
+  await queuePublishedContentOutboxEntry(tx, {
+    contentId: article.id,
+    type: 'article',
+    title: article.title,
+    publishedAt: article.publishedAt,
   })
 }
 
@@ -200,32 +222,38 @@ router.post('/',
 
     const sanitizedBody = sanitizeBody(body!)
 
-    const article = await prisma.article.create({
-      data: {
-        title: title!,
-        slug,
-        body: sanitizedBody,
-        bodyText: extractPlainText(sanitizedBody),
-        excerpt: excerpt || null,
-        author: author!,
-        coverImage: req.file ? `images/${req.file.filename}` : null,
-        coverImageOriginalName: coverImageNames?.originalName ?? null,
-        coverImageDisplayName: coverImageNames?.displayName ?? null,
-        coverAlbumImageId: selectedAlbumImage?.id ?? null,
-        status: status === 'PUBLISHED' ? 'PUBLISHED' : 'DRAFT',
-        publishedAt: status === 'PUBLISHED' ? new Date() : null,
-        articleTags: {
-          create: tagIds.map(tagId => ({
-            tag: { connect: { id: tagId } },
-          })),
+    const article = await prisma.$transaction(async (tx) => {
+      const created = await tx.article.create({
+        data: {
+          title: title!,
+          slug,
+          body: sanitizedBody,
+          bodyText: extractPlainText(sanitizedBody),
+          excerpt: excerpt || null,
+          author: author!,
+          coverImage: req.file ? `images/${req.file.filename}` : null,
+          coverImageOriginalName: coverImageNames?.originalName ?? null,
+          coverImageDisplayName: coverImageNames?.displayName ?? null,
+          coverAlbumImageId: selectedAlbumImage?.id ?? null,
+          status: status === 'PUBLISHED' ? 'PUBLISHED' : 'DRAFT',
+          publishedAt: status === 'PUBLISHED' ? new Date() : null,
+          articleTags: {
+            create: tagIds.map(tagId => ({
+              tag: { connect: { id: tagId } },
+            })),
+          },
         },
-      },
-      include: {
-        coverAlbumImage: { select: albumImageSelect },
-        articleTags: {
-          include: { tag: { select: { id: true, label: true, slug: true } } },
+        include: {
+          coverAlbumImage: { select: albumImageSelect },
+          articleTags: {
+            include: { tag: { select: { id: true, label: true, slug: true } } },
+          },
         },
-      },
+      })
+
+      await queueArticlePublicationOutbox(tx, created)
+
+      return created
     })
 
     await logAuditEventSafe({
@@ -400,15 +428,23 @@ router.put('/:id',
     }
     changedFields.push('tags')
 
-    const article = await prisma.article.update({
-      where: { id: articleId },
-      data,
-      include: {
-        coverAlbumImage: { select: albumImageSelect },
-        articleTags: {
-          include: { tag: { select: { id: true, label: true, slug: true } } },
+    const article = await prisma.$transaction(async (tx) => {
+      const updated = await tx.article.update({
+        where: { id: articleId },
+        data,
+        include: {
+          coverAlbumImage: { select: albumImageSelect },
+          articleTags: {
+            include: { tag: { select: { id: true, label: true, slug: true } } },
+          },
         },
-      },
+      })
+
+      if (existing.status !== 'PUBLISHED' && updated.status === 'PUBLISHED') {
+        await queueArticlePublicationOutbox(tx, updated)
+      }
+
+      return updated
     })
 
     await logAuditEventSafe({
@@ -479,12 +515,35 @@ router.patch('/:id/status', statusValidation, async (req: Request, res: Response
     return
   }
 
-  const article = await prisma.article.update({
+  const existing = await prisma.article.findUnique({
     where: { id: articleId },
-    data: {
-      status: status as Status,
-      publishedAt: status === 'PUBLISHED' ? new Date() : null,
+    select: {
+      id: true,
+      title: true,
+      status: true,
+      publishedAt: true,
     },
+  })
+
+  if (!existing) {
+    res.status(404).json({ error: 'Articolo non trovato' })
+    return
+  }
+
+  const article = await prisma.$transaction(async (tx) => {
+    const updated = await tx.article.update({
+      where: { id: articleId },
+      data: {
+        status: status as Status,
+        publishedAt: status === 'PUBLISHED' ? new Date() : null,
+      },
+    })
+
+    if (existing.status !== 'PUBLISHED' && updated.status === 'PUBLISHED') {
+      await queueArticlePublicationOutbox(tx, updated)
+    }
+
+    return updated
   })
 
   await logAuditEventSafe({

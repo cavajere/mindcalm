@@ -32,6 +32,7 @@ import {
   getNotificationDispatchStats,
   getNotificationScheduleSettings,
   listNotificationDispatchJobs,
+  retryFailedNotificationDispatchJob,
   updateNotificationScheduleSettings,
 } from '../../services/notificationService'
 
@@ -324,6 +325,29 @@ router.get('/notifications/pipeline', paginationQuery, async (req: Request, res:
   })
 
   res.json(result)
+})
+
+router.post('/notifications/pipeline/:id/retry', async (req: Request, res: Response) => {
+  const jobId = getSingleString(req.params.id)
+
+  if (!jobId) {
+    res.status(400).json({ error: 'ID job non valido' })
+    return
+  }
+
+  try {
+    const job = await retryFailedNotificationDispatchJob(jobId)
+
+    if (!job) {
+      res.status(404).json({ error: 'Job notifica non trovato' })
+      return
+    }
+
+    res.json(job)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Retry job notifica fallito'
+    res.status(409).json({ error: message })
+  }
 })
 
 export default router
