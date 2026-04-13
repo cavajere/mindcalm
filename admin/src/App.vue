@@ -224,7 +224,7 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <nav class="flex-1 px-3 pb-4">
+      <nav class="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
         <div class="space-y-1">
           <template v-for="item in navItems" :key="hasChildren(item) ? item.key : item.path">
             <router-link
