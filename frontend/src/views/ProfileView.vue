@@ -62,7 +62,7 @@ async function loadNotificationPreferences() {
   preferencesError.value = ''
 
   try {
-    const { data } = await axios.get('/api/v1/auth/notification-preferences')
+    const { data } = await axios.get('/api/auth/notification-preferences')
     notificationPrefs.value = {
       notifyOnAudio: Boolean(data.notifyOnAudio),
       notifyOnArticles: Boolean(data.notifyOnArticles),
@@ -81,7 +81,7 @@ async function saveNotificationPreferences() {
   preferencesSuccess.value = ''
 
   try {
-    await axios.put('/api/v1/auth/notification-preferences', notificationPrefs.value)
+    await axios.put('/api/auth/notification-preferences', notificationPrefs.value)
     preferencesSuccess.value = 'Preferenze notifiche aggiornate'
   } catch (e: any) {
     preferencesError.value = e.response?.data?.error || 'Errore aggiornamento preferenze notifiche'
@@ -172,6 +172,7 @@ loadNotificationPreferences()
       </div>
 
       <form @submit.prevent="handleChangePassword" class="space-y-4">
+        <input type="hidden" name="username" autocomplete="username" :value="auth.user?.email" />
         <AppStatusMessage v-if="error" :message="error" variant="error" />
         <AppStatusMessage v-if="success" :message="success" variant="success" />
 
