@@ -30,6 +30,8 @@ import { startNotificationPipeline } from './services/notificationService'
 
 const app = express()
 
+app.set('trust proxy', config.network.trustProxy)
+
 // Security
 app.use(helmet({
   contentSecurityPolicy: false,

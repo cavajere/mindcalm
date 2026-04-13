@@ -1,5 +1,29 @@
 import path from 'path'
 
+function parseTrustProxy(rawValue: string | undefined): boolean | number | string {
+  const value = rawValue?.trim()
+
+  if (!value) {
+    return false
+  }
+
+  const normalized = value.toLowerCase()
+
+  if (['false', '0', 'off', 'no'].includes(normalized)) {
+    return false
+  }
+
+  if (['true', '1', 'on', 'yes'].includes(normalized)) {
+    return true
+  }
+
+  if (/^\d+$/.test(value)) {
+    return Number.parseInt(value, 10)
+  }
+
+  return normalized
+}
+
 export const config = {
   port: parseInt(process.env.PORT || '3300', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
@@ -51,6 +75,10 @@ export const config = {
 
   cors: {
     origin: process.env.CORS_ORIGIN || 'http://localhost:5473,http://localhost:5474',
+  },
+
+  network: {
+    trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
   },
 
   appUrls: {

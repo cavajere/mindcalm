@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 COPY package*.json ./
+COPY packages/design-tokens/ ./packages/design-tokens/
 COPY backend/package*.json ./backend/
 COPY frontend/package*.json ./frontend/
 COPY admin/package*.json ./admin/
@@ -46,6 +47,7 @@ WORKDIR /app
 
 # Copia package.json per installazione produzione
 COPY package.json package-lock.json ./
+COPY packages/design-tokens/ ./packages/design-tokens/
 COPY backend/package.json ./backend/
 COPY frontend/package.json ./frontend/
 COPY admin/package.json ./admin/
