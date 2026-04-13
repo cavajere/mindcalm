@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@mindcalm/design-tokens": "file:../packages/design-tokens",
     "@tiptap/extension-image": "^2.11.0",
     "@tiptap/extension-link": "^2.11.0",
     "@tiptap/extension-placeholder": "^2.11.0",

@@ -2,6 +2,7 @@
   "name": "mindcalm",
   "private": true,
   "workspaces": [
+    "packages/*",
     "backend",
     "frontend",
     "admin"

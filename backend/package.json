@@ -15,6 +15,7 @@
     "storage:cleanup": "tsx src/scripts/reconcileStorage.ts"
   },
   "dependencies": {
+    "@mindcalm/design-tokens": "file:../packages/design-tokens",
     "@prisma/client": "^6.6.0",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",

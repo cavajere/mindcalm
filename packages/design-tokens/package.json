@@ -1,0 +1,12 @@
+{
+  "name": "@mindcalm/design-tokens",
+  "version": "1.0.0",
+  "private": true,
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.mjs",
+      "require": "./index.cjs"
+    }
+  }
+}

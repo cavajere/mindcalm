@@ -4,7 +4,10 @@ import axios from 'axios'
 import App from './App.vue'
 import router from './router'
 import { useAuthStore } from './stores/authStore'
+import { injectDesignSystemTokens } from './utils/designSystem'
 import './assets/styles/main.css'
+
+injectDesignSystemTokens()
 
 const pinia = createPinia()
 const app = createApp(App)

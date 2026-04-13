@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  body {
+    @apply min-h-screen bg-background text-text-primary transition-colors duration-200;
+  }
+
+  #app {
+    @apply min-h-screen bg-background;
+  }
+}
+
 @layer components {
   .btn-primary {
     @apply bg-primary text-white px-4 py-2 rounded-lg font-medium text-sm
@@ -9,7 +19,7 @@
   }
 
   .btn-secondary {
-    @apply bg-white text-text-primary border border-gray-200 px-4 py-2 rounded-lg font-medium text-sm
+    @apply bg-surface text-text-primary border border-ui-border px-4 py-2 rounded-lg font-medium text-sm
            hover:bg-gray-50 transition-colors;
   }
 
@@ -19,7 +29,7 @@
   }
 
   .input-field {
-    @apply w-full px-3 py-2 border border-gray-200 rounded-lg bg-white
+    @apply w-full px-3 py-2 border border-ui-border rounded-lg bg-surface
            focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary
            text-sm transition-all;
   }
@@ -29,11 +39,11 @@
   }
 
   .card {
-    @apply bg-white rounded-xl shadow-sm border border-gray-100 p-6;
+    @apply bg-surface rounded-xl shadow-sm border border-ui-border p-6;
   }
 
   .table-container {
-    @apply overflow-x-auto rounded-xl border border-gray-100;
+    @apply overflow-x-auto rounded-xl border border-ui-border;
   }
 
   .table-actions-header {

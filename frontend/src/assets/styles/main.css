@@ -3,24 +3,6 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --color-surface: 255 255 255;
-    --color-background: 248 250 254;
-    --color-text-primary: 26 43 60;
-    --color-text-secondary: 107 124 141;
-    --color-border: 226 232 240;
-    --color-muted: 241 245 249;
-  }
-
-  .dark {
-    --color-surface: 15 23 42;
-    --color-background: 2 6 23;
-    --color-text-primary: 226 232 240;
-    --color-text-secondary: 148 163 184;
-    --color-border: 51 65 85;
-    --color-muted: 15 23 42;
-  }
-
   html {
     -webkit-tap-highlight-color: transparent;
   }

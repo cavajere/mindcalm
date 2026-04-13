@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@mindcalm/design-tokens": "file:../packages/design-tokens",
     "axios": "^1.7.0",
     "hls.js": "^1.6.15",
     "pinia": "^2.3.0",

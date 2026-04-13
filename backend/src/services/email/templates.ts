@@ -1,3 +1,5 @@
+import designTokensPkg from '@mindcalm/design-tokens'
+
 export interface EmailTemplate {
   subject: string
   text: string
@@ -18,17 +20,19 @@ interface EmailLayoutInput {
   footerNote?: string
 }
 
-const EMAIL_FONT_FAMILY = "Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+const { designTokens } = designTokensPkg
+const EMAIL_FONT_FAMILY = designTokens.typography.fontFamilySans.join(', ')
+const EMAIL_THEME = designTokens.themes.frontend.light
 const EMAIL_COLORS = {
-  primary: '#4A90D9',
-  primaryDark: '#3570B0',
-  primaryLight: '#6BAAE8',
-  surface: '#FFFFFF',
-  background: '#F8FAFE',
-  textPrimary: '#1A2B3C',
-  textSecondary: '#6B7C8D',
-  border: '#E2E8F0',
-  muted: '#F1F5F9',
+  primary: designTokens.brand.primary.DEFAULT,
+  primaryDark: designTokens.brand.primary.dark,
+  primaryLight: designTokens.brand.primary.light,
+  surface: EMAIL_THEME.surface,
+  background: EMAIL_THEME.background,
+  textPrimary: EMAIL_THEME.textPrimary,
+  textSecondary: EMAIL_THEME.textSecondary,
+  border: EMAIL_THEME.border,
+  muted: EMAIL_THEME.muted,
 }
 
 function escapeHtml(value: string) {

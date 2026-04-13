@@ -5,7 +5,10 @@ import App from './App.vue'
 import router from './router'
 import { useAuthStore } from './stores/authStore'
 import { trackApiError, trackAppError } from './services/analyticsService'
+import { injectDesignSystemTokens } from './utils/designSystem'
 import './assets/styles/main.css'
+
+injectDesignSystemTokens()
 
 const pinia = createPinia()
 const app = createApp(App)
