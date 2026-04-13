@@ -17,6 +17,7 @@ RESET_DATA=false
 AUTO_YES=false
 API_PORT=3003
 DEPLOY_BRANCH=""
+HEALTHCHECK_ATTEMPTS=90
 
 compose() {
   docker compose -f "${COMPOSE_DIR}/docker-compose.yml" --env-file "${ENV_FILE}" "$@"
@@ -155,6 +156,7 @@ load_env_file() {
   . "${ENV_FILE}"
   set +a
   API_PORT="${API_PORT:-3003}"
+  HEALTHCHECK_ATTEMPTS="${HEALTHCHECK_ATTEMPTS:-90}"
 
   if [[ -z "${DEPLOY_BRANCH}" ]]; then
     DEPLOY_BRANCH="${DEPLOY_BRANCH:-${CURRENT_BRANCH:-}}"
@@ -248,6 +250,29 @@ deploy_stack() {
   compose up -d --remove-orphans
 }
 
+show_api_diagnostics() {
+  local api_container_id
+  api_container_id="$(compose ps -q api 2>/dev/null || true)"
+
+  log "Diagnostica API"
+  compose ps api || true
+
+  if [[ -z "${api_container_id}" ]]; then
+    log "Container API non trovato"
+    return 0
+  fi
+
+  log "Health status Docker"
+  docker inspect --format '{{json .State.Health}}' "${api_container_id}" || true
+
+  log "Verifica HTTP interna al container"
+  docker exec "${api_container_id}" sh -lc \
+    "node -e \"require('http').get('http://127.0.0.1:3000/api/health', (r) => { console.log(r.statusCode); process.exit(r.statusCode === 200 ? 0 : 1) }).on('error', (err) => { console.error(err.message); process.exit(1) })\"" || true
+
+  log "Ultimi log API"
+  compose logs --tail=150 api || true
+}
+
 wait_for_http_status() {
   local url="$1"
   local description="$2"
@@ -255,8 +280,8 @@ wait_for_http_status() {
   local expected_codes=("$@")
   local attempt status
 
-  for attempt in $(seq 1 30); do
-    status="$(curl --silent --output /dev/null --write-out '%{http_code}' "${url}" || true)"
+  for attempt in $(seq 1 "${HEALTHCHECK_ATTEMPTS}"); do
+    status="$(curl --silent --show-error --connect-timeout 2 --max-time 5 --output /dev/null --write-out '%{http_code}' "${url}" || true)"
 
     for expected in "${expected_codes[@]}"; do
       if [[ "${status}" == "${expected}" ]]; then
@@ -265,8 +290,16 @@ wait_for_http_status() {
       fi
     done
 
+    if (( attempt == 1 || attempt % 10 == 0 )); then
+      log "${description} in attesa su ${url} (tentativo ${attempt}/${HEALTHCHECK_ATTEMPTS}, ultimo status: ${status:-000})"
+    fi
+
     sleep 2
   done
+
+  if [[ "${description}" == "Health check API" ]]; then
+    show_api_diagnostics
+  fi
 
   die "${description} non raggiungibile su ${url} (ultimo status: ${status:-000})"
 }
