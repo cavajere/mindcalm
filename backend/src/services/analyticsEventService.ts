@@ -8,7 +8,7 @@ type AnalyticsEventInput = {
   eventType: AnalyticsEventType
   contentType?: AnalyticsContentType
   audioId?: string | null
-  articleId?: string | null
+  thoughtId?: string | null
   metadata?: AnalyticsMetadata | null
 }
 
@@ -79,10 +79,10 @@ export function sanitizeAnalyticsMetadata(metadata?: AnalyticsMetadata | null): 
   return sanitized as Prisma.InputJsonObject
 }
 
-export function getAnalyticsContentType(input: Pick<AnalyticsEventInput, 'contentType' | 'audioId' | 'articleId'>) {
+export function getAnalyticsContentType(input: Pick<AnalyticsEventInput, 'contentType' | 'audioId' | 'thoughtId'>) {
   if (input.contentType) return input.contentType
   if (input.audioId) return AnalyticsContentType.AUDIO
-  if (input.articleId) return AnalyticsContentType.ARTICLE
+  if (input.thoughtId) return AnalyticsContentType.THOUGHT
   return AnalyticsContentType.SYSTEM
 }
 
@@ -93,7 +93,7 @@ export async function createAnalyticsEvent(input: AnalyticsEventInput) {
       contentType: getAnalyticsContentType(input),
       eventType: input.eventType,
       audioId: input.audioId ?? null,
-      articleId: input.articleId ?? null,
+      thoughtId: input.thoughtId ?? null,
       metadata: sanitizeAnalyticsMetadata(input.metadata),
     },
   })

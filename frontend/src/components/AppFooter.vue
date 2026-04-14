@@ -20,7 +20,7 @@ function isActivePath(path: string) {
         <p class="text-sm font-semibold text-text-primary">MindCalm</p>
         <p class="mt-2 text-sm leading-7 text-text-secondary">
           {{ isPublicArea
-            ? 'Articoli pubblici, eventi e accesso riservato in un ambiente piu chiaro e leggibile.'
+            ? 'Pensieri pubblici, eventi e accesso riservato in un ambiente piu chiaro e leggibile.'
             : 'La tua area personale resta separata dai contenuti pubblici e dai documenti legali consultabili in ogni momento.' }}
         </p>
       </div>

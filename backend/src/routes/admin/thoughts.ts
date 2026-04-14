@@ -4,12 +4,12 @@ import { AuditAction, AuditEntityType, ContentVisibility, Prisma, Status } from 
 import { validationResult } from 'express-validator'
 import { adminAuthMiddleware, requireAdmin } from '../../middleware/auth'
 import { uploadImage } from '../../middleware/upload'
-import { articleValidation, statusValidation, paginationQuery } from '../../utils/validators'
+import { thoughtValidation, statusValidation, paginationQuery } from '../../utils/validators'
 import { extractPlainText, sanitizeBody } from '../../utils/sanitize'
 import { getBoolean, getSingleString } from '../../utils/request'
 import { prisma } from '../../lib/prisma'
 import { getAuditActorFromRequest, logAuditEventSafe } from '../../services/auditLogService'
-import { MAX_TAGS_PER_CONTENT, createTagSlug, ensureTagsExist, mapArticleTags, parseTagIds } from '../../services/tagService'
+import { MAX_TAGS_PER_CONTENT, createTagSlug, ensureTagsExist, mapThoughtTags, parseTagIds } from '../../services/tagService'
 import { buildUploadMetadata, renameStoredUpload } from '../../services/uploadMetadataService'
 import { deleteDirectCoverImage, resolveCoverImageSource } from '../../services/albumImageService'
 import { queuePublishedContentOutboxEntry } from '../../services/notificationService'
@@ -38,10 +38,10 @@ async function getAlbumImageOrNull(albumImageId: string) {
   })
 }
 
-async function queueArticlePublicationOutbox(
+async function queueThoughtPublicationOutbox(
   tx: Prisma.TransactionClient,
   publicBaseUrl: string,
-  article: {
+  thought: {
   id: string
   slug: string
   title: string
@@ -49,20 +49,20 @@ async function queueArticlePublicationOutbox(
   publishedAt: Date | null
 },
 ) {
-  if (article.status !== 'PUBLISHED' || !article.publishedAt) {
+  if (thought.status !== 'PUBLISHED' || !thought.publishedAt) {
     return
   }
 
   await queuePublishedContentOutboxEntry(tx, {
-    contentId: article.id,
-    type: 'article',
-    title: article.title,
-    publishedAt: article.publishedAt,
-    contentUrl: buildAppUrl(publicBaseUrl, `/articles/${article.slug}`),
+    contentId: thought.id,
+    type: 'thought',
+    title: thought.title,
+    publishedAt: thought.publishedAt,
+    contentUrl: buildAppUrl(publicBaseUrl, `/thoughts/${thought.slug}`),
   })
 }
 
-function serializeAdminArticle(article: {
+function serializeAdminThought(thought: {
   id: string
   title: string
   slug: string
@@ -87,47 +87,47 @@ function serializeAdminArticle(article: {
     mimeType: string
     size: number
   } | null
-  articleTags: Array<{ tag: { id: string; label: string; slug: string } }>
+  thoughtTags: Array<{ tag: { id: string; label: string; slug: string } }>
 }) {
   const cover = resolveCoverImageSource({
-    coverImage: article.coverImage,
-    coverImageOriginalName: article.coverImageOriginalName,
-    coverImageDisplayName: article.coverImageDisplayName,
-    coverAlbumImage: article.coverAlbumImage,
+    coverImage: thought.coverImage,
+    coverImageOriginalName: thought.coverImageOriginalName,
+    coverImageDisplayName: thought.coverImageDisplayName,
+    coverAlbumImage: thought.coverAlbumImage,
   })
 
   return {
-    id: article.id,
-    title: article.title,
-    slug: article.slug,
-    body: article.body,
-    excerpt: article.excerpt,
-    author: article.author,
-    visibility: article.visibility,
-    status: article.status,
-    publishedAt: article.publishedAt,
-    createdAt: article.createdAt,
-    updatedAt: article.updatedAt,
+    id: thought.id,
+    title: thought.title,
+    slug: thought.slug,
+    body: thought.body,
+    excerpt: thought.excerpt,
+    author: thought.author,
+    visibility: thought.visibility,
+    status: thought.status,
+    publishedAt: thought.publishedAt,
+    createdAt: thought.createdAt,
+    updatedAt: thought.updatedAt,
     ...cover,
-    tags: mapArticleTags(article.articleTags),
+    tags: mapThoughtTags(thought.thoughtTags),
   }
 }
 
-// GET /api/admin/articles
+// GET /api/admin/thoughts
 router.get('/', paginationQuery, async (req: Request, res: Response) => {
   const page = parseInt(req.query.page as string) || 1
   const limit = parseInt(req.query.limit as string) || 20
   const skip = (page - 1) * limit
 
-  const where: Prisma.ArticleWhereInput = {}
+  const where: Prisma.ThoughtWhereInput = {}
   if (req.query.status) where.status = req.query.status as any
 
-  const [articles, total] = await Promise.all([
-    prisma.article.findMany({
+  const [thoughts, total] = await Promise.all([
+    prisma.thought.findMany({
       where,
       include: {
         coverAlbumImage: { select: albumImageSelect },
-        articleTags: {
+        thoughtTags: {
           include: { tag: { select: { id: true, label: true, slug: true } } },
         },
       },
@@ -135,44 +135,44 @@ router.get('/', paginationQuery, async (req: Request, res: Response) => {
       skip,
       take: limit,
     }),
-    prisma.article.count({ where }),
+    prisma.thought.count({ where }),
   ])
 
   res.json({
-    data: articles.map(serializeAdminArticle),
+    data: thoughts.map(serializeAdminThought),
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   })
 })
 
 router.get('/:id', async (req: Request, res: Response) => {
-  const articleId = getSingleString(req.params.id)
-  if (!articleId) {
-    res.status(400).json({ error: 'ID articolo non valido' })
+  const thoughtId = getSingleString(req.params.id)
+  if (!thoughtId) {
+    res.status(400).json({ error: 'ID pensiero non valido' })
     return
   }
 
-  const article = await prisma.article.findUnique({
-    where: { id: articleId },
+  const thought = await prisma.thought.findUnique({
+    where: { id: thoughtId },
     include: {
       coverAlbumImage: { select: albumImageSelect },
-      articleTags: {
+      thoughtTags: {
         include: { tag: { select: { id: true, label: true, slug: true } } },
       },
     },
   })
 
-  if (!article) {
-    res.status(404).json({ error: 'Articolo non trovato' })
+  if (!thought) {
+    res.status(404).json({ error: 'Pensiero non trovato' })
     return
   }
 
-  res.json(serializeAdminArticle(article))
+  res.json(serializeAdminThought(thought))
 })
 
-// POST /api/admin/articles
+// POST /api/admin/thoughts
 router.post('/',
   uploadImage.single('coverImage'),
-  articleValidation,
+  thoughtValidation,
   async (req: Request, res: Response) => {
     const publicBaseUrl = derivePublicAppBaseUrl({
       override: getSingleString(req.body.publicBaseUrl),
@@ -230,16 +230,16 @@ router.post('/',
     }
 
     // Verifica unicità slug
-    const existingSlug = await prisma.article.findUnique({ where: { slug } })
+    const existingSlug = await prisma.thought.findUnique({ where: { slug } })
     if (existingSlug) {
-      res.status(409).json({ error: 'Un articolo con un titolo simile esiste già' })
+      res.status(409).json({ error: 'Un pensiero con un titolo simile esiste già' })
       return
     }
 
     const sanitizedBody = sanitizeBody(body!)
 
-    const article = await prisma.$transaction(async (tx) => {
-      const created = await tx.article.create({
+    const thought = await prisma.$transaction(async (tx) => {
+      const created = await tx.thought.create({
         data: {
           title: title!,
           slug,
@@ -254,7 +254,7 @@ router.post('/',
           coverAlbumImageId: selectedAlbumImage?.id ?? null,
           status: status === 'PUBLISHED' ? 'PUBLISHED' : 'DRAFT',
           publishedAt: status === 'PUBLISHED' ? new Date() : null,
-          articleTags: {
+          thoughtTags: {
             create: tagIds.map(tagId => ({
               tag: { connect: { id: tagId } },
             })),
@@ -262,39 +262,39 @@ router.post('/',
         },
         include: {
           coverAlbumImage: { select: albumImageSelect },
-          articleTags: {
+          thoughtTags: {
             include: { tag: { select: { id: true, label: true, slug: true } } },
           },
         },
       })
 
-      await queueArticlePublicationOutbox(tx, publicBaseUrl, created)
+      await queueThoughtPublicationOutbox(tx, publicBaseUrl, created)
 
       return created
     })
 
     await logAuditEventSafe({
       req,
-      action: AuditAction.ARTICLE_CREATED,
-      entityType: AuditEntityType.ARTICLE,
-      entityId: article.id,
-      entityLabel: article.title,
+      action: AuditAction.THOUGHT_CREATED,
+      entityType: AuditEntityType.THOUGHT,
+      entityId: thought.id,
+      entityLabel: thought.title,
       ...getAuditActorFromRequest(req),
       metadata: {
-        slug: article.slug,
-        author: article.author,
-        status: article.status,
-        visibility: article.visibility,
-        hasCoverImage: Boolean(article.coverImage || article.coverAlbumImageId),
+        slug: thought.slug,
+        author: thought.author,
+        status: thought.status,
+        visibility: thought.visibility,
+        hasCoverImage: Boolean(thought.coverImage || thought.coverAlbumImageId),
         tagIds,
       },
     })
 
-    res.status(201).json(serializeAdminArticle(article))
+    res.status(201).json(serializeAdminThought(thought))
   }
 )
 
-// PUT /api/admin/articles/:id
+// PUT /api/admin/thoughts/:id
 router.put('/:id',
   uploadImage.single('coverImage'),
   async (req: Request, res: Response) => {
@@ -306,15 +306,15 @@ router.put('/:id',
       fallback: config.appUrls.public,
     })
 
-    const articleId = getSingleString(req.params.id)
-    if (!articleId) {
-      res.status(400).json({ error: 'ID articolo non valido' })
+    const thoughtId = getSingleString(req.params.id)
+    if (!thoughtId) {
+      res.status(400).json({ error: 'ID pensiero non valido' })
       return
     }
 
-    const existing = await prisma.article.findUnique({ where: { id: articleId } })
+    const existing = await prisma.thought.findUnique({ where: { id: thoughtId } })
     if (!existing) {
-      res.status(404).json({ error: 'Articolo non trovato' })
+      res.status(404).json({ error: 'Pensiero non trovato' })
       return
     }
 
@@ -331,7 +331,7 @@ router.put('/:id',
       ? (getSingleString(req.body.coverAlbumImageId)?.trim() || null)
       : undefined
     const tagIds = parseTagIds(req.body.tagIds)
-    const data: Prisma.ArticleUpdateInput = {}
+    const data: Prisma.ThoughtUpdateInput = {}
     const changedFields: string[] = []
 
     if (req.file && requestedCoverAlbumImageId) {
@@ -364,15 +364,15 @@ router.put('/:id',
 
     if (title) {
       const nextSlug = createTagSlug(title)
-      const conflictingSlug = await prisma.article.findFirst({
+      const conflictingSlug = await prisma.thought.findFirst({
         where: {
-          id: { not: articleId },
+          id: { not: thoughtId },
           slug: nextSlug,
         },
         select: { id: true },
       })
       if (conflictingSlug) {
-        res.status(409).json({ error: 'Un articolo con un titolo simile esiste gia' })
+        res.status(409).json({ error: 'Un pensiero con un titolo simile esiste gia' })
         return
       }
       data.title = title
@@ -452,7 +452,7 @@ router.put('/:id',
       }
     }
 
-    data.articleTags = {
+    data.thoughtTags = {
       deleteMany: {},
       create: tagIds.map(tagId => ({
         tag: { connect: { id: tagId } },
@@ -460,20 +460,20 @@ router.put('/:id',
     }
     changedFields.push('tags')
 
-    const article = await prisma.$transaction(async (tx) => {
-      const updated = await tx.article.update({
-        where: { id: articleId },
+    const thought = await prisma.$transaction(async (tx) => {
+      const updated = await tx.thought.update({
+        where: { id: thoughtId },
         data,
         include: {
           coverAlbumImage: { select: albumImageSelect },
-          articleTags: {
+          thoughtTags: {
             include: { tag: { select: { id: true, label: true, slug: true } } },
           },
         },
       })
 
       if (existing.status !== 'PUBLISHED' && updated.status === 'PUBLISHED') {
-        await queueArticlePublicationOutbox(tx, publicBaseUrl, updated)
+        await queueThoughtPublicationOutbox(tx, publicBaseUrl, updated)
       }
 
       return updated
@@ -481,60 +481,60 @@ router.put('/:id',
 
     await logAuditEventSafe({
       req,
-      action: AuditAction.ARTICLE_UPDATED,
-      entityType: AuditEntityType.ARTICLE,
-      entityId: article.id,
-      entityLabel: article.title,
+      action: AuditAction.THOUGHT_UPDATED,
+      entityType: AuditEntityType.THOUGHT,
+      entityId: thought.id,
+      entityLabel: thought.title,
       ...getAuditActorFromRequest(req),
       metadata: {
         changedFields,
         previousStatus: existing.status,
-        nextStatus: article.status,
+        nextStatus: thought.status,
         previousVisibility: existing.visibility,
-        nextVisibility: article.visibility,
+        nextVisibility: thought.visibility,
         tagIds,
       },
     })
 
-    res.json(serializeAdminArticle(article))
+    res.json(serializeAdminThought(thought))
   }
 )
 
-// DELETE /api/admin/articles/:id
+// DELETE /api/admin/thoughts/:id
 router.delete('/:id', async (req: Request, res: Response) => {
-  const articleId = getSingleString(req.params.id)
-  if (!articleId) {
-    res.status(400).json({ error: 'ID articolo non valido' })
+  const thoughtId = getSingleString(req.params.id)
+  if (!thoughtId) {
+    res.status(400).json({ error: 'ID pensiero non valido' })
     return
   }
 
-  const article = await prisma.article.findUnique({ where: { id: articleId } })
-  if (!article) {
-    res.status(404).json({ error: 'Articolo non trovato' })
+  const thought = await prisma.thought.findUnique({ where: { id: thoughtId } })
+  if (!thought) {
+    res.status(404).json({ error: 'Pensiero non trovato' })
     return
   }
 
-  deleteDirectCoverImage(article.coverImage)
+  deleteDirectCoverImage(thought.coverImage)
 
-  await prisma.article.delete({ where: { id: articleId } })
+  await prisma.thought.delete({ where: { id: thoughtId } })
 
   await logAuditEventSafe({
     req,
-    action: AuditAction.ARTICLE_DELETED,
-    entityType: AuditEntityType.ARTICLE,
-    entityId: article.id,
-    entityLabel: article.title,
+    action: AuditAction.THOUGHT_DELETED,
+    entityType: AuditEntityType.THOUGHT,
+    entityId: thought.id,
+    entityLabel: thought.title,
     ...getAuditActorFromRequest(req),
     metadata: {
-      slug: article.slug,
-      status: article.status,
+      slug: thought.slug,
+      status: thought.status,
     },
   })
 
-  res.json({ message: 'Articolo eliminato' })
+  res.json({ message: 'Pensiero eliminato' })
 })
 
-// PATCH /api/admin/articles/:id/status
+// PATCH /api/admin/thoughts/:id/status
 router.patch('/:id/status', statusValidation, async (req: Request, res: Response) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
@@ -542,15 +542,15 @@ router.patch('/:id/status', statusValidation, async (req: Request, res: Response
     return
   }
 
-  const articleId = getSingleString(req.params.id)
+  const thoughtId = getSingleString(req.params.id)
   const status = getSingleString(req.body.status)
-  if (!articleId || !status) {
+  if (!thoughtId || !status) {
     res.status(400).json({ error: 'Dati non validi' })
     return
   }
 
-  const existing = await prisma.article.findUnique({
-    where: { id: articleId },
+  const existing = await prisma.thought.findUnique({
+    where: { id: thoughtId },
     select: {
       id: true,
       title: true,
@@ -560,11 +560,11 @@ router.patch('/:id/status', statusValidation, async (req: Request, res: Response
   })
 
   if (!existing) {
-    res.status(404).json({ error: 'Articolo non trovato' })
+    res.status(404).json({ error: 'Pensiero non trovato' })
     return
   }
 
-  const article = await prisma.$transaction(async (tx) => {
+  const thought = await prisma.$transaction(async (tx) => {
     const publicBaseUrl = derivePublicAppBaseUrl({
       override: getSingleString(req.body.publicBaseUrl),
       requestOrigin: req.get('origin'),
@@ -573,8 +573,8 @@ router.patch('/:id/status', statusValidation, async (req: Request, res: Response
       fallback: config.appUrls.public,
     })
 
-    const updated = await tx.article.update({
-      where: { id: articleId },
+    const updated = await tx.thought.update({
+      where: { id: thoughtId },
       data: {
         status: status as Status,
         publishedAt: status === 'PUBLISHED' ? new Date() : null,
@@ -582,7 +582,7 @@ router.patch('/:id/status', statusValidation, async (req: Request, res: Response
     })
 
     if (existing.status !== 'PUBLISHED' && updated.status === 'PUBLISHED') {
-      await queueArticlePublicationOutbox(tx, publicBaseUrl, updated)
+      await queueThoughtPublicationOutbox(tx, publicBaseUrl, updated)
     }
 
     return updated
@@ -590,17 +590,17 @@ router.patch('/:id/status', statusValidation, async (req: Request, res: Response
 
   await logAuditEventSafe({
     req,
-    action: AuditAction.ARTICLE_STATUS_CHANGED,
-    entityType: AuditEntityType.ARTICLE,
-    entityId: article.id,
-    entityLabel: article.title,
+    action: AuditAction.THOUGHT_STATUS_CHANGED,
+    entityType: AuditEntityType.THOUGHT,
+    entityId: thought.id,
+    entityLabel: thought.title,
     ...getAuditActorFromRequest(req),
     metadata: {
-      nextStatus: article.status,
+      nextStatus: thought.status,
     },
   })
 
-  res.json(article)
+  res.json(thought)
 })
 
 export default router

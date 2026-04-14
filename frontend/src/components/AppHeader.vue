@@ -15,7 +15,7 @@ const mobileMenuOpen = ref(false)
 const profileMenuOpen = ref(false)
 const isLoggingOut = ref(false)
 const hasAudio = ref(true)
-const hasArticles = ref(true)
+const hasThoughts = ref(true)
 const hasEvents = ref(true)
 
 const isPublicVisitor = computed(() => !auth.isAuthenticated)
@@ -24,8 +24,8 @@ const navigationItems = computed(() => {
   if (isPublicVisitor.value) {
     const items = []
 
-    if (hasArticles.value) {
-      items.push({ label: 'Articoli', to: '/articles', description: 'Contenuti pubblici' })
+    if (hasThoughts.value) {
+      items.push({ label: 'Pensieri', to: '/thoughts', description: 'Contenuti pubblici' })
     }
     if (hasEvents.value) {
       items.push({ label: 'Eventi', to: '/events', description: 'Incontri e appuntamenti' })
@@ -39,8 +39,8 @@ const navigationItems = computed(() => {
   if (hasAudio.value) {
     items.push({ label: 'Audio', to: '/audio', description: 'Percorsi guidati' })
   }
-  if (hasArticles.value) {
-    items.push({ label: 'Articoli', to: '/articles', description: 'Approfondimenti pubblici' })
+  if (hasThoughts.value) {
+    items.push({ label: 'Pensieri', to: '/thoughts', description: 'Approfondimenti pubblici' })
   }
   if (hasEvents.value) {
     items.push({ label: 'Eventi', to: '/events', description: 'Agenda pubblica' })
@@ -99,7 +99,7 @@ async function handleLogout() {
 
 async function loadContentAvailability() {
   const requests = [
-    axios.get('/api/articles?limit=1'),
+    axios.get('/api/thoughts?limit=1'),
     axios.get('/api/events?limit=1'),
   ]
 
@@ -110,7 +110,7 @@ async function loadContentAvailability() {
   }
 
   const results = await Promise.allSettled(requests)
-  const [audioResult, articlesResult, eventsResult] = auth.isAuthenticated
+  const [audioResult, thoughtsResult, eventsResult] = auth.isAuthenticated
     ? results
     : [null, results[0], results[1]]
 
@@ -118,8 +118,8 @@ async function loadContentAvailability() {
     hasAudio.value = Number(audioResult.value.data?.pagination?.total ?? 0) > 0
   }
 
-  if (articlesResult && articlesResult.status === 'fulfilled') {
-    hasArticles.value = Number(articlesResult.value.data?.pagination?.total ?? 0) > 0
+  if (thoughtsResult && thoughtsResult.status === 'fulfilled') {
+    hasThoughts.value = Number(thoughtsResult.value.data?.pagination?.total ?? 0) > 0
   }
   if (eventsResult && eventsResult.status === 'fulfilled') {
     hasEvents.value = Number(eventsResult.value.data?.pagination?.total ?? 0) > 0
@@ -187,7 +187,7 @@ onBeforeUnmount(() => {
           <div class="min-w-0">
             <p class="truncate text-base font-semibold text-text-primary">MindCalm</p>
             <p class="truncate text-xs text-text-secondary">
-              {{ isPublicVisitor ? 'Articoli pubblici, eventi e accesso riservato' : 'La tua area personale' }}
+              {{ isPublicVisitor ? 'Pensieri pubblici, eventi e accesso riservato' : 'La tua area personale' }}
             </p>
           </div>
         </router-link>
@@ -396,7 +396,7 @@ onBeforeUnmount(() => {
           <template v-else>
             <div class="surface-card-muted rounded-[22px] p-4">
               <p class="text-sm leading-6 text-text-secondary">
-                Consulta articoli ed eventi pubblici. Se hai un invito, accedi all'area riservata per ascoltare i percorsi audio.
+                Consulta pensieri ed eventi pubblici. Se hai un invito, accedi all'area riservata per ascoltare i percorsi audio.
               </p>
               <router-link to="/register" class="btn-primary mt-4 flex w-full items-center justify-center">
                 Hai un invito?

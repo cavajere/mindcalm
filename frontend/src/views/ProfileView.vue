@@ -19,7 +19,7 @@ const preferencesError = ref('')
 const preferencesSuccess = ref('')
 const notificationPrefs = ref({
   notifyOnAudio: true,
-  notifyOnArticles: true,
+  notifyOnThoughts: true,
   frequency: 'NONE',
 })
 
@@ -65,7 +65,7 @@ async function loadNotificationPreferences() {
     const { data } = await axios.get('/api/auth/notification-preferences')
     notificationPrefs.value = {
       notifyOnAudio: Boolean(data.notifyOnAudio),
-      notifyOnArticles: Boolean(data.notifyOnArticles),
+      notifyOnThoughts: Boolean(data.notifyOnThoughts),
       frequency: data.frequency || 'NONE',
     }
   } catch (e: any) {
@@ -119,7 +119,7 @@ loadNotificationPreferences()
       <div>
         <h2 class="text-xl font-semibold text-text-primary">Notifiche email nuovi contenuti</h2>
         <p class="text-text-secondary text-sm mt-1">
-          Scegli se ricevere aggiornamenti per Audio e Articoli e con quale frequenza.
+          Scegli se ricevere aggiornamenti per Audio e Pensieri e con quale frequenza.
         </p>
       </div>
 
@@ -136,8 +136,8 @@ loadNotificationPreferences()
           <span>Aggiornami sui nuovi Audio</span>
         </label>
         <label class="inline-flex items-center gap-2">
-          <input v-model="notificationPrefs.notifyOnArticles" type="checkbox" />
-          <span>Aggiornami sui nuovi Articoli</span>
+          <input v-model="notificationPrefs.notifyOnThoughts" type="checkbox" />
+          <span>Aggiornami sui nuovi Pensieri</span>
         </label>
       </div>
 

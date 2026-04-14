@@ -3,7 +3,7 @@ import { onMounted, ref } from 'vue'
 import axios from 'axios'
 import PageHeader from '../components/PageHeader.vue'
 
-const stats = ref({ audio: { published: 0, draft: 0 }, articles: { published: 0, draft: 0 }, categories: 0 })
+const stats = ref({ audio: { published: 0, draft: 0 }, thoughts: { published: 0, draft: 0 }, categories: 0 })
 const recentAudio = ref<any[]>([])
 const recentArticles = ref<any[]>([])
 
@@ -11,7 +11,7 @@ onMounted(async () => {
   try {
     const [audioRes, articlesRes, categoriesRes] = await Promise.all([
       axios.get('/api/admin/audio?limit=5'),
-      axios.get('/api/admin/articles?limit=5'),
+      axios.get('/api/admin/thoughts?limit=5'),
       axios.get('/api/admin/categories'),
     ])
 
@@ -24,9 +24,9 @@ onMounted(async () => {
     stats.value.audio.draft = allAudio - stats.value.audio.published
 
     const allArticles = articlesRes.data.pagination.total
-    const pubArticlesRes = await axios.get('/api/admin/articles?status=PUBLISHED&limit=1')
-    stats.value.articles.published = pubArticlesRes.data.pagination.total
-    stats.value.articles.draft = allArticles - stats.value.articles.published
+    const pubArticlesRes = await axios.get('/api/admin/thoughts?status=PUBLISHED&limit=1')
+    stats.value.thoughts.published = pubArticlesRes.data.pagination.total
+    stats.value.thoughts.draft = allArticles - stats.value.thoughts.published
 
     stats.value.categories = categoriesRes.data.length
   } catch {}
@@ -48,9 +48,9 @@ onMounted(async () => {
         <p class="text-xs text-text-secondary mt-1">{{ stats.audio.published }} pubblicati, {{ stats.audio.draft }} bozze</p>
       </div>
       <div class="card">
-        <p class="text-sm text-text-secondary mb-1">Articoli</p>
-        <p class="text-3xl font-bold text-text-primary">{{ stats.articles.published + stats.articles.draft }}</p>
-        <p class="text-xs text-text-secondary mt-1">{{ stats.articles.published }} pubblicati, {{ stats.articles.draft }} bozze</p>
+        <p class="text-sm text-text-secondary mb-1">Pensieri</p>
+        <p class="text-3xl font-bold text-text-primary">{{ stats.thoughts.published + stats.thoughts.draft }}</p>
+        <p class="text-xs text-text-secondary mt-1">{{ stats.thoughts.published }} pubblicati, {{ stats.thoughts.draft }} bozze</p>
       </div>
       <div class="card">
         <p class="text-sm text-text-secondary mb-1">Categorie</p>
@@ -79,11 +79,11 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- Recent articles -->
+      <!-- Recent thoughts -->
       <div class="card">
         <div class="flex items-center justify-between mb-4">
-          <h2 class="font-semibold text-text-primary">Ultimi articoli</h2>
-          <router-link to="/articles" class="text-sm text-primary hover:underline">Vedi tutti</router-link>
+          <h2 class="font-semibold text-text-primary">Ultimi pensieri</h2>
+          <router-link to="/thoughts" class="text-sm text-primary hover:underline">Vedi tutti</router-link>
         </div>
         <div class="space-y-3">
           <div v-for="a in recentArticles" :key="a.id" class="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
@@ -95,7 +95,7 @@ onMounted(async () => {
               {{ a.status === 'PUBLISHED' ? 'Pubblicato' : 'Bozza' }}
             </span>
           </div>
-          <p v-if="!recentArticles.length" class="text-sm text-text-secondary">Nessun articolo</p>
+          <p v-if="!recentArticles.length" class="text-sm text-text-secondary">Nessun pensiero</p>
         </div>
       </div>
     </div>

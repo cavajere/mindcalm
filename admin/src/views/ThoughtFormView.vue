@@ -123,12 +123,12 @@ async function save() {
     }
 
     if (isEdit.value) {
-      await axios.put(`/api/admin/articles/${route.params.id}`, fd, config)
+      await axios.put(`/api/admin/thoughts/${route.params.id}`, fd, config)
     } else {
-      await axios.post('/api/admin/articles', fd, config)
+      await axios.post('/api/admin/thoughts', fd, config)
     }
 
-    router.push('/articles')
+    router.push('/thoughts')
   } catch (e: any) {
     error.value = e.response?.data?.error || 'Errore nel salvataggio'
   } finally {
@@ -144,7 +144,7 @@ onMounted(async () => {
   if (isEdit.value) {
     loading.value = true
     try {
-      const { data: article } = await axios.get(`/api/admin/articles/${route.params.id}`)
+      const { data: article } = await axios.get(`/api/admin/thoughts/${route.params.id}`)
       form.value = {
         title: article.title,
         author: article.author,
@@ -177,11 +177,11 @@ onMounted(async () => {
 <template>
   <div class="mx-auto w-full max-w-3xl">
     <PageHeader
-      :title="isEdit ? 'Modifica articolo' : 'Nuovo articolo'"
-      :description="isEdit ? 'Aggiorna contenuto, metadata e stato editoriale.' : 'Crea un nuovo articolo con contenuto, autore e metadata.'"
+      :title="isEdit ? 'Modifica pensiero' : 'Nuovo pensiero'"
+      :description="isEdit ? 'Aggiorna contenuto, metadata e stato editoriale.' : 'Crea un nuovo pensiero con contenuto, autore e metadata.'"
     >
       <template #actions>
-        <button type="button" @click="router.push('/articles')" class="btn-secondary">Annulla</button>
+        <button type="button" @click="router.push('/thoughts')" class="btn-secondary">Annulla</button>
       </template>
     </PageHeader>
 
@@ -292,7 +292,7 @@ onMounted(async () => {
             </svg>
             {{ saving ? (uploadProgress > 0 && uploadProgress < 100 ? `Upload ${uploadProgress}%` : 'Salvataggio...') : 'Salva' }}
           </button>
-          <button type="button" @click="router.push('/articles')" class="btn-secondary" :disabled="saving">Annulla</button>
+          <button type="button" @click="router.push('/thoughts')" class="btn-secondary" :disabled="saving">Annulla</button>
         </div>
       </div>
     </form>

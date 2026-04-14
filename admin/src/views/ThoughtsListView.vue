@@ -7,7 +7,7 @@ import StatusBadge from '../components/StatusBadge.vue'
 import { getPublicAppUrl } from '../utils/appUrls'
 
 const router = useRouter()
-const articles = ref<any[]>([])
+const thoughts = ref<any[]>([])
 const loading = ref(true)
 
 function visibilityLabel(visibility: string) {
@@ -23,8 +23,8 @@ function visibilityClasses(visibility: string) {
 async function fetchArticles() {
   loading.value = true
   try {
-    const { data } = await axios.get('/api/admin/articles?limit=50')
-    articles.value = data.data
+    const { data } = await axios.get('/api/admin/thoughts?limit=50')
+    thoughts.value = data.data
   } finally {
     loading.value = false
   }
@@ -32,7 +32,7 @@ async function fetchArticles() {
 
 async function toggleStatus(article: any) {
   const newStatus = article.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED'
-  await axios.patch(`/api/admin/articles/${article.id}/status`, {
+  await axios.patch(`/api/admin/thoughts/${article.id}/status`, {
     status: newStatus,
     publicBaseUrl: getPublicAppUrl(),
   })
@@ -40,9 +40,9 @@ async function toggleStatus(article: any) {
 }
 
 async function deleteArticle(article: any) {
-  if (!confirm(`Eliminare l'articolo "${article.title}"?`)) return
-  await axios.delete(`/api/admin/articles/${article.id}`)
-  articles.value = articles.value.filter(a => a.id !== article.id)
+  if (!confirm(`Eliminare il pensiero "${article.title}"?`)) return
+  await axios.delete(`/api/admin/thoughts/${article.id}`)
+  thoughts.value = thoughts.value.filter(a => a.id !== article.id)
 }
 
 onMounted(fetchArticles)
@@ -51,11 +51,11 @@ onMounted(fetchArticles)
 <template>
   <div>
     <PageHeader
-      title="Articoli"
-      description="Gestisci articoli, stato editoriale e routing pubblico."
+      title="Pensieri"
+      description="Gestisci pensieri, stato editoriale e routing pubblico."
     >
       <template #actions>
-        <router-link to="/articles/new" class="btn-primary">+ Nuovo articolo</router-link>
+        <router-link to="/thoughts/new" class="btn-primary">+ Nuovo pensiero</router-link>
       </template>
     </PageHeader>
 
@@ -72,7 +72,7 @@ onMounted(fetchArticles)
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-50">
-          <tr v-for="a in articles" :key="a.id" class="hover:bg-gray-50/50">
+          <tr v-for="a in thoughts" :key="a.id" class="hover:bg-gray-50/50">
             <td class="px-4 py-3 text-sm font-medium text-text-primary">{{ a.title }}</td>
             <td class="px-4 py-3 text-sm text-text-secondary">{{ a.author }}</td>
             <td class="px-4 py-3 text-sm text-text-secondary font-mono">{{ a.slug }}</td>
@@ -87,7 +87,7 @@ onMounted(fetchArticles)
             <td class="table-actions-cell">
               <div class="table-actions-group">
                 <button
-                  @click="router.push(`/articles/${a.id}/edit`)"
+                  @click="router.push(`/thoughts/${a.id}/edit`)"
                   class="icon-action-button icon-action-button-neutral"
                   title="Modifica"
                   aria-label="Modifica"
@@ -109,8 +109,8 @@ onMounted(fetchArticles)
               </div>
             </td>
           </tr>
-          <tr v-if="!articles.length && !loading">
-            <td colspan="6" class="px-4 py-8 text-center text-text-secondary">Nessun articolo</td>
+          <tr v-if="!thoughts.length && !loading">
+            <td colspan="6" class="px-4 py-8 text-center text-text-secondary">Nessun pensiero</td>
           </tr>
         </tbody>
       </table>

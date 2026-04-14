@@ -5,9 +5,9 @@ import { validationResult } from 'express-validator'
 import { getSingleString, getStringList } from '../../utils/request'
 import { prisma } from '../../lib/prisma'
 import { optionalAppAuthMiddleware } from '../../middleware/auth'
-import { articleFilterQuery } from '../../utils/validators'
-import { getRankedPublishedArticleIds } from '../../services/searchService'
-import { mapArticleTags } from '../../services/tagService'
+import { thoughtFilterQuery } from '../../utils/validators'
+import { getRankedPublishedThoughtIds } from '../../services/searchService'
+import { mapThoughtTags } from '../../services/tagService'
 import { resolveCoverImageSource } from '../../services/albumImageService'
 import { getVisibleContentVisibilities } from '../../utils/contentVisibility'
 
@@ -15,7 +15,7 @@ const router = createAsyncRouter()
 
 router.use(optionalAppAuthMiddleware)
 
-function mapArticleListItem(article: {
+function mapThoughtListItem(thought: {
   id: string
   title: string
   slug: string
@@ -35,29 +35,29 @@ function mapArticleListItem(article: {
     size: number
   } | null
   publishedAt: Date | null
-  articleTags: Array<{ tag: { id: string; label: string; slug: string } }>
+  thoughtTags: Array<{ tag: { id: string; label: string; slug: string } }>
 }) {
   const cover = resolveCoverImageSource({
-    coverImage: article.coverImage,
-    coverImageOriginalName: article.coverImageOriginalName,
-    coverImageDisplayName: article.coverImageDisplayName,
-    coverAlbumImage: article.coverAlbumImage,
+    coverImage: thought.coverImage,
+    coverImageOriginalName: thought.coverImageOriginalName,
+    coverImageDisplayName: thought.coverImageDisplayName,
+    coverAlbumImage: thought.coverAlbumImage,
   })
 
   return {
-    id: article.id,
-    title: article.title,
-    slug: article.slug,
-    excerpt: article.excerpt,
-    author: article.author,
+    id: thought.id,
+    title: thought.title,
+    slug: thought.slug,
+    excerpt: thought.excerpt,
+    author: thought.author,
     ...cover,
-    publishedAt: article.publishedAt,
-    tags: mapArticleTags(article.articleTags),
+    publishedAt: thought.publishedAt,
+    tags: mapThoughtTags(thought.thoughtTags),
   }
 }
 
-// GET /api/articles — elenco articoli pubblicati
-router.get('/', articleFilterQuery, async (req: Request, res: Response) => {
+// GET /api/thoughts — elenco pensieri pubblicati
+router.get('/', thoughtFilterQuery, async (req: Request, res: Response) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
     res.status(400).json({ error: 'Parametri non validi', details: errors.array() })
@@ -92,13 +92,13 @@ router.get('/', articleFilterQuery, async (req: Request, res: Response) => {
         size: true,
       },
     },
-    articleTags: {
+    thoughtTags: {
       include: { tag: { select: { id: true, label: true, slug: true } } },
     },
-  } satisfies Prisma.ArticleInclude
+  } satisfies Prisma.ThoughtInclude
 
   if (search) {
-    const { ids, total } = await getRankedPublishedArticleIds({
+    const { ids, total } = await getRankedPublishedThoughtIds({
       page,
       limit,
       search,
@@ -116,7 +116,7 @@ router.get('/', articleFilterQuery, async (req: Request, res: Response) => {
       return
     }
 
-    const articles = await prisma.article.findMany({
+    const thoughts = await prisma.thought.findMany({
       where: {
         id: { in: ids },
         status: 'PUBLISHED',
@@ -133,15 +133,15 @@ router.get('/', articleFilterQuery, async (req: Request, res: Response) => {
         coverImageDisplayName: true,
         coverAlbumImage: include.coverAlbumImage,
         publishedAt: true,
-        articleTags: include.articleTags,
+        thoughtTags: include.thoughtTags,
       },
     })
 
-    const byId = new Map(articles.map(article => [article.id, article]))
+    const byId = new Map(thoughts.map(thought => [thought.id, thought]))
     const data = ids
       .map(id => byId.get(id))
-      .filter((article): article is NonNullable<typeof article> => Boolean(article))
-      .map(mapArticleListItem)
+      .filter((thought): thought is NonNullable<typeof thought> => Boolean(thought))
+      .map(mapThoughtListItem)
 
     res.json({
       data,
@@ -150,7 +150,7 @@ router.get('/', articleFilterQuery, async (req: Request, res: Response) => {
     return
   }
 
-  const where: Prisma.ArticleWhereInput = {
+  const where: Prisma.ThoughtWhereInput = {
     status: 'PUBLISHED',
     visibility: { in: visibleVisibilities },
   }
@@ -160,10 +160,10 @@ router.get('/', articleFilterQuery, async (req: Request, res: Response) => {
   if (tagSlugs.length) {
     if (matchMode === 'all') {
       where.AND = tagSlugs.map(slug => ({
-        articleTags: { some: { tag: { slug, isActive: true } } },
+        thoughtTags: { some: { tag: { slug, isActive: true } } },
       }))
     } else {
-      where.articleTags = {
+      where.thoughtTags = {
         some: {
           tag: {
             slug: { in: tagSlugs },
@@ -174,8 +174,8 @@ router.get('/', articleFilterQuery, async (req: Request, res: Response) => {
     }
   }
 
-  const [articles, total] = await Promise.all([
-    prisma.article.findMany({
+  const [thoughts, total] = await Promise.all([
+    prisma.thought.findMany({
       where,
       select: {
         id: true,
@@ -188,30 +188,30 @@ router.get('/', articleFilterQuery, async (req: Request, res: Response) => {
         coverImageDisplayName: true,
         coverAlbumImage: include.coverAlbumImage,
         publishedAt: true,
-        articleTags: include.articleTags,
+        thoughtTags: include.thoughtTags,
       },
       orderBy: { publishedAt: 'desc' },
       skip,
       take: limit,
     }),
-    prisma.article.count({ where }),
+    prisma.thought.count({ where }),
   ])
 
   res.json({
-    data: articles.map(mapArticleListItem),
+    data: thoughts.map(mapThoughtListItem),
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   })
 })
 
-// GET /api/articles/:slug — dettaglio articolo
+// GET /api/thoughts/:slug — dettaglio pensiero
 router.get('/:slug', async (req: Request, res: Response) => {
   const slug = getSingleString(req.params.slug)
   if (!slug) {
-    res.status(400).json({ error: 'Slug articolo non valido' })
+    res.status(400).json({ error: 'Slug pensiero non valido' })
     return
   }
 
-  const article = await prisma.article.findFirst({
+  const thought = await prisma.thought.findFirst({
     where: {
       slug,
       status: 'PUBLISHED',
@@ -230,34 +230,34 @@ router.get('/:slug', async (req: Request, res: Response) => {
           size: true,
         },
       },
-      articleTags: {
+      thoughtTags: {
         include: { tag: { select: { id: true, label: true, slug: true } } },
       },
     },
   })
 
-  if (!article) {
-    res.status(404).json({ error: 'Articolo non trovato' })
+  if (!thought) {
+    res.status(404).json({ error: 'Pensiero non trovato' })
     return
   }
 
   const cover = resolveCoverImageSource({
-    coverImage: article.coverImage,
-    coverImageOriginalName: article.coverImageOriginalName,
-    coverImageDisplayName: article.coverImageDisplayName,
-    coverAlbumImage: article.coverAlbumImage,
+    coverImage: thought.coverImage,
+    coverImageOriginalName: thought.coverImageOriginalName,
+    coverImageDisplayName: thought.coverImageDisplayName,
+    coverAlbumImage: thought.coverAlbumImage,
   })
 
   res.json({
-    id: article.id,
-    slug: article.slug,
-    title: article.title,
-    body: article.body,
-    excerpt: article.excerpt,
-    author: article.author,
+    id: thought.id,
+    slug: thought.slug,
+    title: thought.title,
+    body: thought.body,
+    excerpt: thought.excerpt,
+    author: thought.author,
     ...cover,
-    publishedAt: article.publishedAt,
-    tags: mapArticleTags(article.articleTags),
+    publishedAt: thought.publishedAt,
+    tags: mapThoughtTags(thought.thoughtTags),
   })
 })
 

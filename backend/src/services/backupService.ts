@@ -16,11 +16,11 @@ const BACKUP_TABLES = [
   '"analytics_events"',
   '"pending_registrations"',
   '"invite_codes"',
-  '"article_tags"',
+  '"thought_tags"',
   '"audio_tags"',
   '"tag_aliases"',
   '"audio"',
-  '"articles"',
+  '"thoughts"',
   '"tags"',
   '"categories"',
   '"smtp_settings"',
@@ -51,8 +51,8 @@ type BackupPayload = {
     tags: Prisma.TagUncheckedCreateInput[]
     tagAliases: Prisma.TagAliasUncheckedCreateInput[]
     albumImages: Prisma.AlbumImageUncheckedCreateInput[]
-    articles: Prisma.ArticleUncheckedCreateInput[]
-    articleTags: Prisma.ArticleTagUncheckedCreateInput[]
+    thoughts: Prisma.ThoughtUncheckedCreateInput[]
+    thoughtTags: Prisma.ThoughtTagUncheckedCreateInput[]
     audios: Prisma.AudioUncheckedCreateInput[]
     audioTags: Prisma.AudioTagUncheckedCreateInput[]
     inviteCodes: Prisma.InviteCodeUncheckedCreateInput[]
@@ -315,8 +315,8 @@ function buildBackupCounts(payload: BackupPayload): Record<string, number> {
     tags: payload.data.tags.length,
     tagAliases: payload.data.tagAliases.length,
     albumImages: payload.data.albumImages.length,
-    articles: payload.data.articles.length,
-    articleTags: payload.data.articleTags.length,
+    thoughts: payload.data.thoughts.length,
+    thoughtTags: payload.data.thoughtTags.length,
     audios: payload.data.audios.length,
     audioTags: payload.data.audioTags.length,
     inviteCodes: payload.data.inviteCodes.length,
@@ -445,9 +445,9 @@ async function restoreDatabase(payload: BackupPayload) {
       })
     }
 
-    if (payload.data.articles.length) {
-      await tx.article.createMany({
-        data: convertDateFields(payload.data.articles, ['publishedAt', 'createdAt', 'updatedAt']) as Prisma.ArticleUncheckedCreateInput[],
+    if (payload.data.thoughts.length) {
+      await tx.thought.createMany({
+        data: convertDateFields(payload.data.thoughts, ['publishedAt', 'createdAt', 'updatedAt']) as Prisma.ThoughtUncheckedCreateInput[],
       })
     }
 
@@ -463,9 +463,9 @@ async function restoreDatabase(payload: BackupPayload) {
       })
     }
 
-    if (payload.data.articleTags.length) {
-      await tx.articleTag.createMany({
-        data: payload.data.articleTags,
+    if (payload.data.thoughtTags.length) {
+      await tx.thoughtTag.createMany({
+        data: payload.data.thoughtTags,
       })
     }
 
@@ -528,8 +528,8 @@ async function createBackupPayload(): Promise<BackupPayload> {
     tags,
     tagAliases,
     albumImages,
-    articles,
-    articleTags,
+    thoughts,
+    thoughtTags,
     audios,
     audioTags,
     inviteCodes,
@@ -545,8 +545,8 @@ async function createBackupPayload(): Promise<BackupPayload> {
     prisma.tag.findMany({ orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] }),
     prisma.tagAlias.findMany({ orderBy: [{ tagId: 'asc' }, { alias: 'asc' }] }),
     prisma.albumImage.findMany({ orderBy: { createdAt: 'asc' } }),
-    prisma.article.findMany({ orderBy: { createdAt: 'asc' } }),
-    prisma.articleTag.findMany({ orderBy: [{ articleId: 'asc' }, { tagId: 'asc' }] }),
+    prisma.thought.findMany({ orderBy: { createdAt: 'asc' } }),
+    prisma.thoughtTag.findMany({ orderBy: [{ thoughtId: 'asc' }, { tagId: 'asc' }] }),
     prisma.audio.findMany({ orderBy: { createdAt: 'asc' } }),
     prisma.audioTag.findMany({ orderBy: [{ audioId: 'asc' }, { tagId: 'asc' }] }),
     prisma.inviteCode.findMany({ orderBy: { createdAt: 'asc' } }),
@@ -569,8 +569,8 @@ async function createBackupPayload(): Promise<BackupPayload> {
       tags: tags as Prisma.TagUncheckedCreateInput[],
       tagAliases: tagAliases as Prisma.TagAliasUncheckedCreateInput[],
       albumImages: albumImages as Prisma.AlbumImageUncheckedCreateInput[],
-      articles: articles as Prisma.ArticleUncheckedCreateInput[],
-      articleTags: articleTags as Prisma.ArticleTagUncheckedCreateInput[],
+      thoughts: thoughts as Prisma.ThoughtUncheckedCreateInput[],
+      thoughtTags: thoughtTags as Prisma.ThoughtTagUncheckedCreateInput[],
       audios: audios as Prisma.AudioUncheckedCreateInput[],
       audioTags: audioTags as Prisma.AudioTagUncheckedCreateInput[],
       inviteCodes: inviteCodes as Prisma.InviteCodeUncheckedCreateInput[],

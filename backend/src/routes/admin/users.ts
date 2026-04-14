@@ -32,7 +32,7 @@ function serializeUser(user: {
   inviteTokenHash: string | null
   notificationPreference: {
     notifyOnAudio: boolean
-    notifyOnArticles: boolean
+    notifyOnThoughts: boolean
     frequency: NotificationFrequency
   } | null
 }) {
@@ -79,7 +79,7 @@ const userSelect = {
   notificationPreference: {
     select: {
       notifyOnAudio: true,
-      notifyOnArticles: true,
+      notifyOnThoughts: true,
       frequency: true,
     },
   },
@@ -128,20 +128,20 @@ function normalizeOptionalPhone(value: string | undefined) {
 function getDefaultNotificationPreferences() {
   return {
     notifyOnAudio: true,
-    notifyOnArticles: true,
+    notifyOnThoughts: true,
     frequency: NotificationFrequency.NONE,
   }
 }
 
 function serializeNotificationPreferences(preference: {
   notifyOnAudio: boolean
-  notifyOnArticles: boolean
+  notifyOnThoughts: boolean
   frequency: NotificationFrequency
 } | null | undefined) {
   if (preference) {
     return {
       notifyOnAudio: preference.notifyOnAudio,
-      notifyOnArticles: preference.notifyOnArticles,
+      notifyOnThoughts: preference.notifyOnThoughts,
       frequency: preference.frequency,
     }
   }
@@ -153,12 +153,12 @@ function resolveNotificationPreferencesInput(
   body: Request['body'],
   basePreferences: {
     notifyOnAudio: boolean
-    notifyOnArticles: boolean
+    notifyOnThoughts: boolean
     frequency: NotificationFrequency
   },
 ) {
   const hasNotifyOnAudio = Object.prototype.hasOwnProperty.call(body, 'notifyOnAudio')
-  const hasNotifyOnArticles = Object.prototype.hasOwnProperty.call(body, 'notifyOnArticles')
+  const hasNotifyOnArticles = Object.prototype.hasOwnProperty.call(body, 'notifyOnThoughts')
   const hasFrequency = Object.prototype.hasOwnProperty.call(body, 'frequency')
 
   if (!hasNotifyOnAudio && !hasNotifyOnArticles && !hasFrequency) {
@@ -167,7 +167,7 @@ function resolveNotificationPreferencesInput(
 
   return {
     notifyOnAudio: hasNotifyOnAudio ? (getBoolean(body.notifyOnAudio) ?? basePreferences.notifyOnAudio) : basePreferences.notifyOnAudio,
-    notifyOnArticles: hasNotifyOnArticles ? (getBoolean(body.notifyOnArticles) ?? basePreferences.notifyOnArticles) : basePreferences.notifyOnArticles,
+    notifyOnThoughts: hasNotifyOnArticles ? (getBoolean(body.notifyOnThoughts) ?? basePreferences.notifyOnThoughts) : basePreferences.notifyOnThoughts,
     frequency: hasFrequency
       ? ((getSingleString(body.frequency) as NotificationFrequency | undefined) ?? basePreferences.frequency)
       : basePreferences.frequency,
@@ -450,7 +450,7 @@ router.put('/:id', userUpdateValidation, async (req: Request, res: Response) => 
     licenseExpiresAtChanged ? 'licenseExpiresAt' : null,
     password ? 'password' : null,
     notificationPreferencesInput && notificationPreferencesInput.notifyOnAudio !== currentNotificationPreferences.notifyOnAudio ? 'notifyOnAudio' : null,
-    notificationPreferencesInput && notificationPreferencesInput.notifyOnArticles !== currentNotificationPreferences.notifyOnArticles ? 'notifyOnArticles' : null,
+    notificationPreferencesInput && notificationPreferencesInput.notifyOnThoughts !== currentNotificationPreferences.notifyOnThoughts ? 'notifyOnThoughts' : null,
     notificationPreferencesInput && notificationPreferencesInput.frequency !== currentNotificationPreferences.frequency ? 'frequency' : null,
   ].filter((field): field is string => Boolean(field))
 

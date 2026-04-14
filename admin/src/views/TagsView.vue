@@ -13,7 +13,7 @@ interface Tag {
   sortOrder: number
   aliases: string[]
   audioCount: number
-  articleCount: number
+  thoughtCount: number
 }
 
 const tags = ref<Tag[]>([])
@@ -123,7 +123,7 @@ onMounted(fetchTags)
   <div>
     <PageHeader
       title="Tag"
-      description="Tassonomia condivisa per audio e articoli."
+      description="Tassonomia condivisa per audio e pensieri."
     >
       <template #actions>
         <button @click="openNew" class="btn-primary">+ Nuovo tag</button>
@@ -167,7 +167,7 @@ onMounted(fetchTags)
               <span v-else class="text-sm text-text-secondary">-</span>
             </td>
             <td class="px-4 py-3 text-sm text-text-secondary">
-              {{ tag.audioCount }} audio · {{ tag.articleCount }} articoli
+              {{ tag.audioCount }} audio · {{ tag.thoughtCount }} pensieri
             </td>
             <td class="px-4 py-3">
               <button

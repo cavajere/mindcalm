@@ -2,8 +2,8 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from 'axios'
-import ArticleCover from '../components/ArticleCover.vue'
-import ArticleRenderer from '../components/ArticleRenderer.vue'
+import ContentCover from '../components/ContentCover.vue'
+import RichTextRenderer from '../components/RichTextRenderer.vue'
 
 interface EventItem {
   id: string
@@ -176,7 +176,7 @@ watch(
             </div>
           </div>
 
-          <ArticleCover
+          <ContentCover
             :src="eventItem.coverImage"
             :alt="eventItem.title"
             container-class="surface-card min-h-[280px] overflow-hidden"
@@ -189,7 +189,7 @@ watch(
       <div class="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
         <div class="min-w-0">
           <div class="surface-card p-6 shadow-sm sm:p-8 lg:p-10">
-            <ArticleRenderer :html="eventItem.body" />
+            <RichTextRenderer :html="eventItem.body" />
           </div>
         </div>
 

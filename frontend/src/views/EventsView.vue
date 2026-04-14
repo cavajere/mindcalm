@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import axios from 'axios'
-import ArticleCover from '../components/ArticleCover.vue'
+import ContentCover from '../components/ContentCover.vue'
 
 interface EventItem {
   id: string
@@ -132,7 +132,7 @@ watch(search, () => {
         :to="`/events/${eventItem.slug}`"
         class="card group overflow-hidden"
       >
-        <ArticleCover
+        <ContentCover
           :src="eventItem.coverImage"
           :alt="eventItem.title"
           container-class="aspect-[4/3] overflow-hidden"

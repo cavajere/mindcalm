@@ -28,7 +28,7 @@ type NavItem = NavLeafItem | NavGroupItem
 const primaryNavItems: NavLeafItem[] = [
   { path: '/', label: 'Dashboard', shortLabel: 'Home' },
   { path: '/audio', label: 'Audio', shortLabel: 'Audio' },
-  { path: '/articles', label: 'Articoli', shortLabel: 'Articoli' },
+  { path: '/thoughts', label: 'Pensieri', shortLabel: 'Pensieri' },
   { path: '/events', label: 'Eventi', shortLabel: 'Eventi' },
   { path: '/album', label: 'Album', shortLabel: 'Album' },
   { path: '/analytics', label: 'Analytics', shortLabel: 'Analytics' },

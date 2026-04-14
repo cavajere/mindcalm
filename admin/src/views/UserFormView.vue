@@ -23,7 +23,7 @@ const form = ref({
   notes: '',
   role: 'STANDARD',
   notifyOnAudio: true,
-  notifyOnArticles: true,
+  notifyOnThoughts: true,
   frequency: 'NONE',
   licenseExpiresAt: '',
   password: '',
@@ -89,7 +89,7 @@ async function fetchUser() {
   form.value.notes = data.notes || ''
   form.value.role = data.role
   form.value.notifyOnAudio = data.notificationPreferences?.notifyOnAudio ?? true
-  form.value.notifyOnArticles = data.notificationPreferences?.notifyOnArticles ?? true
+  form.value.notifyOnThoughts = data.notificationPreferences?.notifyOnThoughts ?? true
   form.value.frequency = data.notificationPreferences?.frequency ?? 'NONE'
   form.value.licenseExpiresAt = formatDateForInput(data.licenseExpiresAt)
   form.value.isActive = data.isActive
@@ -122,7 +122,7 @@ async function handleSubmit() {
       notes: form.value.notes,
       role: form.value.role,
       notifyOnAudio: form.value.notifyOnAudio,
-      notifyOnArticles: form.value.notifyOnArticles,
+      notifyOnThoughts: form.value.notifyOnThoughts,
       frequency: form.value.frequency,
       licenseExpiresAt: getLicenseExpiresAtPayload(),
       isActive: form.value.isActive,
@@ -268,7 +268,7 @@ onMounted(fetchUser)
         <div>
           <label class="label">Notifiche email nuovi contenuti</label>
           <p class="text-xs text-text-secondary mt-1">
-            L’amministratore può preimpostare le preferenze per Audio, Articoli e frequenza di invio.
+            L’amministratore può preimpostare le preferenze per Audio, Pensieri e frequenza di invio.
           </p>
         </div>
 
@@ -279,8 +279,8 @@ onMounted(fetchUser)
           </label>
 
           <label class="flex items-center gap-3 text-sm text-text-primary">
-            <input v-model="form.notifyOnArticles" type="checkbox" class="rounded border-gray-300 text-primary focus:ring-primary/30" />
-            Aggiornami sui nuovi Articoli
+            <input v-model="form.notifyOnThoughts" type="checkbox" class="rounded border-gray-300 text-primary focus:ring-primary/30" />
+            Aggiornami sui nuovi Pensieri
           </label>
         </div>
 

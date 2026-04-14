@@ -1,17 +1,17 @@
-type ContentEventType = 'AUDIO_VIEW' | 'AUDIO_PLAY' | 'AUDIO_COMPLETE' | 'ARTICLE_VIEW'
+type ContentEventType = 'AUDIO_VIEW' | 'AUDIO_PLAY' | 'AUDIO_COMPLETE' | 'THOUGHT_VIEW'
 type ErrorEventType = 'APP_ERROR' | 'API_ERROR' | 'AUDIO_ERROR'
 type AnalyticsEventType = ContentEventType | ErrorEventType
 
 type AnalyticsPayload = {
   eventType: AnalyticsEventType
   audioId?: string
-  articleId?: string
+  thoughtId?: string
   metadata?: Record<string, unknown>
 }
 
 type ErrorTrackingContext = {
   audioId?: string
-  articleId?: string
+  thoughtId?: string
   metadata?: Record<string, unknown>
 }
 
@@ -73,7 +73,7 @@ function getFingerprint(payload: AnalyticsPayload) {
   return JSON.stringify([
     payload.eventType,
     payload.audioId || '',
-    payload.articleId || '',
+    payload.thoughtId || '',
     metadata.source || '',
     metadata.message || '',
     metadata.path || '',
@@ -153,7 +153,7 @@ function trackErrorEvent(eventType: ErrorEventType, error: unknown, context: Err
   return trackEvent({
     eventType,
     audioId: context.audioId,
-    articleId: context.articleId,
+    thoughtId: context.thoughtId,
     metadata: getPageContext({
       ...context.metadata,
       ...normalizeUnknownError(error),
@@ -173,8 +173,8 @@ export function trackAudioComplete(audioId: string) {
   return trackEvent({ eventType: 'AUDIO_COMPLETE', audioId })
 }
 
-export function trackArticleView(articleId: string) {
-  return trackEvent({ eventType: 'ARTICLE_VIEW', articleId })
+export function trackThoughtView(thoughtId: string) {
+  return trackEvent({ eventType: 'THOUGHT_VIEW', thoughtId })
 }
 
 export function trackAppError(error: unknown, context: ErrorTrackingContext = {}) {

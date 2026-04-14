@@ -2,10 +2,10 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from 'axios'
-import ArticleCover from '../components/ArticleCover.vue'
+import ContentCover from '../components/ContentCover.vue'
 import TagFilter, { type FilterTag } from '../components/TagFilter.vue'
 
-interface Article {
+interface Thought {
   id: string
   title: string
   slug: string
@@ -16,7 +16,7 @@ interface Article {
   tags: FilterTag[]
 }
 
-const articles = ref<Article[]>([])
+const thoughts = ref<Thought[]>([])
 const loading = ref(true)
 const pagination = ref({ page: 1, limit: 12, total: 0, totalPages: 0 })
 const search = ref('')
@@ -74,8 +74,8 @@ async function fetchArticles() {
     if (search.value) query.set('search', search.value)
     if (selectedTags.value.length) query.set('tags', selectedTags.value.join(','))
 
-    const { data } = await axios.get(`/api/articles?${query}`)
-    articles.value = data.data
+    const { data } = await axios.get(`/api/thoughts?${query}`)
+    thoughts.value = data.data
     pagination.value = { ...pagination.value, ...data.pagination }
   } finally {
     loading.value = false
@@ -88,7 +88,7 @@ function changePage(page: number) {
 }
 
 onMounted(async () => {
-  const { data } = await axios.get('/api/tags?contentType=article')
+  const { data } = await axios.get('/api/tags?contentType=thought')
   tags.value = data
   parseTagsFromRoute()
   await fetchArticles()
@@ -120,19 +120,19 @@ watch(search, () => {
 
       <div class="relative grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:p-10">
         <div>
-          <span class="eyebrow">Articoli pubblici</span>
+          <span class="eyebrow">Pensieri pubblici</span>
           <h1 class="font-display mt-4 text-4xl font-semibold leading-none text-text-primary sm:text-5xl">
-            Articoli e approfondimenti.
+            Pensieri.
           </h1>
           <p class="mt-4 max-w-3xl text-base leading-8 text-text-secondary sm:text-lg">
-            Cerca per parole chiave e trova i contenuti pubblici piu rilevanti tra temi, pratiche e approfondimenti.
+            Cerca per parole chiave e trova rapidamente pillole di mindfulness, spunti e letture utili.
           </p>
         </div>
 
         <div class="grid gap-3 sm:grid-cols-2 lg:min-w-[320px]">
           <div class="surface-card-muted p-4">
             <p class="text-2xl font-semibold text-text-primary">{{ pagination.total }}</p>
-            <p class="mt-1 text-sm text-text-secondary">articoli pubblicati</p>
+            <p class="mt-1 text-sm text-text-secondary">pensieri pubblicati</p>
           </div>
           <div class="surface-card-muted p-4">
             <p class="text-sm font-semibold text-text-primary">{{ activeFiltersLabel }}</p>
@@ -145,7 +145,7 @@ watch(search, () => {
     <section class="card p-5 sm:p-6">
       <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start">
         <div>
-          <label class="mb-2 block text-sm font-semibold text-text-primary">Cerca negli articoli</label>
+          <label class="mb-2 block text-sm font-semibold text-text-primary">Cerca nei pensieri</label>
           <div class="relative">
             <svg class="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -183,14 +183,14 @@ watch(search, () => {
       </div>
     </div>
 
-    <div v-else-if="articles.length" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <div v-else-if="thoughts.length" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
       <router-link
-        v-for="article in articles"
+        v-for="article in thoughts"
         :key="article.id"
-        :to="`/articles/${article.slug}`"
+        :to="`/thoughts/${article.slug}`"
         class="card group overflow-hidden"
       >
-        <ArticleCover
+        <ContentCover
           :src="article.coverImage"
           :alt="article.title"
           container-class="aspect-[4/3] overflow-hidden"
@@ -228,7 +228,7 @@ watch(search, () => {
     <div v-else class="section-panel p-8 text-center sm:p-10">
       <div class="mx-auto max-w-2xl">
         <span class="eyebrow">Archivio vuoto</span>
-        <h2 class="mt-5 text-2xl font-semibold text-text-primary sm:text-3xl">Nessun articolo corrisponde alla ricerca attuale.</h2>
+        <h2 class="mt-5 text-2xl font-semibold text-text-primary sm:text-3xl">Nessun pensiero corrisponde alla ricerca attuale.</h2>
         <p class="mt-4 text-base leading-8 text-text-secondary">
           Prova a rimuovere qualche filtro o torna piu tardi: i nuovi contenuti pubblici compariranno qui in automatico.
         </p>

@@ -6,7 +6,7 @@ import { useAuthStore } from '../stores/authStore'
 const auth = useAuthStore()
 const notificationPrefs = ref({
   notifyOnAudio: true,
-  notifyOnArticles: true,
+  notifyOnThoughts: true,
   frequency: 'NONE',
 })
 const notificationError = ref('')
@@ -43,7 +43,7 @@ async function loadNotificationPreferences() {
     const { data } = await axios.get('/api/auth/notification-preferences')
     notificationPrefs.value = {
       notifyOnAudio: data.notifyOnAudio ?? true,
-      notifyOnArticles: data.notifyOnArticles ?? true,
+      notifyOnThoughts: data.notifyOnThoughts ?? true,
       frequency: data.frequency ?? 'NONE',
     }
   } catch (error: any) {
@@ -132,9 +132,9 @@ onMounted(loadNotificationPreferences)
             </span>
             <span
               class="inline-flex rounded-full px-3 py-1 text-xs font-medium"
-              :class="notificationPrefs.notifyOnArticles ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'"
+              :class="notificationPrefs.notifyOnThoughts ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'"
             >
-              {{ notificationPrefs.notifyOnArticles ? 'Articoli attivi' : 'Articoli disattivati' }}
+              {{ notificationPrefs.notifyOnThoughts ? 'Pensieri attivi' : 'Pensieri disattivati' }}
             </span>
           </div>
         </div>

@@ -4,9 +4,9 @@ import axios from 'axios'
 import { useAuthStore } from '../stores/authStore'
 import { useAudioStore } from '../stores/audioStore'
 import AudioCard from '../components/AudioCard.vue'
-import ArticleCover from '../components/ArticleCover.vue'
+import ContentCover from '../components/ContentCover.vue'
 
-interface ArticleItem {
+interface ThoughtItem {
   id: string
   title: string
   slug: string
@@ -40,13 +40,13 @@ interface PaginatedResponse<T> {
 const auth = useAuthStore()
 const store = useAudioStore()
 
-const latestArticles = ref<ArticleItem[]>([])
+const latestThoughts = ref<ThoughtItem[]>([])
 const latestEvents = ref<EventItem[]>([])
 const featuredAudio = ref<any>(null)
 const publicLoading = ref(true)
-const publicCounts = ref({ articles: 0, events: 0 })
+const publicCounts = ref({ thoughts: 0, events: 0 })
 
-const latestStory = computed(() => latestArticles.value[0] ?? null)
+const latestStory = computed(() => latestThoughts.value[0] ?? null)
 const nextEvent = computed(() => latestEvents.value[0] ?? null)
 
 function formatArticleDate(value: string) {
@@ -94,14 +94,14 @@ async function loadPrivateHome() {
 async function loadPublicHome() {
   publicLoading.value = true
 
-  const [articlesResult, eventsResult] = await Promise.allSettled([
-    axios.get<PaginatedResponse<ArticleItem>>('/api/articles?limit=4'),
+  const [thoughtsResult, eventsResult] = await Promise.allSettled([
+    axios.get<PaginatedResponse<ThoughtItem>>('/api/thoughts?limit=4'),
     axios.get<PaginatedResponse<EventItem>>('/api/events?limit=3'),
   ])
 
-  if (articlesResult.status === 'fulfilled') {
-    latestArticles.value = articlesResult.value.data.data
-    publicCounts.value.articles = Number(articlesResult.value.data.pagination?.total ?? latestArticles.value.length)
+  if (thoughtsResult.status === 'fulfilled') {
+    latestThoughts.value = thoughtsResult.value.data.data
+    publicCounts.value.thoughts = Number(thoughtsResult.value.data.pagination?.total ?? latestThoughts.value.length)
   }
 
   if (eventsResult.status === 'fulfilled') {
@@ -136,12 +136,12 @@ onMounted(async () => {
               Un percorso più calmo, un ascolto alla volta.
             </h1>
             <p class="mt-5 max-w-2xl text-base leading-8 text-text-secondary sm:text-lg">
-              Riprendi dai contenuti piu recenti, esplora per categoria e consulta articoli ed eventi pubblici quando vuoi approfondire.
+              Riprendi dai contenuti piu recenti, esplora per categoria e consulta pensieri ed eventi pubblici quando vuoi approfondire.
             </p>
 
             <div class="mt-8 flex flex-wrap gap-3">
               <router-link to="/audio" class="btn-primary">Vai alla libreria audio</router-link>
-              <router-link to="/articles" class="btn-secondary">Articoli pubblici</router-link>
+              <router-link to="/thoughts" class="btn-secondary">Pensieri pubblici</router-link>
               <router-link to="/events" class="btn-secondary">Eventi pubblici</router-link>
             </div>
 
@@ -243,19 +243,19 @@ onMounted(async () => {
               Spazio per respirare, capire, ricominciare.
             </h1>
             <p class="mt-5 max-w-2xl text-base leading-8 text-text-secondary sm:text-xl">
-              Nella parte pubblica trovi solo due percorsi chiari: articoli ed eventi. Da li puoi cercare per parole chiave e arrivare subito ai contenuti che ti servono.
+              Nella parte pubblica trovi solo due percorsi chiari: pensieri ed eventi. Da li puoi cercare per parole chiave e arrivare subito ai contenuti che ti servono.
             </p>
 
             <div class="mt-8 flex flex-wrap gap-3">
-              <router-link to="/articles" class="btn-primary">Articoli</router-link>
+              <router-link to="/thoughts" class="btn-primary">Pensieri</router-link>
               <router-link to="/events" class="btn-secondary">Eventi</router-link>
               <router-link to="/login" class="btn-ghost">Accedi</router-link>
             </div>
 
             <div class="mt-8 grid gap-3 sm:grid-cols-3">
               <div class="surface-card-muted p-4">
-                <p class="text-2xl font-semibold text-text-primary">{{ formatCount(publicCounts.articles) }}</p>
-                <p class="mt-1 text-sm text-text-secondary">articoli pubblici</p>
+                <p class="text-2xl font-semibold text-text-primary">{{ formatCount(publicCounts.thoughts) }}</p>
+                <p class="mt-1 text-sm text-text-secondary">pensieri pubblici</p>
               </div>
               <div class="surface-card-muted p-4">
                 <p class="text-2xl font-semibold text-text-primary">{{ formatCount(publicCounts.events) }}</p>
@@ -263,7 +263,7 @@ onMounted(async () => {
               </div>
               <div class="surface-card-muted p-4">
                 <p class="text-2xl font-semibold text-text-primary">Ricerca</p>
-                <p class="mt-1 text-sm text-text-secondary">parole chiave in articoli ed eventi</p>
+                <p class="mt-1 text-sm text-text-secondary">parole chiave in pensieri ed eventi</p>
               </div>
             </div>
           </div>
@@ -273,7 +273,7 @@ onMounted(async () => {
               <p class="text-xs font-semibold uppercase tracking-[0.24em] opacity-75">Parti da qui</p>
 
               <template v-if="latestStory">
-                <p class="mt-4 text-sm font-medium opacity-70">Ultimo articolo pubblicato</p>
+                <p class="mt-4 text-sm font-medium opacity-70">Ultimo pensiero pubblicato</p>
                 <h2 class="mt-2 text-2xl font-semibold leading-tight">{{ latestStory.title }}</h2>
                 <p class="mt-4 text-sm leading-7 opacity-80">
                   {{ latestStory.excerpt || 'Una lettura breve per orientarti tra pratica, consapevolezza e benessere mentale.' }}
@@ -282,8 +282,8 @@ onMounted(async () => {
                   <span>{{ formatArticleDate(latestStory.publishedAt) }}</span>
                   <span>{{ latestStory.author }}</span>
                 </div>
-                <router-link :to="`/articles/${latestStory.slug}`" class="btn-primary mt-6 inline-flex items-center gap-2">
-                  Apri l'articolo
+                <router-link :to="`/thoughts/${latestStory.slug}`" class="btn-primary mt-6 inline-flex items-center gap-2">
+                  Apri il pensiero
                   <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 5l7 7-7 7" />
                   </svg>
@@ -311,7 +311,7 @@ onMounted(async () => {
               <template v-else>
                 <p class="mt-4 text-2xl font-semibold leading-tight">Contenuti pubblici in arrivo</p>
                 <p class="mt-4 text-sm leading-7 opacity-80">
-                  Quando verranno pubblicati articoli o eventi, li troverai qui in evidenza. Nel frattempo puoi accedere con il tuo account oppure attivare un invito.
+                  Quando verranno pubblicati pensieri o eventi, li troverai qui in evidenza. Nel frattempo puoi accedere con il tuo account oppure attivare un invito.
                 </p>
                 <div class="mt-6 flex flex-wrap gap-2">
                   <span class="inverse-chip">
@@ -336,9 +336,9 @@ onMounted(async () => {
 
       <section class="grid gap-4 md:grid-cols-3">
         <div class="card p-6">
-          <p class="text-sm font-semibold text-text-primary">Articoli</p>
+          <p class="text-sm font-semibold text-text-primary">Pensieri</p>
           <p class="mt-3 text-sm leading-7 text-text-secondary">
-            Entri subito nell'archivio articoli e puoi cercare i contenuti con parole chiave e tag.
+            Entri subito nell'archivio pensieri e puoi cercare i contenuti con parole chiave e tag.
           </p>
         </div>
         <div class="card p-6">
@@ -359,10 +359,10 @@ onMounted(async () => {
         <div class="space-y-5">
           <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <span class="eyebrow">Ultimi articoli</span>
+              <span class="eyebrow">Ultimi pensieri</span>
               <h2 class="font-display mt-4 text-3xl font-semibold text-text-primary sm:text-4xl">Letture pubbliche per fare ordine</h2>
             </div>
-            <router-link to="/articles" class="btn-ghost hidden sm:inline-flex">Archivio articoli</router-link>
+            <router-link to="/thoughts" class="btn-ghost hidden sm:inline-flex">Archivio pensieri</router-link>
           </div>
 
           <div v-if="publicLoading" class="grid gap-5 sm:grid-cols-2">
@@ -377,14 +377,14 @@ onMounted(async () => {
             </div>
           </div>
 
-          <div v-else-if="latestArticles.length" class="grid gap-5 sm:grid-cols-2">
+          <div v-else-if="latestThoughts.length" class="grid gap-5 sm:grid-cols-2">
             <router-link
-              v-for="article in latestArticles"
+              v-for="article in latestThoughts"
               :key="article.id"
-              :to="`/articles/${article.slug}`"
+              :to="`/thoughts/${article.slug}`"
               class="card group overflow-hidden"
             >
-              <ArticleCover
+              <ContentCover
                 :src="article.coverImage"
                 :alt="article.title"
                 container-class="aspect-[4/3] overflow-hidden"
@@ -406,9 +406,9 @@ onMounted(async () => {
           </div>
 
           <div v-else class="card p-6">
-            <p class="text-lg font-semibold text-text-primary">Nessun articolo pubblicato per ora</p>
+            <p class="text-lg font-semibold text-text-primary">Nessun pensiero pubblicato per ora</p>
             <p class="mt-3 max-w-2xl text-sm leading-7 text-text-secondary">
-              Qui compariranno automaticamente gli ultimi articoli pubblici non appena saranno disponibili.
+              Qui compariranno automaticamente gli ultimi pensieri pubblici non appena saranno disponibili.
             </p>
           </div>
         </div>
@@ -485,23 +485,23 @@ onMounted(async () => {
       </section>
     </template>
 
-    <section v-if="auth.isAuthenticated && latestArticles.length" class="space-y-5">
+    <section v-if="auth.isAuthenticated && latestThoughts.length" class="space-y-5">
       <div class="flex items-center justify-between gap-4">
         <div>
-          <span class="eyebrow">Articoli pubblici</span>
-          <h2 class="font-display mt-4 text-3xl font-semibold text-text-primary sm:text-4xl">Articoli e approfondimenti</h2>
+          <span class="eyebrow">Pensieri pubblici</span>
+          <h2 class="font-display mt-4 text-3xl font-semibold text-text-primary sm:text-4xl">Pensieri</h2>
         </div>
-        <router-link to="/articles" class="btn-ghost hidden sm:inline-flex">Tutti gli articoli</router-link>
+        <router-link to="/thoughts" class="btn-ghost hidden sm:inline-flex">Tutti i pensieri</router-link>
       </div>
 
       <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         <router-link
-          v-for="article in latestArticles.slice(0, 3)"
+          v-for="article in latestThoughts.slice(0, 3)"
           :key="article.id"
-          :to="`/articles/${article.slug}`"
+          :to="`/thoughts/${article.slug}`"
           class="card overflow-hidden"
         >
-          <ArticleCover
+          <ContentCover
             :src="article.coverImage"
             :alt="article.title"
             container-class="aspect-video"
@@ -534,7 +534,7 @@ onMounted(async () => {
           :to="`/events/${eventItem.slug}`"
           class="card overflow-hidden"
         >
-          <ArticleCover
+          <ContentCover
             :src="eventItem.coverImage"
             :alt="eventItem.title"
             container-class="aspect-video"

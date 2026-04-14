@@ -318,7 +318,7 @@ onBeforeUnmount(() => {
 
     <div v-else-if="!images.length" class="rounded-3xl border border-gray-100 bg-white px-6 py-14 text-center">
       <p class="text-lg font-semibold text-text-primary">Album vuoto</p>
-      <p class="mt-2 text-sm text-text-secondary">Carica le prime immagini per riutilizzarle su audio e articoli.</p>
+      <p class="mt-2 text-sm text-text-secondary">Carica le prime immagini per riutilizzarle su audio e pensieri.</p>
       <button type="button" class="btn-primary mt-5" @click="openCreateDialog">Carica immagini</button>
     </div>
 

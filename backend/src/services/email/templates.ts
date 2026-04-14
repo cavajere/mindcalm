@@ -7,7 +7,7 @@ export interface EmailTemplate {
 }
 
 export interface ContentNotificationItem {
-  type: 'audio' | 'article' | 'event'
+  type: 'audio' | 'thought' | 'event'
   title: string
   publishedAt: Date | null
   url?: string | null
@@ -173,7 +173,7 @@ function joinTextBlocks(blocks: string[]) {
 function toContentTypeLabel(type: ContentNotificationItem['type']) {
   if (type === 'audio') return 'Audio'
   if (type === 'event') return 'Evento'
-  return 'Articolo'
+  return 'Pensiero'
 }
 
 function renderContentItems(items: ContentNotificationItem[]) {

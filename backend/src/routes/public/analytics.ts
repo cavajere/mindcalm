@@ -28,7 +28,7 @@ router.post('/events', analyticsEventValidation, async (req: Request, res: Respo
 
   const eventType = getSingleString(req.body.eventType) as AnalyticsEventType | undefined
   const audioId = getSingleString(req.body.audioId)
-  const articleId = getSingleString(req.body.articleId)
+  const thoughtId = getSingleString(req.body.thoughtId)
   const metadata = typeof req.body.metadata === 'object' && req.body.metadata !== null && !Array.isArray(req.body.metadata)
     ? req.body.metadata as Record<string, unknown>
     : undefined
@@ -38,7 +38,7 @@ router.post('/events', analyticsEventValidation, async (req: Request, res: Respo
     return
   }
 
-  if (audioId && articleId) {
+  if (audioId && thoughtId) {
     res.status(400).json({ error: 'Specifica un solo contenuto per evento' })
     return
   }
@@ -48,7 +48,7 @@ router.post('/events', analyticsEventValidation, async (req: Request, res: Respo
       userId: req.adminUser?.id ?? null,
       eventType,
       audioId,
-      articleId,
+      thoughtId,
       metadata,
     })
 
@@ -63,7 +63,7 @@ router.post('/events', analyticsEventValidation, async (req: Request, res: Respo
 
   const isAudioEvent = ['AUDIO_VIEW', 'AUDIO_PLAY', 'AUDIO_COMPLETE'].includes(eventType)
   if (isAudioEvent) {
-    if (!audioId || articleId) {
+    if (!audioId || thoughtId) {
       res.status(400).json({ error: 'Evento audio non valido' })
       return
     }
@@ -88,26 +88,26 @@ router.post('/events', analyticsEventValidation, async (req: Request, res: Respo
     return
   }
 
-  if (eventType === 'ARTICLE_VIEW') {
-    if (!articleId || audioId) {
-      res.status(400).json({ error: 'Evento articolo non valido' })
+  if (eventType === 'THOUGHT_VIEW') {
+    if (!thoughtId || audioId) {
+      res.status(400).json({ error: 'Evento pensiero non valido' })
       return
     }
 
-    const article = await prisma.article.findFirst({
-      where: { id: articleId, status: 'PUBLISHED' },
+    const thought = await prisma.thought.findFirst({
+      where: { id: thoughtId, status: 'PUBLISHED' },
       select: { id: true },
     })
 
-    if (!article) {
-      res.status(404).json({ error: 'Articolo non trovato' })
+    if (!thought) {
+      res.status(404).json({ error: 'Pensiero non trovato' })
       return
     }
 
     await createAnalyticsEvent({
       userId: req.adminUser.id,
       eventType,
-      articleId,
+      thoughtId,
     })
 
     res.status(201).json({ success: true })
