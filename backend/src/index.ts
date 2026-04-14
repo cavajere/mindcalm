@@ -28,6 +28,7 @@ import auditLogsAdminRouter from './routes/admin/auditLogs'
 import inviteCodesAdminRouter from './routes/admin/inviteCodes'
 import subscriptionsAdminRouter from './routes/admin/subscriptions'
 import campaignsAdminRouter from './routes/admin/campaigns'
+import termsAdminRouter from './routes/admin/terms'
 import { startBackupScheduler } from './services/backupService'
 import { ensureDatabaseReady } from './services/startupService'
 import { asyncHandler } from './utils/asyncRouter'
@@ -86,6 +87,7 @@ app.use('/api/admin/audit-logs', auditLogsAdminRouter)
 app.use('/api/admin/invite-codes', inviteCodesAdminRouter)
 app.use('/api/subscriptions', subscriptionsAdminRouter)
 app.use('/api/campaigns', campaignsAdminRouter)
+app.use('/api/admin/terms', termsAdminRouter)
 
 // Serve uploaded files
 app.use('/api/files/images', authMiddleware, express.static(config.storage.imagesPath))

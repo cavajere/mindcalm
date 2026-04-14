@@ -29,6 +29,7 @@ export default defineConfig({
         navigateFallbackDenylist: [
           /^\/admin(?:\/|$)/,
           /^\/api(?:\/|$)/,
+          /^\/public-api(?:\/|$)/,
         ],
         runtimeCaching: [
           {
@@ -86,6 +87,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': 'http://localhost:3300',
+      '/public-api': 'http://localhost:3300',
     },
   },
 })

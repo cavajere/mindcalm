@@ -45,6 +45,8 @@ const auditActions = [
   'TAG_STATUS_CHANGED',
   'SMTP_SETTINGS_UPDATED',
   'SMTP_TEST_SENT',
+  'TERMS_POLICY_PUBLISHED',
+  'TERMS_ACCEPTED',
   'CONSENT_POLICY_PUBLISHED',
   'CONSENT_POLICY_ARCHIVED',
   'CONSENT_FORMULA_CREATED',
@@ -57,7 +59,7 @@ const auditActions = [
   'CAMPAIGN_SENT',
 ]
 
-const auditEntityTypes = ['AUTH', 'USER', 'INVITE_CODE', 'REGISTRATION', 'AUDIO', 'ALBUM_IMAGE', 'ARTICLE', 'EVENT', 'CATEGORY', 'TAG', 'SETTINGS', 'SUBSCRIPTION_POLICY', 'CONSENT_FORMULA', 'CONTACT', 'CONSENT', 'CAMPAIGN']
+const auditEntityTypes = ['AUTH', 'USER', 'INVITE_CODE', 'REGISTRATION', 'TERMS_POLICY', 'AUDIO', 'ALBUM_IMAGE', 'ARTICLE', 'EVENT', 'CATEGORY', 'TAG', 'SETTINGS', 'SUBSCRIPTION_POLICY', 'CONSENT_FORMULA', 'CONTACT', 'CONSENT', 'CAMPAIGN']
 const phonePattern = /^\+?[0-9\s().-]{7,20}$/
 const inviteCodePattern = /^[A-NP-Z1-9]{7}$/
 const appUrlValidationOptions = {
@@ -119,6 +121,8 @@ export const registerWithInviteCodeValidation = [
   body('password')
     .isLength({ min: 8 })
     .withMessage('Password minima 8 caratteri'),
+  body('acceptTerms').optional().isBoolean().withMessage('acceptTerms non valido'),
+  body('termsVersionId').optional({ values: 'falsy' }).isUUID().withMessage('termsVersionId non valido'),
   body('verificationBaseUrl')
     .optional({ values: 'falsy' })
     .isURL(appUrlValidationOptions)

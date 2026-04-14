@@ -8,24 +8,28 @@ import {
 const {
   prismaUserFindUnique,
   prismaUserCreate,
+  prismaUserTermsAcceptanceCreate,
   prismaPendingRegistrationCreate,
   prismaPendingRegistrationFindFirst,
   prismaPendingRegistrationUpdate,
   prismaPendingRegistrationUpdateMany,
   prismaInviteCodeUpdateMany,
   prismaInviteCodeUpdate,
+  prismaTermsPolicyFindFirst,
   prismaTransaction,
   sendMail,
   hashPassword,
 } = vi.hoisted(() => ({
   prismaUserFindUnique: vi.fn(),
   prismaUserCreate: vi.fn(),
+  prismaUserTermsAcceptanceCreate: vi.fn(),
   prismaPendingRegistrationCreate: vi.fn(),
   prismaPendingRegistrationFindFirst: vi.fn(),
   prismaPendingRegistrationUpdate: vi.fn(),
   prismaPendingRegistrationUpdateMany: vi.fn(),
   prismaInviteCodeUpdateMany: vi.fn(),
   prismaInviteCodeUpdate: vi.fn(),
+  prismaTermsPolicyFindFirst: vi.fn(),
   prismaTransaction: vi.fn(),
   sendMail: vi.fn(),
   hashPassword: vi.fn(),
@@ -36,6 +40,12 @@ vi.mock('../src/lib/prisma', () => ({
     user: {
       findUnique: prismaUserFindUnique,
       create: prismaUserCreate,
+    },
+    termsPolicy: {
+      findFirst: prismaTermsPolicyFindFirst,
+    },
+    userTermsAcceptance: {
+      create: prismaUserTermsAcceptanceCreate,
     },
     pendingRegistration: {
       create: prismaPendingRegistrationCreate,
@@ -77,12 +87,14 @@ describe('registrationService', () => {
   beforeEach(() => {
     prismaUserFindUnique.mockReset()
     prismaUserCreate.mockReset()
+    prismaUserTermsAcceptanceCreate.mockReset()
     prismaPendingRegistrationCreate.mockReset()
     prismaPendingRegistrationFindFirst.mockReset()
     prismaPendingRegistrationUpdate.mockReset()
     prismaPendingRegistrationUpdateMany.mockReset()
     prismaInviteCodeUpdateMany.mockReset()
     prismaInviteCodeUpdate.mockReset()
+    prismaTermsPolicyFindFirst.mockReset()
     prismaTransaction.mockReset()
     sendMail.mockReset()
     hashPassword.mockReset()
@@ -91,6 +103,9 @@ describe('registrationService', () => {
       user: {
         findUnique: prismaUserFindUnique,
         create: prismaUserCreate,
+      },
+      userTermsAcceptance: {
+        create: prismaUserTermsAcceptanceCreate,
       },
       pendingRegistration: {
         create: prismaPendingRegistrationCreate,
@@ -103,6 +118,8 @@ describe('registrationService', () => {
         update: prismaInviteCodeUpdate,
       },
     }))
+
+    prismaTermsPolicyFindFirst.mockResolvedValue(null)
   })
 
   it('avvia una registrazione pendente e invia la mail di verifica', async () => {
@@ -126,6 +143,7 @@ describe('registrationService', () => {
       phone: '+39 333 1234567',
       password: 'Password123!',
       verificationBaseUrl: 'http://localhost:5473',
+      acceptTerms: false,
     })
 
     expect(hashPassword).toHaveBeenCalledWith('Password123!')
@@ -154,6 +172,23 @@ describe('registrationService', () => {
       html: expect.stringContaining('/verify-registration?token=registration-token'),
     }))
     expect(result.licenseDurationDays).toBe(365)
+  })
+
+  it('richiede l’accettazione dei termini quando esiste una versione pubblicata', async () => {
+    prismaTermsPolicyFindFirst.mockResolvedValue({
+      currentVersionId: 'terms-version-1',
+    })
+
+    await expect(startInviteCodeRegistration({
+      code: 'g6k39c2',
+      email: 'utente@example.com',
+      firstName: 'Mario',
+      lastName: 'Rossi',
+      phone: '+39 333 1234567',
+      password: 'Password123!',
+      verificationBaseUrl: 'http://localhost:5473',
+      acceptTerms: false,
+    })).rejects.toThrow('TERMS_ACCEPTANCE_REQUIRED')
   })
 
   it('restituisce i dettagli di verifica della registrazione', async () => {
@@ -194,6 +229,8 @@ describe('registrationService', () => {
         code: 'G6K39C2',
         licenseDurationDays: 365,
       },
+      termsPolicyVersionId: 'terms-version-1',
+      termsAcceptedAt: new Date('2026-04-13T09:00:00.000Z'),
     })
     prismaPendingRegistrationUpdateMany
       .mockResolvedValueOnce({ count: 1 })
@@ -235,6 +272,14 @@ describe('registrationService', () => {
       where: { id: 'invite-1' },
       data: {
         redeemedByUserId: 'user-1',
+      },
+    })
+    expect(prismaUserTermsAcceptanceCreate).toHaveBeenCalledWith({
+      data: {
+        userId: 'user-1',
+        termsPolicyVersionId: 'terms-version-1',
+        acceptedAt: new Date('2026-04-13T09:00:00.000Z'),
+        source: 'SELF_SERVICE',
       },
     })
     expect(result.user.email).toBe('utente@example.com')

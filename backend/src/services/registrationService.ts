@@ -52,13 +52,31 @@ export async function startInviteCodeRegistration(input: {
   phone: string
   password: string
   verificationBaseUrl: string
+  acceptTerms: boolean
+  termsVersionId?: string
 }) {
   const email = normalizeEmail(input.email)
   const firstName = normalizeNamePart(input.firstName)
   const lastName = normalizeNamePart(input.lastName)
   const phone = normalizePhone(input.phone)
   const inviteCode = await getPublicInviteCodeDetails(input.code)
+  const publishedTermsPolicy = await prisma.termsPolicy.findFirst({
+    where: { status: 'PUBLISHED' },
+    select: {
+      currentVersionId: true,
+    },
+  })
   const existingUser = await prisma.user.findUnique({ where: { email } })
+
+  if (publishedTermsPolicy?.currentVersionId) {
+    if (!input.acceptTerms) {
+      throw new Error('TERMS_ACCEPTANCE_REQUIRED')
+    }
+
+    if (input.termsVersionId !== publishedTermsPolicy.currentVersionId) {
+      throw new Error('TERMS_VERSION_OUTDATED')
+    }
+  }
 
   if (existingUser) {
     throw new Error('Esiste già un account con questa email')
@@ -83,6 +101,8 @@ export async function startInviteCodeRegistration(input: {
     return tx.pendingRegistration.create({
       data: {
         inviteCodeId: inviteCode.id,
+        termsPolicyVersionId: publishedTermsPolicy?.currentVersionId ?? null,
+        termsAcceptedAt: publishedTermsPolicy?.currentVersionId ? new Date() : null,
         email,
         passwordHash,
         firstName,
@@ -245,6 +265,17 @@ export async function completeInviteCodeRegistration(token: string) {
       },
     })
 
+    if (registration.termsPolicyVersionId) {
+      await tx.userTermsAcceptance.create({
+        data: {
+          userId: user.id,
+          termsPolicyVersionId: registration.termsPolicyVersionId,
+          acceptedAt: registration.termsAcceptedAt ?? now,
+          source: 'SELF_SERVICE',
+        },
+      })
+    }
+
     await tx.inviteCode.update({
       where: { id: registration.inviteCodeId },
       data: {
@@ -266,6 +297,7 @@ export async function completeInviteCodeRegistration(token: string) {
       user,
       inviteCode: registration.inviteCode,
       licenseExpiresAt,
+      termsPolicyVersionId: registration.termsPolicyVersionId,
     }
   })
 }

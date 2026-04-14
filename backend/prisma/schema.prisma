@@ -35,9 +35,78 @@ model User {
   notificationPreference UserNotificationPreference?
   notificationDispatchJobs NotificationDispatchJob[]
   campaigns              Campaign[]
+  termsAcceptances       UserTermsAcceptance[]
 
   @@index([role])
   @@map("admin_users")
+}
+
+model TermsPolicy {
+  id                String               @id @default(uuid())
+  status            TermsPolicyStatus    @default(DRAFT)
+  currentVersionId  String?              @unique
+  currentVersion    TermsPolicyVersion?  @relation("TermsPolicyCurrentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  versions          TermsPolicyVersion[]
+
+  @@map("terms_policies")
+}
+
+model TermsPolicyVersion {
+  id                  String                          @id @default(uuid())
+  termsPolicyId       String
+  termsPolicy         TermsPolicy                     @relation(fields: [termsPolicyId], references: [id], onDelete: Cascade)
+  currentForPolicy    TermsPolicy?                    @relation("TermsPolicyCurrentVersion")
+  versionNumber       Int
+  status              TermsPolicyVersionStatus        @default(DRAFT)
+  publishedAt         DateTime?
+  previousVersionId   String?
+  previousVersion     TermsPolicyVersion?             @relation("TermsPolicyVersionPrevious", fields: [previousVersionId], references: [id], onDelete: SetNull)
+  nextVersions        TermsPolicyVersion[]            @relation("TermsPolicyVersionPrevious")
+  translations        TermsPolicyVersionTranslation[]
+  pendingRegistrations PendingRegistration[]
+  acceptances         UserTermsAcceptance[]
+  createdAt           DateTime                        @default(now())
+  updatedAt           DateTime                        @updatedAt
+
+  @@unique([termsPolicyId, versionNumber])
+  @@index([termsPolicyId, status])
+  @@map("terms_policy_versions")
+}
+
+model TermsPolicyVersionTranslation {
+  id          String             @id @default(uuid())
+  versionId    String
+  version      TermsPolicyVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  lang         String
+  title        String?
+  html         String
+  buttonLabel  String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@unique([versionId, lang])
+  @@index([lang])
+  @@map("terms_policy_version_translations")
+}
+
+model UserTermsAcceptance {
+  id                  String             @id @default(uuid())
+  userId              String
+  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  termsPolicyVersionId String
+  termsPolicyVersion  TermsPolicyVersion @relation(fields: [termsPolicyVersionId], references: [id], onDelete: Restrict)
+  source              String             @default("SELF_SERVICE")
+  ipHash              String?
+  userAgent           String?
+  acceptedAt          DateTime           @default(now())
+  createdAt           DateTime           @default(now())
+
+  @@unique([userId, termsPolicyVersionId])
+  @@index([userId, acceptedAt])
+  @@index([termsPolicyVersionId])
+  @@map("user_terms_acceptances")
 }
 
 model SubscriptionPolicy {
@@ -418,6 +487,9 @@ model PendingRegistration {
   id                    String                    @id @default(uuid())
   inviteCodeId          String
   inviteCode            InviteCode                @relation(fields: [inviteCodeId], references: [id], onDelete: Restrict)
+  termsPolicyVersionId  String?
+  termsPolicyVersion    TermsPolicyVersion?       @relation(fields: [termsPolicyVersionId], references: [id], onDelete: SetNull)
+  termsAcceptedAt       DateTime?
   email                 String
   passwordHash          String
   firstName             String
@@ -700,6 +772,18 @@ enum PendingRegistrationStatus {
   EXPIRED
 }
 
+enum TermsPolicyStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum TermsPolicyVersionStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
 enum StreamingFormat {
   DIRECT
   HLS
@@ -756,6 +840,8 @@ enum AuditAction {
   TAG_STATUS_CHANGED
   SMTP_SETTINGS_UPDATED
   SMTP_TEST_SENT
+  TERMS_POLICY_PUBLISHED
+  TERMS_ACCEPTED
   CONSENT_POLICY_PUBLISHED
   CONSENT_POLICY_ARCHIVED
   CONSENT_FORMULA_CREATED
@@ -773,6 +859,7 @@ enum AuditEntityType {
   USER
   INVITE_CODE
   REGISTRATION
+  TERMS_POLICY
   AUDIO
   ALBUM_IMAGE
   ARTICLE

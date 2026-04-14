@@ -694,6 +694,8 @@ router.post('/register-with-invite-code', registrationRateLimiter, registerWithI
   const lastName = getSingleString(req.body.lastName)
   const phone = getSingleString(req.body.phone)
   const password = getSingleString(req.body.password)
+  const acceptTerms = getBoolean(req.body.acceptTerms) ?? false
+  const termsVersionId = getSingleString(req.body.termsVersionId)
   let verificationBaseUrl: string
 
   try {
@@ -712,6 +714,8 @@ router.post('/register-with-invite-code', registrationRateLimiter, registerWithI
       phone: phone!,
       password: password!,
       verificationBaseUrl,
+      acceptTerms,
+      termsVersionId: termsVersionId || undefined,
     })
 
     await logAuditEventSafe({
@@ -740,6 +744,13 @@ router.post('/register-with-invite-code', registrationRateLimiter, registerWithI
 
     res.json({ message: 'Controlla la tua email per completare la registrazione' })
   } catch (error) {
+    const errorMessage = (error as Error).message
+    const responseMessage = errorMessage === 'TERMS_ACCEPTANCE_REQUIRED'
+      ? 'Devi accettare i termini e le condizioni per continuare'
+      : errorMessage === 'TERMS_VERSION_OUTDATED'
+        ? 'I termini e le condizioni sono stati aggiornati. Aprili di nuovo e conferma l’accettazione.'
+        : errorMessage
+
     await logAuditEventSafe({
       req,
       action: AuditAction.REGISTRATION_FAILED,
@@ -750,10 +761,10 @@ router.post('/register-with-invite-code', registrationRateLimiter, registerWithI
       metadata: {
         channel: 'SELF_SERVICE',
         stage: 'REGISTRATION_START',
-        error: (error as Error).message,
+        error: errorMessage,
       },
     })
-    res.status(400).json({ error: (error as Error).message })
+    res.status(400).json({ error: responseMessage })
   }
 })
 
@@ -827,6 +838,24 @@ router.post('/verify-registration', registrationVerificationRateLimiter, verifyR
         channel: 'APP',
       },
     })
+
+    if (result.termsPolicyVersionId) {
+      await logAuditEventSafe({
+        req,
+        action: AuditAction.TERMS_ACCEPTED,
+        entityType: AuditEntityType.TERMS_POLICY,
+        entityId: result.termsPolicyVersionId,
+        entityLabel: `Terms version ${result.termsPolicyVersionId}`,
+        actorUserId: result.user.id,
+        actorEmail: result.user.email,
+        actorName: result.user.name,
+        actorRole: result.user.role,
+        metadata: {
+          channel: 'APP',
+          acceptedDuring: 'REGISTRATION_VERIFY',
+        },
+      })
+    }
   } catch (error) {
     await logAuditEventSafe({
       req,

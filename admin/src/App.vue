@@ -36,6 +36,7 @@ const primaryNavItems: NavLeafItem[] = [
 ]
 
 const adminNavItems: NavLeafItem[] = [
+  { path: '/settings/legal', label: 'Legal', shortLabel: 'LG' },
   { path: '/settings/notifications', label: 'Notifiche', shortLabel: 'NF' },
   { path: '/settings/notifications/pipeline', label: 'Pipeline notifiche', shortLabel: 'NP' },
   { path: '/settings/smtp', label: 'SMTP', shortLabel: 'SMTP' },

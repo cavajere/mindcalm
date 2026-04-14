@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import axios from 'axios'
 import AppStatusMessage from '../components/AppStatusMessage.vue'
 import { getApiErrorMessage, getApiSuccessMessage } from '../utils/apiMessages'
@@ -13,6 +13,11 @@ const error = ref('')
 const success = ref('')
 const inviteCodeError = ref('')
 const inviteCodeDetails = ref<{ licenseDurationDays: number } | null>(null)
+const legalLoading = ref(false)
+const legalDocuments = ref<{
+  privacy: { versionId: string; title: string; url: string } | null
+  terms: { versionId: string; title: string; url: string; requiredForRegistration: boolean } | null
+} | null>(null)
 
 const form = ref({
   firstName: '',
@@ -22,6 +27,7 @@ const form = ref({
   password: '',
   confirmPassword: '',
   code: '',
+  acceptTerms: false,
 })
 
 function normalizeInviteCode(code: string) {
@@ -43,6 +49,8 @@ function formatDuration(days: number) {
 }
 
 const normalizedCode = computed(() => normalizeInviteCode(form.value.code))
+const privacyDocument = computed(() => legalDocuments.value?.privacy ?? null)
+const termsDocument = computed(() => legalDocuments.value?.terms ?? null)
 
 function isPhoneValid(phone: string) {
   const normalized = phone.trim()
@@ -90,6 +98,19 @@ async function lookupInviteCode() {
   }
 }
 
+async function fetchLegalDocuments() {
+  legalLoading.value = true
+
+  try {
+    const { data } = await axios.get('/public-api/legal-documents?lang=it')
+    legalDocuments.value = data
+  } catch {
+    legalDocuments.value = null
+  } finally {
+    legalLoading.value = false
+  }
+}
+
 async function handleSubmit() {
   error.value = ''
   success.value = ''
@@ -101,6 +122,11 @@ async function handleSubmit() {
 
   if (!isPhoneValid(form.value.phone)) {
     error.value = 'Numero di telefono non valido'
+    return
+  }
+
+  if (termsDocument.value?.requiredForRegistration && !form.value.acceptTerms) {
+    error.value = 'Devi accettare i termini e le condizioni per continuare'
     return
   }
 
@@ -120,6 +146,8 @@ async function handleSubmit() {
       lastName: form.value.lastName.trim(),
       phone: form.value.phone.trim(),
       password: form.value.password,
+      acceptTerms: form.value.acceptTerms,
+      termsVersionId: termsDocument.value?.versionId,
     })
 
     success.value = getApiSuccessMessage(data, 'Controlla la tua email per completare la registrazione')
@@ -129,6 +157,10 @@ async function handleSubmit() {
     loading.value = false
   }
 }
+
+onMounted(() => {
+  fetchLegalDocuments()
+})
 </script>
 
 <template>
@@ -196,6 +228,30 @@ async function handleSubmit() {
             <label class="block text-sm font-medium text-text-primary mb-1">Conferma password</label>
             <input v-model="form.confirmPassword" type="password" minlength="8" required class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" placeholder="Ripeti la password" />
           </div>
+        </div>
+
+        <div class="rounded-2xl border border-gray-200 bg-slate-50 px-4 py-4">
+          <p class="text-sm font-medium text-text-primary">Documenti legali</p>
+          <p class="mt-1 text-sm text-text-secondary">
+            Consulta sempre i documenti aggiornati prima di completare la registrazione.
+          </p>
+
+          <div class="mt-3 flex flex-wrap gap-3 text-sm">
+            <a v-if="privacyDocument" :href="privacyDocument.url" target="_blank" rel="noreferrer" class="text-primary hover:underline">
+              {{ privacyDocument.title }}
+            </a>
+            <a v-if="termsDocument" :href="termsDocument.url" target="_blank" rel="noreferrer" class="text-primary hover:underline">
+              {{ termsDocument.title }}
+            </a>
+            <span v-if="legalLoading" class="text-text-secondary">Caricamento documenti...</span>
+          </div>
+
+          <label v-if="termsDocument" class="mt-4 flex items-start gap-3 text-sm text-text-primary">
+            <input v-model="form.acceptTerms" type="checkbox" class="mt-1 h-4 w-4 rounded border-gray-300" />
+            <span>
+              Accetto i termini e le condizioni pubblicati.
+            </span>
+          </label>
         </div>
 
         <button type="submit" :disabled="loading || validatingCode" class="btn-primary w-full">

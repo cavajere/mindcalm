@@ -202,12 +202,61 @@ async function seedSmtpSettings() {
   })
 }
 
+async function seedTermsPolicy() {
+  const existingPolicy = await prisma.termsPolicy.findFirst({
+    include: {
+      currentVersion: true,
+    },
+  })
+
+  if (existingPolicy?.status === 'PUBLISHED' && existingPolicy.currentVersionId) {
+    return
+  }
+
+  if (existingPolicy) {
+    return
+  }
+
+  const policy = await prisma.termsPolicy.create({
+    data: {
+      status: 'PUBLISHED',
+    },
+  })
+
+  const version = await prisma.termsPolicyVersion.create({
+    data: {
+      termsPolicyId: policy.id,
+      versionNumber: 1,
+      status: 'PUBLISHED',
+      publishedAt: new Date('2026-04-14T12:00:00Z'),
+    },
+  })
+
+  await prisma.termsPolicyVersionTranslation.create({
+    data: {
+      versionId: version.id,
+      lang: 'it',
+      title: 'Termini e condizioni MindCalm',
+      buttonLabel: 'Accetto i termini',
+      html: '<p>Usando MindCalm accetti i termini di utilizzo del servizio, inclusi accesso personale, corretto uso dei contenuti e rispetto delle credenziali fornite.</p><p>L’accesso ai contenuti richiede una licenza valida e puo essere sospeso in caso di abuso o violazione delle regole d’uso.</p>',
+    },
+  })
+
+  await prisma.termsPolicy.update({
+    where: { id: policy.id },
+    data: {
+      currentVersionId: version.id,
+    },
+  })
+}
+
 async function main() {
   await seedUsers()
   await seedCategories()
   await seedTags()
   await seedDemoAudio()
   await seedSmtpSettings()
+  await seedTermsPolicy()
 
   console.log('Seed minimo completato')
   console.log('Admin: admin@mindcalm.com / admin123! (override con ADMIN_EMAIL/ADMIN_PASSWORD)')

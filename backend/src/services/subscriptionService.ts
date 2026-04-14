@@ -49,6 +49,12 @@ export async function getOrCreateSubscriptionPolicy() {
               translations: true,
             },
           },
+          versions: {
+            orderBy: { versionNumber: 'desc' },
+            include: {
+              translations: true,
+            },
+          },
         },
       },
     },
@@ -82,7 +88,13 @@ export async function getOrCreateSubscriptionPolicy() {
       include: {
         currentVersion: { include: { translations: true } },
         versions: { orderBy: { versionNumber: 'desc' }, include: { translations: true } },
-        consentFormulas: { orderBy: { code: 'asc' }, include: { currentVersion: { include: { translations: true } } } },
+        consentFormulas: {
+          orderBy: { code: 'asc' },
+          include: {
+            currentVersion: { include: { translations: true } },
+            versions: { orderBy: { versionNumber: 'desc' }, include: { translations: true } },
+          },
+        },
       },
     })
   })
@@ -109,6 +121,11 @@ export async function createDraftVersion(policyId: string) {
         },
       },
     })
+
+    const existingDraft = policy.versions.find((version) => version.status === SubscriptionPolicyVersionStatus.DRAFT)
+    if (existingDraft) {
+      throw new Error('Esiste già una versione DRAFT dell informativa')
+    }
 
     const latestVersion = policy.versions[0]
     if (!latestVersion) throw new Error('Versione corrente non trovata')
@@ -164,7 +181,11 @@ export async function createDraftVersion(policyId: string) {
 
 export async function upsertPolicyTranslations(versionId: string, translations: LanguagePayload[]) {
   return prisma.$transaction(async (tx) => {
-    await tx.subscriptionPolicyVersion.findUniqueOrThrow({ where: { id: versionId } })
+    const version = await tx.subscriptionPolicyVersion.findUniqueOrThrow({ where: { id: versionId } })
+
+    if (version.status !== SubscriptionPolicyVersionStatus.DRAFT) {
+      throw new Error('Puoi modificare solo traduzioni di versioni DRAFT')
+    }
 
     for (const translation of translations) {
       await tx.subscriptionPolicyVersionTranslation.upsert({
@@ -198,7 +219,11 @@ export async function upsertPolicyTranslations(versionId: string, translations: 
 
 export async function upsertFormulaTranslations(formulaVersionId: string, translations: FormulaTranslationPayload[]) {
   return prisma.$transaction(async (tx) => {
-    await tx.consentFormulaVersion.findUniqueOrThrow({ where: { id: formulaVersionId } })
+    const formulaVersion = await tx.consentFormulaVersion.findUniqueOrThrow({ where: { id: formulaVersionId } })
+
+    if (formulaVersion.status !== 'DRAFT') {
+      throw new Error('Puoi modificare solo traduzioni di formule DRAFT')
+    }
 
     for (const translation of translations) {
       await tx.consentFormulaVersionTranslation.upsert({
@@ -332,8 +357,10 @@ export async function publishPolicyVersion(policyId: string, versionId: string) 
         consentFormulas: {
           include: {
             currentVersion: { include: { translations: true } },
+            versions: { orderBy: { versionNumber: 'desc' }, include: { translations: true } },
           },
         },
+        versions: { orderBy: { versionNumber: 'desc' }, include: { translations: true } },
       },
     })
   })
@@ -341,6 +368,14 @@ export async function publishPolicyVersion(policyId: string, versionId: string) 
 
 export async function createConsentFormula(policyId: string, code: string, required: boolean) {
   return prisma.$transaction(async (tx) => {
+    const policy = await tx.subscriptionPolicy.findUniqueOrThrow({
+      where: { id: policyId },
+      select: {
+        currentVersionId: true,
+        status: true,
+      },
+    })
+
     const formula = await tx.consentFormula.create({
       data: {
         subscriptionPolicyId: policyId,
@@ -375,7 +410,9 @@ export async function createConsentFormula(policyId: string, code: string, requi
       await tx.consentFormula.update({
         where: { id: formula.id },
         data: {
-          currentVersionId: formula.currentVersionId ?? createdVersion.id,
+          currentVersionId: policy.status === SubscriptionPolicyStatus.PUBLISHED
+            ? null
+            : (formula.currentVersionId ?? createdVersion.id),
         },
       })
     }
@@ -427,7 +464,7 @@ export async function getPublicConsentFormulas(lang = 'it') {
         },
       },
       consentFormulas: {
-        where: { status: 'ACTIVE' },
+        where: { status: 'ACTIVE', currentVersionId: { not: null } },
         orderBy: { code: 'asc' },
         include: {
           currentVersion: {
