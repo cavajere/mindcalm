@@ -6,13 +6,8 @@ import PageHeader from '../components/PageHeader.vue'
 import TiptapEditor from '../components/TiptapEditor.vue'
 import TagSelector, { type SelectableTag } from '../components/TagSelector.vue'
 import AlbumImagePicker from '../components/AlbumImagePicker.vue'
+import FileUploader, { type UploadFileItem, type ExistingFileMeta } from '../components/FileUploader.vue'
 import type { AlbumImage } from '../types/album'
-
-type ExistingFileMeta = {
-  url: string
-  originalName: string
-  displayName: string
-}
 
 const route = useRoute()
 const router = useRouter()
@@ -20,6 +15,7 @@ const router = useRouter()
 const isEdit = computed(() => !!route.params.id)
 const loading = ref(false)
 const saving = ref(false)
+const uploadProgress = ref(0)
 const error = ref('')
 const tags = ref<SelectableTag[]>([])
 
@@ -32,8 +28,7 @@ const form = ref({
   tagIds: [] as string[],
 })
 
-const coverImage = ref<File | null>(null)
-const coverPreview = ref('')
+const coverFiles = ref<UploadFileItem[]>([])
 const existingCover = ref<ExistingFileMeta | null>(null)
 const existingAlbumCover = ref<AlbumImage | null>(null)
 const selectedAlbumImage = ref<AlbumImage | null>(null)
@@ -45,29 +40,23 @@ const effectiveAlbumCover = computed(() => {
   return selectedAlbumImage.value ?? existingAlbumCover.value
 })
 
-function handleCoverChange(e: Event) {
-  const files = (e.target as HTMLInputElement).files
-  if (files?.length) {
-    coverImage.value = files[0]
-    coverPreview.value = URL.createObjectURL(files[0])
-    coverImageDisplayName.value = files[0].name
-    selectedAlbumImage.value = null
-    removeExistingCover.value = false
-  }
-}
+const showDirectUploadExisting = computed(() => {
+  if (coverFiles.value.length) return null
+  if (effectiveAlbumCover.value) return null
+  if (removeExistingCover.value) return null
+  return existingCover.value
+})
 
 function handleAlbumImageSelect(image: AlbumImage) {
   selectedAlbumImage.value = image
-  coverImage.value = null
-  coverPreview.value = ''
+  coverFiles.value = []
   coverImageDisplayName.value = ''
   removeExistingCover.value = false
 }
 
 function removeCover() {
-  if (coverImage.value) {
-    coverImage.value = null
-    coverPreview.value = ''
+  if (coverFiles.value.length) {
+    coverFiles.value = []
     if (existingCover.value || existingAlbumCover.value) {
       coverImageDisplayName.value = existingCover.value?.displayName || ''
       removeExistingCover.value = false
@@ -84,17 +73,30 @@ function removeCover() {
     }
   }
 
-  coverImage.value = null
-  coverPreview.value = ''
+  coverFiles.value = []
   coverImageDisplayName.value = ''
   if (existingCover.value || existingAlbumCover.value) {
     removeExistingCover.value = true
   }
 }
 
+function handleCoverFilesUpdate(files: UploadFileItem[]) {
+  coverFiles.value = files
+  if (files.length) {
+    coverImageDisplayName.value = files[0].displayName
+    selectedAlbumImage.value = null
+    removeExistingCover.value = false
+  } else if (existingCover.value) {
+    coverImageDisplayName.value = existingCover.value.displayName
+  } else {
+    coverImageDisplayName.value = ''
+  }
+}
+
 async function save() {
   error.value = ''
   saving.value = true
+  uploadProgress.value = 0
 
   try {
     const fd = new FormData()
@@ -104,16 +106,22 @@ async function save() {
     fd.append('body', form.value.body)
     fd.append('status', form.value.status)
     fd.append('tagIds', JSON.stringify(form.value.tagIds))
-    fd.append('coverImageDisplayName', coverImageDisplayName.value)
+    fd.append('coverImageDisplayName', coverFiles.value.length ? coverFiles.value[0].displayName : coverImageDisplayName.value)
 
-    if (coverImage.value) fd.append('coverImage', coverImage.value)
+    if (coverFiles.value.length) fd.append('coverImage', coverFiles.value[0].file)
     if (selectedAlbumImage.value) fd.append('coverAlbumImageId', selectedAlbumImage.value.id)
     if (removeExistingCover.value) fd.append('removeCoverImage', 'true')
 
+    const config = {
+      onUploadProgress: (e: any) => {
+        if (e.total) uploadProgress.value = Math.round((e.loaded / e.total) * 100)
+      },
+    }
+
     if (isEdit.value) {
-      await axios.put(`/api/admin/articles/${route.params.id}`, fd)
+      await axios.put(`/api/admin/articles/${route.params.id}`, fd, config)
     } else {
-      await axios.post('/api/admin/articles', fd)
+      await axios.post('/api/admin/articles', fd, config)
     }
 
     router.push('/articles')
@@ -121,6 +129,7 @@ async function save() {
     error.value = e.response?.data?.error || 'Errore nel salvataggio'
   } finally {
     saving.value = false
+    uploadProgress.value = 0
   }
 }
 
@@ -220,32 +229,27 @@ onMounted(async () => {
         <div class="mt-4 rounded-2xl border border-gray-100 bg-white p-4">
           <div>
             <p class="text-sm font-medium text-text-primary">Upload diretto</p>
-            <p class="mt-1 text-xs text-text-secondary">Usalo se la copertina non deve entrare nell’album condiviso.</p>
+            <p class="mt-1 text-xs text-text-secondary">Usalo se la copertina non deve entrare nell'album condiviso.</p>
           </div>
 
-          <input type="file" accept="image/jpeg,image/png,image/webp" @change="handleCoverChange" class="input-field mt-4" />
-          <img v-if="coverPreview" :src="coverPreview" class="mt-3 h-32 rounded-lg object-cover" />
-          <img
-            v-else-if="existingCover?.url && !effectiveAlbumCover && !removeExistingCover"
-            :src="existingCover.url"
-            class="mt-3 h-32 rounded-lg object-cover"
-          />
-
-          <div v-if="(coverImage || existingCover) && !effectiveAlbumCover && !removeExistingCover" class="mt-3 space-y-3">
-            <div>
-              <label class="label">Nome file visualizzato</label>
-              <input v-model="coverImageDisplayName" type="text" class="input-field" />
-              <p class="text-xs text-text-secondary mt-1">
-                Originale: {{ coverImage?.name || existingCover?.originalName }}. L'estensione viene mantenuta automaticamente.
-              </p>
-            </div>
-            <button type="button" @click="removeCover" class="text-sm text-red-500 hover:underline">
-              Rimuovi immagine
-            </button>
+          <div class="mt-4">
+            <FileUploader
+              :model-value="coverFiles"
+              @update:model-value="handleCoverFilesUpdate"
+              accept="image/jpeg,image/png,image/webp"
+              accept-label="JPEG, PNG, WebP"
+              :max-size-mb="5"
+              icon="image"
+              show-display-name
+              :existing-file="showDirectUploadExisting"
+              :progress="uploadProgress"
+              :uploading="saving"
+              @remove-existing="removeCover"
+            />
           </div>
 
-          <div v-else-if="effectiveAlbumCover" class="mt-3 rounded-xl border border-sky-100 bg-sky-50 px-3 py-2 text-sm text-sky-800">
-            La copertina viene letta dall’album condiviso.
+          <div v-if="effectiveAlbumCover" class="mt-3 rounded-xl border border-sky-100 bg-sky-50 px-3 py-2 text-sm text-sky-800">
+            La copertina viene letta dall'album condiviso.
           </div>
 
           <div v-else-if="removeExistingCover" class="mt-3 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-sm text-amber-800">
@@ -254,11 +258,30 @@ onMounted(async () => {
         </div>
       </div>
 
-      <div class="flex gap-3 pt-2">
-        <button type="submit" :disabled="saving" class="btn-primary">
-          {{ saving ? 'Salvataggio...' : 'Salva' }}
-        </button>
-        <button type="button" @click="router.push('/articles')" class="btn-secondary">Annulla</button>
+      <div class="space-y-3 pt-2">
+        <div v-if="saving && uploadProgress > 0 && uploadProgress < 100" class="space-y-1">
+          <div class="flex items-center justify-between text-xs text-text-secondary">
+            <span>Upload in corso...</span>
+            <span class="font-medium tabular-nums">{{ uploadProgress }}%</span>
+          </div>
+          <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              class="h-full bg-primary rounded-full transition-all duration-300 ease-out"
+              :style="{ width: `${uploadProgress}%` }"
+            ></div>
+          </div>
+        </div>
+
+        <div class="flex gap-3">
+          <button type="submit" :disabled="saving" class="btn-primary inline-flex items-center gap-2">
+            <svg v-if="saving" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+            </svg>
+            {{ saving ? (uploadProgress > 0 && uploadProgress < 100 ? `Upload ${uploadProgress}%` : 'Salvataggio...') : 'Salva' }}
+          </button>
+          <button type="button" @click="router.push('/articles')" class="btn-secondary" :disabled="saving">Annulla</button>
+        </div>
       </div>
     </form>
   </div>

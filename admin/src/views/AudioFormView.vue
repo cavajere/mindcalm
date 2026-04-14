@@ -5,14 +5,9 @@ import axios from 'axios'
 import PageHeader from '../components/PageHeader.vue'
 import TagSelector, { type SelectableTag } from '../components/TagSelector.vue'
 import AlbumImagePicker from '../components/AlbumImagePicker.vue'
+import FileUploader, { type UploadFileItem, type ExistingFileMeta } from '../components/FileUploader.vue'
 import type { AlbumImage } from '../types/album'
 import { audioLevelOptions } from '../utils/audioLevels'
-
-type ExistingFileMeta = {
-  url: string | null
-  originalName: string
-  displayName: string
-}
 
 const route = useRoute()
 const router = useRouter()
@@ -35,114 +30,67 @@ const form = ref({
 })
 
 // --- Audio ---
-const audioFile = ref<File | null>(null)
+const audioFiles = ref<UploadFileItem[]>([])
 const existingAudio = ref<ExistingFileMeta | null>(null)
 const audioDisplayName = ref('')
-const audioDragging = ref(false)
-const audioInputRef = ref<HTMLInputElement | null>(null)
 
-const audioAccept = 'audio/mpeg,audio/ogg,audio/wav'
-const audioExtensions = ['.mp3', '.ogg', '.wav']
-
-function handleAudioSelect(e: Event) {
-  const files = (e.target as HTMLInputElement).files
-  if (files?.length) setAudioFile(files[0])
-}
-
-function handleAudioDrop(e: DragEvent) {
-  audioDragging.value = false
-  const file = e.dataTransfer?.files[0]
-  if (file && isValidAudio(file)) setAudioFile(file)
-  else if (file) error.value = 'Formato audio non supportato. Usa MP3, OGG o WAV.'
-}
-
-function isValidAudio(file: File): boolean {
-  return ['audio/mpeg', 'audio/ogg', 'audio/wav'].includes(file.type) ||
-    audioExtensions.some(ext => file.name.toLowerCase().endsWith(ext))
-}
-
-function setAudioFile(file: File) {
-  error.value = ''
-  const maxMB = 100
-  if (file.size > maxMB * 1024 * 1024) {
-    error.value = `File audio troppo grande (max ${maxMB} MB)`
-    return
+function handleAudioFilesUpdate(files: UploadFileItem[]) {
+  audioFiles.value = files
+  if (files.length) {
+    audioDisplayName.value = files[0].displayName
+  } else if (existingAudio.value) {
+    audioDisplayName.value = existingAudio.value.displayName
+  } else {
+    audioDisplayName.value = ''
   }
-  audioFile.value = file
-  audioDisplayName.value = file.name
-}
-
-function removeAudio() {
-  audioFile.value = null
-  audioDisplayName.value = existingAudio.value?.displayName || ''
-  if (audioInputRef.value) audioInputRef.value.value = ''
 }
 
 // --- Cover image ---
-const coverImage = ref<File | null>(null)
+const coverFiles = ref<UploadFileItem[]>([])
 const existingCover = ref<ExistingFileMeta | null>(null)
 const existingAlbumCover = ref<AlbumImage | null>(null)
 const selectedAlbumImage = ref<AlbumImage | null>(null)
-const coverPreview = ref('')
 const coverImageDisplayName = ref('')
 const removeExistingCover = ref(false)
-const coverDragging = ref(false)
-const coverInputRef = ref<HTMLInputElement | null>(null)
-
-const imageAccept = 'image/jpeg,image/png,image/webp'
 
 const effectiveAlbumCover = computed(() => {
   if (removeExistingCover.value) return null
   return selectedAlbumImage.value ?? existingAlbumCover.value
 })
 
-function handleCoverSelect(e: Event) {
-  const files = (e.target as HTMLInputElement).files
-  if (files?.length) setCoverFile(files[0])
-}
+const showDirectUploadExisting = computed(() => {
+  if (coverFiles.value.length) return null
+  if (effectiveAlbumCover.value) return null
+  if (removeExistingCover.value) return null
+  return existingCover.value
+})
 
-function handleCoverDrop(e: DragEvent) {
-  coverDragging.value = false
-  const file = e.dataTransfer?.files[0]
-  if (file && isValidImage(file)) setCoverFile(file)
-  else if (file) error.value = 'Formato immagine non supportato. Usa JPEG, PNG o WebP.'
-}
-
-function isValidImage(file: File): boolean {
-  return ['image/jpeg', 'image/png', 'image/webp'].includes(file.type)
-}
-
-function setCoverFile(file: File) {
-  error.value = ''
-  const maxMB = 5
-  if (file.size > maxMB * 1024 * 1024) {
-    error.value = `Immagine troppo grande (max ${maxMB} MB)`
-    return
+function handleCoverFilesUpdate(files: UploadFileItem[]) {
+  coverFiles.value = files
+  if (files.length) {
+    coverImageDisplayName.value = files[0].displayName
+    selectedAlbumImage.value = null
+    removeExistingCover.value = false
+  } else if (existingCover.value) {
+    coverImageDisplayName.value = existingCover.value.displayName
+  } else {
+    coverImageDisplayName.value = ''
   }
-  coverImage.value = file
-  coverPreview.value = URL.createObjectURL(file)
-  coverImageDisplayName.value = file.name
-  selectedAlbumImage.value = null
-  removeExistingCover.value = false
 }
 
 function handleAlbumImageSelect(image: AlbumImage) {
   selectedAlbumImage.value = image
-  coverImage.value = null
-  coverPreview.value = ''
+  coverFiles.value = []
   coverImageDisplayName.value = ''
   removeExistingCover.value = false
-  if (coverInputRef.value) coverInputRef.value.value = ''
 }
 
 function removeCover() {
-  if (coverImage.value) {
-    coverImage.value = null
-    coverPreview.value = ''
+  if (coverFiles.value.length) {
+    coverFiles.value = []
     if (existingCover.value || existingAlbumCover.value) {
       coverImageDisplayName.value = existingCover.value?.displayName || ''
       removeExistingCover.value = false
-      if (coverInputRef.value) coverInputRef.value.value = ''
       return
     }
   }
@@ -152,29 +100,15 @@ function removeCover() {
     if (existingCover.value || existingAlbumCover.value) {
       coverImageDisplayName.value = existingCover.value?.displayName || ''
       removeExistingCover.value = false
-      if (coverInputRef.value) coverInputRef.value.value = ''
       return
     }
   }
 
-  coverImage.value = null
-  coverPreview.value = ''
+  coverFiles.value = []
   coverImageDisplayName.value = ''
   if (existingCover.value || existingAlbumCover.value) {
     removeExistingCover.value = true
   }
-  if (coverInputRef.value) coverInputRef.value.value = ''
-}
-
-// --- Utils ---
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-function fileExtension(name: string): string {
-  return name.split('.').pop()?.toUpperCase() || ''
 }
 
 // --- Save ---
@@ -191,15 +125,15 @@ async function save() {
     fd.append('level', form.value.level)
     fd.append('status', form.value.status)
     fd.append('tagIds', JSON.stringify(form.value.tagIds))
-    fd.append('audioFileDisplayName', audioDisplayName.value)
-    fd.append('coverImageDisplayName', coverImageDisplayName.value)
+    fd.append('audioFileDisplayName', audioFiles.value.length ? audioFiles.value[0].displayName : audioDisplayName.value)
+    fd.append('coverImageDisplayName', coverFiles.value.length ? coverFiles.value[0].displayName : coverImageDisplayName.value)
 
-    if (audioFile.value) fd.append('audioFile', audioFile.value)
-    if (coverImage.value) fd.append('coverImage', coverImage.value)
+    if (audioFiles.value.length) fd.append('audioFile', audioFiles.value[0].file)
+    if (coverFiles.value.length) fd.append('coverImage', coverFiles.value[0].file)
     if (selectedAlbumImage.value) fd.append('coverAlbumImageId', selectedAlbumImage.value.id)
     if (removeExistingCover.value) fd.append('removeCoverImage', 'true')
 
-    if (!isEdit.value && !audioFile.value) {
+    if (!isEdit.value && !audioFiles.value.length) {
       error.value = 'File audio obbligatorio'
       saving.value = false
       return
@@ -325,70 +259,25 @@ onMounted(async () => {
           Al salvataggio il file viene convertito in streaming HLS protetto. Serve `ffmpeg` disponibile nel runtime backend.
         </p>
 
-        <!-- File selezionato -->
-        <div v-if="audioFile" class="border border-green-200 bg-green-50 rounded-lg p-3">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
-              <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/>
-              </svg>
-            </div>
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium text-text-primary truncate">{{ audioDisplayName || audioFile.name }}</p>
-              <p class="text-xs text-text-secondary">{{ fileExtension(audioFile.name) }} &middot; {{ formatFileSize(audioFile.size) }}</p>
-            </div>
-            <button type="button" @click="removeAudio" class="p-1.5 text-text-secondary hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Rimuovi">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-              </svg>
-            </button>
-          </div>
-        </div>
+        <FileUploader
+          :model-value="audioFiles"
+          @update:model-value="handleAudioFilesUpdate"
+          accept="audio/mpeg,audio/ogg,audio/wav"
+          accept-label="MP3, OGG, WAV"
+          :max-size-mb="100"
+          icon="audio"
+          show-display-name
+          :existing-file="existingAudio"
+          :progress="uploadProgress"
+          :uploading="saving"
+        />
 
-        <!-- File esistente (edit) -->
-        <div v-else-if="existingAudio" class="border border-gray-200 bg-gray-50 rounded-lg p-3">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
-              <svg class="w-5 h-5 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/>
-              </svg>
-            </div>
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium text-text-primary truncate">{{ existingAudio.displayName }}</p>
-              <p class="text-xs text-text-secondary">File attuale</p>
-            </div>
-            <button type="button" @click="audioInputRef?.click()" class="text-xs text-primary hover:underline font-medium">Sostituisci</button>
-          </div>
-        </div>
-
-        <!-- Dropzone -->
-        <div
-          v-else
-          @click="audioInputRef?.click()"
-          @dragover.prevent="audioDragging = true"
-          @dragleave.prevent="audioDragging = false"
-          @drop.prevent="handleAudioDrop"
-          :class="[
-            'border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors',
-            audioDragging ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-primary/40 hover:bg-gray-50'
-          ]"
-        >
-          <svg class="w-8 h-8 mx-auto text-text-secondary/50 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/>
-          </svg>
-          <p class="text-sm text-text-secondary">
-            <span class="text-primary font-medium">Scegli un file</span> o trascinalo qui
-          </p>
-          <p class="text-xs text-text-secondary/70 mt-1">MP3, OGG, WAV &middot; max 100 MB</p>
-        </div>
-
-        <input ref="audioInputRef" type="file" :accept="audioAccept" @change="handleAudioSelect" class="hidden" />
-
-        <div v-if="audioFile || existingAudio" class="mt-3">
+        <!-- Display name for existing audio (when no new file selected) -->
+        <div v-if="!audioFiles.length && existingAudio" class="mt-3">
           <label class="label">Nome file visualizzato</label>
           <input v-model="audioDisplayName" type="text" class="input-field" />
           <p class="text-xs text-text-secondary mt-1">
-            Originale: {{ audioFile?.name || existingAudio?.originalName }}. L'estensione viene mantenuta automaticamente.
+            Originale: {{ existingAudio.originalName }}. L'estensione viene mantenuta automaticamente.
           </p>
         </div>
       </div>
@@ -408,61 +297,23 @@ onMounted(async () => {
             <p class="mt-1 text-xs text-text-secondary">Usalo se la copertina deve restare dedicata solo a questo audio.</p>
           </div>
 
-          <div
-            v-if="coverPreview || (existingCover?.url && !coverImage && !effectiveAlbumCover && !removeExistingCover)"
-            class="relative mt-4 overflow-hidden rounded-lg border border-gray-200"
-          >
-            <img :src="coverPreview || existingCover?.url || ''" class="h-48 w-full object-cover" />
-            <div class="absolute inset-0 flex items-center justify-center gap-2 bg-black/0 transition-colors hover:bg-black/40">
-              <button
-                type="button"
-                @click="coverInputRef?.click()"
-                class="bg-white px-3 py-1.5 text-xs font-medium text-text-primary opacity-0 shadow transition-opacity hover:opacity-100"
-              >
-                Sostituisci
-              </button>
-              <button
-                type="button"
-                @click="removeCover"
-                class="bg-white px-3 py-1.5 text-xs font-medium text-red-500 opacity-0 shadow transition-opacity hover:opacity-100"
-              >
-                Rimuovi
-              </button>
-            </div>
+          <div class="mt-4">
+            <FileUploader
+              :model-value="coverFiles"
+              @update:model-value="handleCoverFilesUpdate"
+              accept="image/jpeg,image/png,image/webp"
+              accept-label="JPEG, PNG, WebP"
+              :max-size-mb="5"
+              icon="image"
+              show-display-name
+              :existing-file="showDirectUploadExisting"
+              :uploading="saving"
+              @remove-existing="removeCover"
+            />
           </div>
 
-          <div
-            v-else
-            @click="coverInputRef?.click()"
-            @dragover.prevent="coverDragging = true"
-            @dragleave.prevent="coverDragging = false"
-            @drop.prevent="handleCoverDrop"
-            :class="[
-              'mt-4 cursor-pointer rounded-lg border-2 border-dashed p-6 text-center transition-colors',
-              coverDragging ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-primary/40 hover:bg-gray-50'
-            ]"
-          >
-            <svg class="mx-auto mb-2 h-8 w-8 text-text-secondary/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-            </svg>
-            <p class="text-sm text-text-secondary">
-              <span class="font-medium text-primary">Scegli un'immagine</span> o trascinala qui
-            </p>
-            <p class="mt-1 text-xs text-text-secondary/70">JPEG, PNG, WebP &middot; max 5 MB</p>
-          </div>
-
-          <input ref="coverInputRef" type="file" :accept="imageAccept" @change="handleCoverSelect" class="hidden" />
-
-          <div v-if="(coverImage || existingCover) && !effectiveAlbumCover && !removeExistingCover" class="mt-3">
-            <label class="label">Nome file visualizzato</label>
-            <input v-model="coverImageDisplayName" type="text" class="input-field" />
-            <p class="text-xs text-text-secondary mt-1">
-              Originale: {{ coverImage?.name || existingCover?.originalName }}. L'estensione viene mantenuta automaticamente.
-            </p>
-          </div>
-
-          <div v-else-if="effectiveAlbumCover" class="mt-3 rounded-xl border border-sky-100 bg-sky-50 px-3 py-2 text-sm text-sky-800">
-            La copertina viene letta dall’album condiviso.
+          <div v-if="effectiveAlbumCover" class="mt-3 rounded-xl border border-sky-100 bg-sky-50 px-3 py-2 text-sm text-sky-800">
+            La copertina viene letta dall'album condiviso.
           </div>
 
           <div v-else-if="removeExistingCover" class="mt-3 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-sm text-amber-800">
@@ -487,7 +338,6 @@ onMounted(async () => {
 
       <!-- Upload progress + submit -->
       <div class="space-y-3 pt-2">
-        <!-- Progress bar -->
         <div v-if="saving && uploadProgress > 0 && uploadProgress < 100" class="space-y-1">
           <div class="flex items-center justify-between text-xs text-text-secondary">
             <span>Upload in corso...</span>
