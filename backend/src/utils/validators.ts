@@ -394,7 +394,23 @@ export const campaignSendValidation = [
   body('subject').trim().notEmpty().withMessage('subject obbligatorio'),
   body('htmlBody').trim().notEmpty().withMessage('htmlBody obbligatorio'),
   body('matchMode').optional().isIn(['ALL', 'ANY']).withMessage('matchMode non valido'),
-  body('filters').isArray({ min: 1 }).withMessage('filters obbligatori'),
-  body('filters.*.formulaId').isUUID().withMessage('formulaId non valido'),
+  body('filters').optional().isArray().withMessage('filters non valido'),
+  body('filters.*.formulaId').optional().isUUID().withMessage('formulaId non valido'),
   body('filters.*.versionIds').optional().isArray().withMessage('versionIds non valido'),
+  body('selectedRecipientIds').optional().isArray().withMessage('selectedRecipientIds non valido'),
+  body('selectedRecipientIds.*').optional().isUUID().withMessage('selectedRecipientIds non valido'),
+  body('manualRecipientIds').optional().isArray().withMessage('manualRecipientIds non valido'),
+  body('manualRecipientIds.*').optional().isUUID().withMessage('manualRecipientIds non valido'),
+  body('unsubscribeLabel').optional({ values: 'falsy' }).isLength({ max: 80 }).withMessage('unsubscribeLabel troppo lungo'),
+  body().custom((value) => {
+    const filters = Array.isArray(value?.filters) ? value.filters : []
+    const selectedRecipientIds = Array.isArray(value?.selectedRecipientIds) ? value.selectedRecipientIds : []
+    const manualRecipientIds = Array.isArray(value?.manualRecipientIds) ? value.manualRecipientIds : []
+
+    if (filters.length === 0 && selectedRecipientIds.length === 0 && manualRecipientIds.length === 0) {
+      throw new Error('Serve almeno un filtro o un destinatario selezionato')
+    }
+
+    return true
+  }),
 ]

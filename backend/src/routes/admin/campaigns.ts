@@ -9,6 +9,7 @@ import {
   getCampaignAudienceOptions,
   listCampaigns,
   previewCampaignAudience,
+  searchCampaignContacts,
   sendCampaign,
 } from '../../services/subscriptionService'
 import { getAuditActorFromRequest, logAuditEventSafe } from '../../services/auditLogService'
@@ -35,6 +36,19 @@ router.post('/audience-preview', async (req: Request, res: Response) => {
   res.json({ total: contacts.length, contacts })
 })
 
+router.get('/search-contacts', async (req: Request, res: Response) => {
+  const query = getSingleString(req.query.q) ?? ''
+  const rawFilters = getSingleString(req.query.filters)
+  const filters = rawFilters ? JSON.parse(rawFilters) : []
+  const matchMode = req.query.matchMode === 'ANY' ? CampaignMatchMode.ANY : CampaignMatchMode.ALL
+  const contacts = await searchCampaignContacts({
+    query,
+    filters: Array.isArray(filters) ? filters : [],
+    matchMode,
+  })
+  res.json(contacts)
+})
+
 router.post('/send', campaignSendValidation, async (req: Request, res: Response) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
@@ -51,6 +65,9 @@ router.post('/send', campaignSendValidation, async (req: Request, res: Response)
     filters,
     matchMode,
     createdByUserId: req.adminUser?.id,
+    selectedRecipientIds: Array.isArray(req.body.selectedRecipientIds) ? req.body.selectedRecipientIds.map(String) : [],
+    manualRecipientIds: Array.isArray(req.body.manualRecipientIds) ? req.body.manualRecipientIds.map(String) : [],
+    unsubscribeLabel: getSingleString(req.body.unsubscribeLabel) ?? undefined,
   })
 
   await logAuditEventSafe({

@@ -951,6 +951,142 @@ export async function previewCampaignAudience(filters: Array<{ formulaId: string
   return prisma.contact.findMany({ where: { id: { in: eligibleIds } } })
 }
 
+async function resolveCampaignRecipients(input: {
+  filters: CampaignFilterInput[]
+  matchMode: CampaignMatchMode
+  selectedRecipientIds?: string[]
+  manualRecipientIds?: string[]
+}) {
+  const previewRecipients = input.filters.length
+    ? await previewCampaignAudience(input.filters, input.matchMode)
+    : []
+
+  const previewRecipientById = new Map(previewRecipients.map((recipient) => [recipient.id, recipient]))
+  const resolved = new Map<string, typeof previewRecipients[number]>()
+
+  if (input.filters.length) {
+    const selectedIds = Array.isArray(input.selectedRecipientIds) && input.selectedRecipientIds.length
+      ? [...new Set(input.selectedRecipientIds)]
+      : previewRecipients.map((recipient) => recipient.id)
+
+    for (const recipientId of selectedIds) {
+      const recipient = previewRecipientById.get(recipientId)
+      if (!recipient) {
+        throw new Error('CAMPAIGN_RECIPIENTS_NOT_ELIGIBLE')
+      }
+      resolved.set(recipient.id, recipient)
+    }
+  }
+
+  const extraManualIds = [...new Set(input.manualRecipientIds ?? [])]
+    .filter((recipientId) => !resolved.has(recipientId))
+
+  if (extraManualIds.length) {
+    const manualRecipients = await prisma.contact.findMany({
+      where: {
+        id: { in: extraManualIds },
+        status: ContactStatus.ACTIVE,
+        consents: {
+          some: {
+            value: ConsentValue.YES,
+            status: ConsentRecordStatus.CONFIRMED,
+            invalidatedAt: null,
+          },
+        },
+      },
+    })
+
+    const manualRecipientById = new Map(manualRecipients.map((recipient) => [recipient.id, recipient]))
+    for (const recipientId of extraManualIds) {
+      const recipient = manualRecipientById.get(recipientId)
+      if (!recipient) {
+        throw new Error('CAMPAIGN_RECIPIENTS_NOT_ELIGIBLE')
+      }
+      resolved.set(recipient.id, recipient)
+    }
+  }
+
+  return [...resolved.values()]
+}
+
+export async function searchCampaignContacts(input: {
+  query: string
+  filters?: CampaignFilterInput[]
+  matchMode?: CampaignMatchMode
+}) {
+  const normalizedQuery = input.query.trim().toLowerCase()
+  if (normalizedQuery.length < 2) {
+    return []
+  }
+
+  const filteredAudience = input.filters?.length
+    ? await previewCampaignAudience(input.filters, input.matchMode ?? CampaignMatchMode.ALL)
+    : null
+  const audienceIds = filteredAudience?.map((recipient) => recipient.id) ?? null
+
+  if (filteredAudience && audienceIds?.length === 0) {
+    return []
+  }
+
+  const contacts = await prisma.contact.findMany({
+    where: {
+      status: ContactStatus.ACTIVE,
+      ...(audienceIds ? { id: { in: audienceIds } } : {}),
+      email: { contains: normalizedQuery, mode: 'insensitive' },
+      consents: {
+        some: {
+          value: ConsentValue.YES,
+          status: ConsentRecordStatus.CONFIRMED,
+          invalidatedAt: null,
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 30,
+    include: {
+      consents: {
+        where: {
+          value: ConsentValue.YES,
+          status: ConsentRecordStatus.CONFIRMED,
+          invalidatedAt: null,
+        },
+        include: {
+          consentFormula: {
+            include: {
+              currentVersion: {
+                include: {
+                  translations: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+
+  return contacts.map((contact) => {
+    const activeConsents = Array.from(new Map(
+      contact.consents.map((consent) => [
+        consent.consentFormulaId,
+        {
+          id: consent.consentFormula.id,
+          code: consent.consentFormula.code,
+          title: consent.consentFormula.currentVersion?.translations.find((translation) => translation.lang === 'it')?.title
+            || consent.consentFormula.currentVersion?.translations[0]?.title
+            || consent.consentFormula.code,
+        },
+      ]),
+    ).values())
+
+    return {
+      id: contact.id,
+      email: contact.email,
+      activeConsents,
+    }
+  })
+}
+
 export async function sendCampaign(input: {
   name: string
   subject: string
@@ -958,8 +1094,16 @@ export async function sendCampaign(input: {
   filters: CampaignFilterInput[]
   matchMode: CampaignMatchMode
   createdByUserId?: string
+  selectedRecipientIds?: string[]
+  manualRecipientIds?: string[]
+  unsubscribeLabel?: string
 }) {
-  const recipients = await previewCampaignAudience(input.filters, input.matchMode)
+  const recipients = await resolveCampaignRecipients({
+    filters: input.filters,
+    matchMode: input.matchMode,
+    selectedRecipientIds: input.selectedRecipientIds,
+    manualRecipientIds: input.manualRecipientIds,
+  })
   if (!recipients.length) {
     throw new Error('CAMPAIGN_AUDIENCE_EMPTY')
   }
@@ -1012,6 +1156,7 @@ export async function sendCampaign(input: {
         bodyHtml: sanitizedHtmlBody,
         bodyText: buildCommunicationTextBody(sanitizedHtmlBody),
         unsubscribeUrl,
+        unsubscribeLabel: input.unsubscribeLabel,
       })
 
       await sendMail({

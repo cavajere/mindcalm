@@ -28,6 +28,7 @@ import auditLogsAdminRouter from './routes/admin/auditLogs'
 import inviteCodesAdminRouter from './routes/admin/inviteCodes'
 import subscriptionsAdminRouter from './routes/admin/subscriptions'
 import campaignsAdminRouter from './routes/admin/campaigns'
+import communicationsAdminRouter from './routes/admin/communications'
 import termsAdminRouter from './routes/admin/terms'
 import { startBackupScheduler } from './services/backupService'
 import { ensureDatabaseReady } from './services/startupService'
@@ -87,10 +88,12 @@ app.use('/api/admin/audit-logs', auditLogsAdminRouter)
 app.use('/api/admin/invite-codes', inviteCodesAdminRouter)
 app.use('/api/subscriptions', subscriptionsAdminRouter)
 app.use('/api/campaigns', campaignsAdminRouter)
+app.use('/api/admin/communications', communicationsAdminRouter)
 app.use('/api/admin/terms', termsAdminRouter)
 
 // Serve uploaded files
 app.use('/api/files/images', authMiddleware, express.static(config.storage.imagesPath))
+app.use('/public-api/images', express.static(config.storage.imagesPath))
 
 // In production, serve frontend and admin static files
 if (config.isProduction) {

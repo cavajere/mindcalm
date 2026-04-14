@@ -326,10 +326,12 @@ export function buildCommunicationEmail(input: {
   bodyHtml: string
   bodyText: string
   unsubscribeUrl: string
+  unsubscribeLabel?: string
 }): EmailTemplate {
+  const unsubscribeLabel = input.unsubscribeLabel?.trim() || 'Gestisci preferenze'
   const text = joinTextBlocks([
     input.bodyText,
-    `Gestisci le preferenze comunicazioni: ${input.unsubscribeUrl}`,
+    `${unsubscribeLabel}: ${input.unsubscribeUrl}`,
   ])
   const html = renderEmailLayout({
     subject: input.subject,
@@ -337,7 +339,8 @@ export function buildCommunicationEmail(input: {
     title: input.title,
     bodyHtml:
       input.bodyHtml +
-      renderInfoCard([{ label: 'Preferenze comunicazioni', value: input.unsubscribeUrl }]) +
+      renderButton(unsubscribeLabel, input.unsubscribeUrl) +
+      renderLink(input.unsubscribeUrl) +
       renderMutedNote('Puoi aggiornare o revocare queste comunicazioni in qualsiasi momento dal link qui sopra.'),
     footerNote: 'Comunicazione email MindCalm.',
   })
