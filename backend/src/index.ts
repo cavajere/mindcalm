@@ -22,9 +22,12 @@ import tagsAdminRouter from './routes/admin/tags'
 import usersAdminRouter from './routes/admin/users'
 import settingsAdminRouter from './routes/admin/settings'
 import analyticsPublicRouter from './routes/public/analytics'
+import subscriptionsPublicRouter from './routes/public/subscriptions'
 import analyticsAdminRouter from './routes/admin/analytics'
 import auditLogsAdminRouter from './routes/admin/auditLogs'
 import inviteCodesAdminRouter from './routes/admin/inviteCodes'
+import subscriptionsAdminRouter from './routes/admin/subscriptions'
+import campaignsAdminRouter from './routes/admin/campaigns'
 import { startBackupScheduler } from './services/backupService'
 import { ensureDatabaseReady } from './services/startupService'
 import { asyncHandler } from './utils/asyncRouter'
@@ -66,6 +69,7 @@ app.use('/api/events', eventsPublicRouter)
 app.use('/api/categories', categoriesPublicRouter)
 app.use('/api/tags', tagsPublicRouter)
 app.use('/api/analytics', analyticsPublicRouter)
+app.use('/public-api', subscriptionsPublicRouter)
 
 // Admin API routes
 app.use('/api/auth', authRouter)
@@ -80,6 +84,8 @@ app.use('/api/admin/settings', settingsAdminRouter)
 app.use('/api/admin/analytics', analyticsAdminRouter)
 app.use('/api/admin/audit-logs', auditLogsAdminRouter)
 app.use('/api/admin/invite-codes', inviteCodesAdminRouter)
+app.use('/api/subscriptions', subscriptionsAdminRouter)
+app.use('/api/campaigns', campaignsAdminRouter)
 
 // Serve uploaded files
 app.use('/api/files/images', authMiddleware, express.static(config.storage.imagesPath))
