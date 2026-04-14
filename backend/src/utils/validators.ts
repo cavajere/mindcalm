@@ -31,6 +31,10 @@ const auditActions = [
   'ARTICLE_UPDATED',
   'ARTICLE_DELETED',
   'ARTICLE_STATUS_CHANGED',
+  'EVENT_CREATED',
+  'EVENT_UPDATED',
+  'EVENT_DELETED',
+  'EVENT_STATUS_CHANGED',
   'CATEGORY_CREATED',
   'CATEGORY_UPDATED',
   'CATEGORY_DELETED',
@@ -43,7 +47,7 @@ const auditActions = [
   'SMTP_TEST_SENT',
 ]
 
-const auditEntityTypes = ['AUTH', 'USER', 'INVITE_CODE', 'REGISTRATION', 'AUDIO', 'ALBUM_IMAGE', 'ARTICLE', 'CATEGORY', 'TAG', 'SETTINGS']
+const auditEntityTypes = ['AUTH', 'USER', 'INVITE_CODE', 'REGISTRATION', 'AUDIO', 'ALBUM_IMAGE', 'ARTICLE', 'EVENT', 'CATEGORY', 'TAG', 'SETTINGS']
 const phonePattern = /^\+?[0-9\s().-]{7,20}$/
 const inviteCodePattern = /^[A-NP-Z1-9]{7}$/
 const appUrlValidationOptions = {
@@ -152,6 +156,17 @@ export const articleValidation = [
   body('title').trim().notEmpty().withMessage('Titolo obbligatorio'),
   body('body').trim().notEmpty().withMessage('Contenuto obbligatorio'),
   body('author').trim().notEmpty().withMessage('Autore obbligatorio'),
+  body('excerpt').optional().trim().isLength({ max: 300 }).withMessage('Excerpt max 300 caratteri'),
+]
+
+export const eventValidation = [
+  body('title').trim().notEmpty().withMessage('Titolo obbligatorio'),
+  body('body').trim().notEmpty().withMessage('Contenuto obbligatorio'),
+  body('organizer').trim().notEmpty().withMessage('Organizzatore obbligatorio'),
+  body('city').trim().notEmpty().withMessage('Città obbligatoria'),
+  body('venue').optional({ values: 'falsy' }).trim().isLength({ max: 160 }).withMessage('Venue max 160 caratteri'),
+  body('startsAt').isISO8601().withMessage('Data inizio non valida'),
+  body('endsAt').optional({ values: 'falsy' }).isISO8601().withMessage('Data fine non valida'),
   body('excerpt').optional().trim().isLength({ max: 300 }).withMessage('Excerpt max 300 caratteri'),
 ]
 

@@ -16,6 +16,7 @@ const profileMenuOpen = ref(false)
 const isLoggingOut = ref(false)
 const hasAudio = ref(true)
 const hasArticles = ref(true)
+const hasEvents = ref(true)
 
 const navigationItems = computed(() => {
   const items = [{ label: 'Home', to: '/' }]
@@ -25,6 +26,9 @@ const navigationItems = computed(() => {
   }
   if (hasArticles.value) {
     items.push({ label: 'Articoli', to: '/articles' })
+  }
+  if (hasEvents.value) {
+    items.push({ label: 'Eventi', to: '/events' })
   }
 
   return items
@@ -82,12 +86,14 @@ async function loadContentAvailability() {
   if (!auth.isAuthenticated) {
     hasAudio.value = false
     hasArticles.value = false
+    hasEvents.value = false
     return
   }
 
-  const [audioResult, articlesResult] = await Promise.allSettled([
+  const [audioResult, articlesResult, eventsResult] = await Promise.allSettled([
     axios.get('/api/audio?limit=1'),
     axios.get('/api/articles?limit=1'),
+    axios.get('/api/events?limit=1'),
   ])
 
   if (audioResult.status === 'fulfilled') {
@@ -96,6 +102,9 @@ async function loadContentAvailability() {
 
   if (articlesResult.status === 'fulfilled') {
     hasArticles.value = Number(articlesResult.value.data?.pagination?.total ?? 0) > 0
+  }
+  if (eventsResult.status === 'fulfilled') {
+    hasEvents.value = Number(eventsResult.value.data?.pagination?.total ?? 0) > 0
   }
 }
 

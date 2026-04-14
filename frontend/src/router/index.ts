@@ -19,6 +19,8 @@ const router = createRouter({
     { path: '/audio/:id', component: () => import('../views/AudioDetailView.vue'), meta: { requiresAuth: true } },
     { path: '/articles', component: () => import('../views/ArticlesView.vue'), meta: { requiresAuth: true } },
     { path: '/articles/:slug', component: () => import('../views/ArticleDetailView.vue'), meta: { requiresAuth: true } },
+    { path: '/events', component: () => import('../views/EventsView.vue'), meta: { requiresAuth: true } },
+    { path: '/events/:slug', component: () => import('../views/EventDetailView.vue'), meta: { requiresAuth: true } },
     { path: '/downloads', redirect: '/audio' },
     { path: '/profile', component: () => import('../views/ProfileView.vue'), meta: { requiresAuth: true } },
   ],

@@ -131,6 +131,23 @@ async function buildImmediateNotificationItem(input: ContentPublicationOutboxInp
     })
   }
 
+  if (input.type === 'event') {
+    const event = await prisma.event.findUnique({
+      where: { id: input.contentId },
+      select: { slug: true, status: true },
+    })
+
+    if (!event || event.status !== 'PUBLISHED') {
+      throw new Error('Evento pubblicato non trovato per la generazione del link notifica')
+    }
+
+    return toEventItem({
+      slug: event.slug,
+      title: input.title,
+      publishedAt: input.publishedAt,
+    })
+  }
+
   const article = await prisma.article.findUnique({
     where: {
       id: input.contentId,
@@ -258,12 +275,25 @@ function toArticleItem(item: { slug: string; title: string; publishedAt: Date | 
   }
 }
 
+function toEventItem(item: { slug: string; title: string; publishedAt: Date | null }): ContentNotificationItem {
+  return {
+    type: 'event',
+    title: item.title,
+    publishedAt: item.publishedAt,
+    url: buildEventContentUrl(item.slug),
+  }
+}
+
 function buildAudioContentUrl(audioId: string) {
   return buildAppUrl(config.appUrls.public, `/audio/${audioId}`)
 }
 
 function buildArticleContentUrl(slug: string) {
   return buildAppUrl(config.appUrls.public, `/articles/${slug}`)
+}
+
+function buildEventContentUrl(slug: string) {
+  return buildAppUrl(config.appUrls.public, `/events/${slug}`)
 }
 
 function serializeContentItems(items: ContentNotificationItem[]): Prisma.InputJsonValue {
@@ -291,13 +321,15 @@ function buildImmediateNotificationDedupeKey(input: {
 }
 
 function toContentPublicationType(type: ContentNotificationItem['type']) {
-  return type === 'audio'
-    ? ContentPublicationType.AUDIO
-    : ContentPublicationType.ARTICLE
+  if (type === 'audio') return ContentPublicationType.AUDIO
+  if (type === 'event') return ContentPublicationType.EVENT
+  return ContentPublicationType.ARTICLE
 }
 
 function toNotificationItemType(type: ContentPublicationType): ContentNotificationItem['type'] {
-  return type === ContentPublicationType.AUDIO ? 'audio' : 'article'
+  if (type === ContentPublicationType.AUDIO) return 'audio'
+  if (type === ContentPublicationType.EVENT) return 'event'
+  return 'article'
 }
 
 function buildContentPublicationOutboxDedupeKey(input: ContentPublicationOutboxInput) {
@@ -319,7 +351,7 @@ function parseContentItems(items: Prisma.JsonValue): ContentNotificationItem[] {
     }
 
     const candidate = item as Record<string, unknown>
-    const type = candidate.type === 'audio' || candidate.type === 'article' ? candidate.type : null
+    const type = candidate.type === 'audio' || candidate.type === 'article' || candidate.type === 'event' ? candidate.type : null
     const title = typeof candidate.title === 'string' ? candidate.title : null
     const publishedAt = typeof candidate.publishedAt === 'string'
       ? new Date(candidate.publishedAt)
@@ -1267,7 +1299,7 @@ export async function enqueueDueNotifications(now = new Date()) {
       continue
     }
 
-    const [audio, articles] = await Promise.all([
+    const [audio, articles, events] = await Promise.all([
       preference.notifyOnAudio
         ? prisma.audio.findMany({
             where: {
@@ -1300,9 +1332,25 @@ export async function enqueueDueNotifications(now = new Date()) {
             },
           })
         : Promise.resolve([]),
+      preference.notifyOnArticles
+        ? prisma.event.findMany({
+            where: {
+              status: 'PUBLISHED',
+              publishedAt: asUtcDateRange(windowStartedAt, now),
+            },
+            select: {
+              slug: true,
+              title: true,
+              publishedAt: true,
+            },
+            orderBy: {
+              publishedAt: 'desc',
+            },
+          })
+        : Promise.resolve([]),
     ])
 
-    const items = [...audio.map(toAudioItem), ...articles.map(toArticleItem)].sort((left, right) => {
+    const items = [...audio.map(toAudioItem), ...articles.map(toArticleItem), ...events.map(toEventItem)].sort((left, right) => {
       const leftTime = left.publishedAt?.getTime() ?? 0
       const rightTime = right.publishedAt?.getTime() ?? 0
       return rightTime - leftTime
