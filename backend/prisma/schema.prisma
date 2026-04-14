@@ -34,9 +34,240 @@ model User {
   redeemedInviteCodes    InviteCode[] @relation("InviteCodeRedeemer")
   notificationPreference UserNotificationPreference?
   notificationDispatchJobs NotificationDispatchJob[]
+  campaigns              Campaign[]
 
   @@index([role])
   @@map("admin_users")
+}
+
+model SubscriptionPolicy {
+  id                   String                      @id @default(uuid())
+  status               SubscriptionPolicyStatus    @default(DRAFT)
+  currentVersionId     String?                     @unique
+  currentVersion       SubscriptionPolicyVersion?  @relation("SubscriptionPolicyCurrentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
+  subscribeEnabled     Boolean                     @default(true)
+  subscribeConfirmEmail Boolean                    @default(false)
+  createdAt            DateTime                    @default(now())
+  updatedAt            DateTime                    @updatedAt
+  versions             SubscriptionPolicyVersion[]
+  consentFormulas      ConsentFormula[]
+
+  @@map("subscription_policies")
+}
+
+model SubscriptionPolicyVersion {
+  id                   String                                @id @default(uuid())
+  subscriptionPolicyId String
+  subscriptionPolicy   SubscriptionPolicy                    @relation(fields: [subscriptionPolicyId], references: [id], onDelete: Cascade)
+  currentForPolicy     SubscriptionPolicy?                   @relation("SubscriptionPolicyCurrentVersion")
+  versionNumber        Int
+  status               SubscriptionPolicyVersionStatus       @default(DRAFT)
+  publishedAt          DateTime?
+  previousVersionId    String?
+  previousVersion      SubscriptionPolicyVersion?            @relation("SubscriptionPolicyVersionPrevious", fields: [previousVersionId], references: [id], onDelete: SetNull)
+  nextVersions         SubscriptionPolicyVersion[]           @relation("SubscriptionPolicyVersionPrevious")
+  translations         SubscriptionPolicyVersionTranslation[]
+  consentFormulaVersions ConsentFormulaVersion[]
+  consents             Consent[]
+  createdAt            DateTime                              @default(now())
+  updatedAt            DateTime                              @updatedAt
+
+  @@unique([subscriptionPolicyId, versionNumber])
+  @@index([subscriptionPolicyId, status])
+  @@map("subscription_policy_versions")
+}
+
+model SubscriptionPolicyVersionTranslation {
+  id          String                    @id @default(uuid())
+  versionId   String
+  version     SubscriptionPolicyVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  lang        String
+  title       String?
+  html        String
+  buttonLabel String?
+  createdAt   DateTime                  @default(now())
+  updatedAt   DateTime                  @updatedAt
+
+  @@unique([versionId, lang])
+  @@index([lang])
+  @@map("subscription_policy_version_translations")
+}
+
+model ConsentFormula {
+  id                   String                     @id @default(uuid())
+  subscriptionPolicyId String
+  subscriptionPolicy   SubscriptionPolicy         @relation(fields: [subscriptionPolicyId], references: [id], onDelete: Cascade)
+  code                 String
+  required             Boolean                    @default(false)
+  status               ConsentFormulaStatus       @default(ACTIVE)
+  currentVersionId     String?                    @unique
+  currentVersion       ConsentFormulaVersion?     @relation("ConsentFormulaCurrentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
+  versions             ConsentFormulaVersion[]
+  consents             Consent[]
+  audienceFilters      CampaignAudienceFilter[]
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+
+  @@unique([subscriptionPolicyId, code])
+  @@index([subscriptionPolicyId, status])
+  @@map("consent_formulas")
+}
+
+model ConsentFormulaVersion {
+  id                          String                          @id @default(uuid())
+  consentFormulaId            String
+  consentFormula              ConsentFormula                  @relation(fields: [consentFormulaId], references: [id], onDelete: Cascade)
+  currentForFormula           ConsentFormula?                 @relation("ConsentFormulaCurrentVersion")
+  subscriptionPolicyVersionId String
+  subscriptionPolicyVersion   SubscriptionPolicyVersion       @relation(fields: [subscriptionPolicyVersionId], references: [id], onDelete: Cascade)
+  versionNumber               Int
+  status                      ConsentFormulaVersionStatus     @default(DRAFT)
+  publishedAt                 DateTime?
+  previousVersionId           String?
+  previousVersion             ConsentFormulaVersion?          @relation("ConsentFormulaVersionPrevious", fields: [previousVersionId], references: [id], onDelete: SetNull)
+  nextVersions                ConsentFormulaVersion[]         @relation("ConsentFormulaVersionPrevious")
+  translations                ConsentFormulaVersionTranslation[]
+  consents                    Consent[]
+  createdAt                   DateTime                        @default(now())
+  updatedAt                   DateTime                        @updatedAt
+
+  @@unique([consentFormulaId, versionNumber])
+  @@index([subscriptionPolicyVersionId])
+  @@index([consentFormulaId, status])
+  @@map("consent_formula_versions")
+}
+
+model ConsentFormulaVersionTranslation {
+  id               String                @id @default(uuid())
+  consentVersionId String
+  consentVersion   ConsentFormulaVersion @relation(fields: [consentVersionId], references: [id], onDelete: Cascade)
+  lang             String
+  title            String
+  text             String
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  @@unique([consentVersionId, lang])
+  @@index([lang])
+  @@map("consent_formula_version_translations")
+}
+
+model Contact {
+  id               String         @id @default(uuid())
+  email            String         @unique
+  status           ContactStatus  @default(ACTIVE)
+  suppressedAt     DateTime?
+  suppressionReason String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  consents         Consent[]
+  confirmationTokens SubscriptionConfirmationToken[]
+  unsubscribeTokens UnsubscribeToken[]
+  campaignRecipients CampaignRecipient[]
+
+  @@index([status, createdAt])
+  @@map("contacts")
+}
+
+model Consent {
+  id                     String                @id @default(uuid())
+  contactId              String
+  contact                Contact               @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  consentFormulaId       String
+  consentFormula         ConsentFormula        @relation(fields: [consentFormulaId], references: [id], onDelete: Restrict)
+  consentFormulaVersionId String
+  consentFormulaVersion  ConsentFormulaVersion @relation(fields: [consentFormulaVersionId], references: [id], onDelete: Restrict)
+  policyVersionId        String
+  policyVersion          SubscriptionPolicyVersion @relation(fields: [policyVersionId], references: [id], onDelete: Restrict)
+  value                  ConsentValue
+  status                 ConsentRecordStatus   @default(CONFIRMED)
+  invalidatedAt          DateTime?
+  invalidationReason     String?
+  ipHash                 String?
+  userAgent              String?
+  source                 ConsentSource         @default(SUBSCRIBE)
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+
+  @@index([contactId, consentFormulaId, invalidatedAt])
+  @@index([consentFormulaVersionId, value, status, invalidatedAt])
+  @@index([policyVersionId])
+  @@map("consents")
+}
+
+model SubscriptionConfirmationToken {
+  id          String   @id @default(uuid())
+  contactId   String
+  contact     Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  tokenHash   String   @unique
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([contactId, expiresAt])
+  @@map("subscription_confirmation_tokens")
+}
+
+model UnsubscribeToken {
+  id          String   @id @default(uuid())
+  contactId   String
+  contact     Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  tokenHash   String   @unique
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([contactId, expiresAt])
+  @@map("unsubscribe_tokens")
+}
+
+model Campaign {
+  id            String            @id @default(uuid())
+  name          String
+  subject       String
+  htmlBody      String
+  matchMode     CampaignMatchMode @default(ALL)
+  status        CampaignStatus    @default(DRAFT)
+  sentAt        DateTime?
+  createdByUserId String?
+  createdByUser User?             @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  filters       CampaignAudienceFilter[]
+  recipients    CampaignRecipient[]
+
+  @@index([status, createdAt])
+  @@map("campaigns")
+}
+
+model CampaignAudienceFilter {
+  id            String   @id @default(uuid())
+  campaignId    String
+  campaign      Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  consentFormulaId String
+  consentFormula ConsentFormula @relation(fields: [consentFormulaId], references: [id], onDelete: Restrict)
+  formulaVersionIds String[]
+  createdAt     DateTime @default(now())
+
+  @@index([campaignId])
+  @@index([consentFormulaId])
+  @@map("campaign_audience_filters")
+}
+
+model CampaignRecipient {
+  id          String                  @id @default(uuid())
+  campaignId  String
+  campaign    Campaign                @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contactId   String
+  contact     Contact                 @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  status      CampaignRecipientStatus @default(PENDING)
+  sentAt      DateTime?
+  error       String?
+  createdAt   DateTime                @default(now())
+
+  @@unique([campaignId, contactId])
+  @@index([status, createdAt])
+  @@map("campaign_recipients")
 }
 
 model UserNotificationPreference {
@@ -525,6 +756,16 @@ enum AuditAction {
   TAG_STATUS_CHANGED
   SMTP_SETTINGS_UPDATED
   SMTP_TEST_SENT
+  CONSENT_POLICY_PUBLISHED
+  CONSENT_POLICY_ARCHIVED
+  CONSENT_FORMULA_CREATED
+  CONSENT_FORMULA_UPDATED
+  CONSENT_FORMULA_DELETED
+  SUBSCRIPTION_SUBMITTED
+  SUBSCRIPTION_CONFIRMED
+  SUBSCRIPTION_UNSUBSCRIBED
+  CAMPAIGN_CREATED
+  CAMPAIGN_SENT
 }
 
 enum AuditEntityType {
@@ -539,6 +780,72 @@ enum AuditEntityType {
   CATEGORY
   TAG
   SETTINGS
+  SUBSCRIPTION_POLICY
+  CONSENT_FORMULA
+  CONTACT
+  CONSENT
+  CAMPAIGN
+}
+
+enum SubscriptionPolicyStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum SubscriptionPolicyVersionStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ConsentFormulaStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum ConsentFormulaVersionStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ContactStatus {
+  ACTIVE
+  SUPPRESSED
+}
+
+enum ConsentValue {
+  YES
+  NO
+}
+
+enum ConsentRecordStatus {
+  REGISTERED
+  CONFIRMED
+}
+
+enum ConsentSource {
+  SUBSCRIBE
+  UNSUBSCRIBE
+  ADMIN
+}
+
+enum CampaignMatchMode {
+  ALL
+  ANY
+}
+
+enum CampaignStatus {
+  DRAFT
+  SENT
+  CANCELLED
+}
+
+enum CampaignRecipientStatus {
+  PENDING
+  SENT
+  FAILED
 }
 
 enum AuditOutcome {

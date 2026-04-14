@@ -45,9 +45,19 @@ const auditActions = [
   'TAG_STATUS_CHANGED',
   'SMTP_SETTINGS_UPDATED',
   'SMTP_TEST_SENT',
+  'CONSENT_POLICY_PUBLISHED',
+  'CONSENT_POLICY_ARCHIVED',
+  'CONSENT_FORMULA_CREATED',
+  'CONSENT_FORMULA_UPDATED',
+  'CONSENT_FORMULA_DELETED',
+  'SUBSCRIPTION_SUBMITTED',
+  'SUBSCRIPTION_CONFIRMED',
+  'SUBSCRIPTION_UNSUBSCRIBED',
+  'CAMPAIGN_CREATED',
+  'CAMPAIGN_SENT',
 ]
 
-const auditEntityTypes = ['AUTH', 'USER', 'INVITE_CODE', 'REGISTRATION', 'AUDIO', 'ALBUM_IMAGE', 'ARTICLE', 'EVENT', 'CATEGORY', 'TAG', 'SETTINGS']
+const auditEntityTypes = ['AUTH', 'USER', 'INVITE_CODE', 'REGISTRATION', 'AUDIO', 'ALBUM_IMAGE', 'ARTICLE', 'EVENT', 'CATEGORY', 'TAG', 'SETTINGS', 'SUBSCRIPTION_POLICY', 'CONSENT_FORMULA', 'CONTACT', 'CONSENT', 'CAMPAIGN']
 const phonePattern = /^\+?[0-9\s().-]{7,20}$/
 const inviteCodePattern = /^[A-NP-Z1-9]{7}$/
 const appUrlValidationOptions = {
@@ -337,4 +347,50 @@ export const tagFilterQuery = [
   query('contentType').optional().isIn(['audio', 'article', 'all']).withMessage('contentType non valido'),
   query('activeOnly').optional().isBoolean().withMessage('activeOnly non valido'),
   query('search').optional().trim().isLength({ max: 100 }).withMessage('search troppo lunga'),
+]
+
+export const subscriptionTranslationValidation = [
+  body('translations').isArray({ min: 1 }).withMessage('translations obbligatorie'),
+  body('translations.*.lang').trim().isLength({ min: 2, max: 8 }).withMessage('lang non valido'),
+  body('translations.*.html').trim().notEmpty().withMessage('html obbligatorio'),
+  body('translations.*.title').optional({ values: 'falsy' }).isString(),
+  body('translations.*.buttonLabel').optional({ values: 'falsy' }).isString(),
+]
+
+export const formulaTranslationValidation = [
+  body('translations').isArray({ min: 1 }).withMessage('translations obbligatorie'),
+  body('translations.*.lang').trim().isLength({ min: 2, max: 8 }).withMessage('lang non valido'),
+  body('translations.*.title').trim().notEmpty().withMessage('title obbligatorio'),
+  body('translations.*.text').trim().notEmpty().withMessage('text obbligatorio'),
+]
+
+export const consentFormulaCreateValidation = [
+  body('code').trim().matches(/^[a-z0-9_.-]{2,80}$/i).withMessage('code non valido'),
+  body('required').isBoolean().withMessage('required non valido'),
+]
+
+export const publicSubscribeValidation = [
+  body('email').isEmail().withMessage('Email non valida'),
+  body('consents').isArray({ min: 1 }).withMessage('consents obbligatori'),
+  body('consents.*.formulaId').isUUID().withMessage('formulaId non valido'),
+  body('consents.*.value').isIn(['YES', 'NO']).withMessage('value non valido'),
+]
+
+export const publicUnsubscribeValidation = [
+  body('token').trim().notEmpty().withMessage('Token obbligatorio'),
+  body('revokeAll').optional().isBoolean().withMessage('revokeAll non valido'),
+  body('updates').optional().isArray().withMessage('updates non valido'),
+  body('updates.*.formulaId').optional().isUUID().withMessage('formulaId non valido'),
+  body('updates.*.keep').optional().isBoolean().withMessage('keep non valido'),
+  body('reason').optional({ values: 'falsy' }).isLength({ max: 200 }).withMessage('reason troppo lungo'),
+]
+
+export const campaignSendValidation = [
+  body('name').trim().notEmpty().withMessage('name obbligatorio'),
+  body('subject').trim().notEmpty().withMessage('subject obbligatorio'),
+  body('htmlBody').trim().notEmpty().withMessage('htmlBody obbligatorio'),
+  body('matchMode').optional().isIn(['ALL', 'ANY']).withMessage('matchMode non valido'),
+  body('filters').isArray({ min: 1 }).withMessage('filters obbligatori'),
+  body('filters.*.formulaId').isUUID().withMessage('formulaId non valido'),
+  body('filters.*.versionIds').optional().isArray().withMessage('versionIds non valido'),
 ]
