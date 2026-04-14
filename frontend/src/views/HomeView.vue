@@ -142,6 +142,7 @@ onMounted(async () => {
             <div class="mt-8 flex flex-wrap gap-3">
               <router-link to="/audio" class="btn-primary">Vai alla libreria audio</router-link>
               <router-link to="/articles" class="btn-secondary">Articoli pubblici</router-link>
+              <router-link to="/events" class="btn-secondary">Eventi pubblici</router-link>
             </div>
 
             <div class="mt-8 grid gap-3 sm:grid-cols-3">
@@ -154,8 +155,8 @@ onMounted(async () => {
                 <p class="mt-1 text-sm text-text-secondary">categorie da esplorare</p>
               </div>
               <div class="surface-card-muted p-4">
-                <p class="text-2xl font-semibold text-text-primary">{{ formatCount(publicCounts.articles + publicCounts.events) }}</p>
-                <p class="mt-1 text-sm text-text-secondary">contenuti pubblici di contesto</p>
+                <p class="text-2xl font-semibold text-text-primary">{{ formatCount(publicCounts.events) }}</p>
+                <p class="mt-1 text-sm text-text-secondary">eventi disponibili in agenda</p>
               </div>
             </div>
           </div>

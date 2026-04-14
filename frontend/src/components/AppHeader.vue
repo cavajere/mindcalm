@@ -22,10 +22,16 @@ const isPublicVisitor = computed(() => !auth.isAuthenticated)
 
 const navigationItems = computed(() => {
   if (isPublicVisitor.value) {
-    return [
-      { label: 'Articoli', to: '/articles', description: 'Contenuti pubblici' },
-      { label: 'Eventi', to: '/events', description: 'Incontri e appuntamenti' },
-    ]
+    const items = []
+
+    if (hasArticles.value) {
+      items.push({ label: 'Articoli', to: '/articles', description: 'Contenuti pubblici' })
+    }
+    if (hasEvents.value) {
+      items.push({ label: 'Eventi', to: '/events', description: 'Incontri e appuntamenti' })
+    }
+
+    return items
   }
 
   const items = [{ label: 'Home', to: '/', description: 'Panoramica personale' }]
