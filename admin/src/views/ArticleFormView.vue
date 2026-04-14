@@ -26,6 +26,7 @@ const form = ref({
   excerpt: '',
   body: '',
   status: 'DRAFT',
+  visibility: 'REGISTERED',
   tagIds: [] as string[],
 })
 
@@ -106,6 +107,7 @@ async function save() {
     fd.append('excerpt', form.value.excerpt)
     fd.append('body', form.value.body)
     fd.append('status', form.value.status)
+    fd.append('visibility', form.value.visibility)
     fd.append('publicBaseUrl', getPublicAppUrl())
     fd.append('tagIds', JSON.stringify(form.value.tagIds))
     fd.append('coverImageDisplayName', coverFiles.value.length ? coverFiles.value[0].displayName : coverImageDisplayName.value)
@@ -149,6 +151,7 @@ onMounted(async () => {
         excerpt: article.excerpt || '',
         body: article.body,
         status: article.status,
+        visibility: article.visibility,
         tagIds: (article.tags || []).map((tag: any) => tag.id),
       }
       existingAlbumCover.value = article.coverAlbumImage || null
@@ -190,7 +193,7 @@ onMounted(async () => {
         <input v-model="form.title" type="text" required class="input-field" />
       </div>
 
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div>
           <label class="label">Autore *</label>
           <input v-model="form.author" type="text" required class="input-field" />
@@ -200,6 +203,13 @@ onMounted(async () => {
           <select v-model="form.status" class="input-field">
             <option value="DRAFT">Bozza</option>
             <option value="PUBLISHED">Pubblicato</option>
+          </select>
+        </div>
+        <div>
+          <label class="label">Visibilita'</label>
+          <select v-model="form.visibility" class="input-field">
+            <option value="REGISTERED">Solo utenti registrati</option>
+            <option value="PUBLIC">Pubblico</option>
           </select>
         </div>
       </div>

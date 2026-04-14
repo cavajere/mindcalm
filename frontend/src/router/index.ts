@@ -15,13 +15,13 @@ const router = createRouter({
     { path: '/accept-invite', component: () => import('../views/AcceptInviteView.vue'), meta: { publicOnly: true, hideChrome: true } },
     { path: '/unsubscribe', component: () => import('../views/UnsubscribeView.vue'), meta: { hideChrome: true } },
     { path: '/license-expired', component: () => import('../views/LicenseExpiredView.vue'), meta: { hideChrome: true } },
-    { path: '/', component: HomeView, meta: { requiresAuth: true } },
+    { path: '/', component: HomeView },
     { path: '/audio', component: () => import('../views/AudioView.vue'), meta: { requiresAuth: true } },
     { path: '/audio/:id', component: () => import('../views/AudioDetailView.vue'), meta: { requiresAuth: true } },
-    { path: '/articles', component: () => import('../views/ArticlesView.vue'), meta: { requiresAuth: true } },
-    { path: '/articles/:slug', component: () => import('../views/ArticleDetailView.vue'), meta: { requiresAuth: true } },
-    { path: '/events', component: () => import('../views/EventsView.vue'), meta: { requiresAuth: true } },
-    { path: '/events/:slug', component: () => import('../views/EventDetailView.vue'), meta: { requiresAuth: true } },
+    { path: '/articles', component: () => import('../views/ArticlesView.vue') },
+    { path: '/articles/:slug', component: () => import('../views/ArticleDetailView.vue') },
+    { path: '/events', component: () => import('../views/EventsView.vue') },
+    { path: '/events/:slug', component: () => import('../views/EventDetailView.vue') },
     { path: '/downloads', redirect: '/audio' },
     { path: '/profile', component: () => import('../views/ProfileView.vue'), meta: { requiresAuth: true } },
   ],
@@ -39,10 +39,10 @@ router.beforeEach(async (to) => {
   }
 
   if (!to.matched.length) {
-    return auth.isAuthenticated ? '/' : '/login'
+    return '/'
   }
 
-  const shouldInitializeAuth = !auth.initialized && (Boolean(to.meta.requiresAuth) || auth.isAuthenticated)
+  const shouldInitializeAuth = !auth.initialized && !to.meta.publicOnly
 
   if (shouldInitializeAuth) {
     await auth.initialize()

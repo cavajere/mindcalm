@@ -29,6 +29,7 @@ const primaryNavItems: NavLeafItem[] = [
   { path: '/', label: 'Dashboard', shortLabel: 'Home' },
   { path: '/audio', label: 'Audio', shortLabel: 'Audio' },
   { path: '/articles', label: 'Articoli', shortLabel: 'Articoli' },
+  { path: '/events', label: 'Eventi', shortLabel: 'Eventi' },
   { path: '/album', label: 'Album', shortLabel: 'Album' },
   { path: '/analytics', label: 'Analytics', shortLabel: 'Analytics' },
   { path: '/communications', label: 'Comunicazione', shortLabel: 'CM' },

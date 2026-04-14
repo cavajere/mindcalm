@@ -4,10 +4,9 @@ import { useRouter } from 'vue-router'
 import axios from 'axios'
 import PageHeader from '../components/PageHeader.vue'
 import StatusBadge from '../components/StatusBadge.vue'
-import { getPublicAppUrl } from '../utils/appUrls'
 
 const router = useRouter()
-const articles = ref<any[]>([])
+const events = ref<any[]>([])
 const loading = ref(true)
 
 function visibilityLabel(visibility: string) {
@@ -20,42 +19,37 @@ function visibilityClasses(visibility: string) {
     : 'bg-slate-100 text-slate-700'
 }
 
-async function fetchArticles() {
+async function fetchEvents() {
   loading.value = true
   try {
-    const { data } = await axios.get('/api/admin/articles?limit=50')
-    articles.value = data.data
+    const { data } = await axios.get('/api/admin/events?limit=50')
+    events.value = data.data
   } finally {
     loading.value = false
   }
 }
 
-async function toggleStatus(article: any) {
-  const newStatus = article.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED'
-  await axios.patch(`/api/admin/articles/${article.id}/status`, {
-    status: newStatus,
-    publicBaseUrl: getPublicAppUrl(),
-  })
-  article.status = newStatus
+async function toggleStatus(eventItem: any) {
+  const newStatus = eventItem.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED'
+  await axios.patch(`/api/admin/events/${eventItem.id}/status`, { status: newStatus })
+  eventItem.status = newStatus
 }
 
-async function deleteArticle(article: any) {
-  if (!confirm(`Eliminare l'articolo "${article.title}"?`)) return
-  await axios.delete(`/api/admin/articles/${article.id}`)
-  articles.value = articles.value.filter(a => a.id !== article.id)
+async function deleteEvent(eventItem: any) {
+  if (!confirm(`Eliminare l'evento "${eventItem.title}"?`)) return
+  await axios.delete(`/api/admin/events/${eventItem.id}`)
+  events.value = events.value.filter((item) => item.id !== eventItem.id)
 }
-
-onMounted(fetchArticles)
 </script>
 
 <template>
   <div>
     <PageHeader
-      title="Articoli"
-      description="Gestisci articoli, stato editoriale e routing pubblico."
+      title="Eventi"
+      description="Gestisci calendario, stato editoriale e visibilita' lato portale utente."
     >
       <template #actions>
-        <router-link to="/articles/new" class="btn-primary">+ Nuovo articolo</router-link>
+        <router-link to="/events/new" class="btn-primary">+ Nuovo evento</router-link>
       </template>
     </PageHeader>
 
@@ -64,30 +58,32 @@ onMounted(fetchArticles)
         <thead class="bg-gray-50">
           <tr>
             <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Titolo</th>
-            <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Autore</th>
-            <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Slug</th>
+            <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Citta'</th>
+            <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Inizio</th>
             <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Stato</th>
             <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Visibilita'</th>
             <th class="table-actions-header px-4 py-3 text-xs font-medium text-text-secondary uppercase">Azioni</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-50">
-          <tr v-for="a in articles" :key="a.id" class="hover:bg-gray-50/50">
-            <td class="px-4 py-3 text-sm font-medium text-text-primary">{{ a.title }}</td>
-            <td class="px-4 py-3 text-sm text-text-secondary">{{ a.author }}</td>
-            <td class="px-4 py-3 text-sm text-text-secondary font-mono">{{ a.slug }}</td>
-            <td class="px-4 py-3">
-              <StatusBadge :status="a.status" @click="toggleStatus(a)" class="cursor-pointer" />
+          <tr v-for="eventItem in events" :key="eventItem.id" class="hover:bg-gray-50/50">
+            <td class="px-4 py-3 text-sm font-medium text-text-primary">{{ eventItem.title }}</td>
+            <td class="px-4 py-3 text-sm text-text-secondary">{{ eventItem.city }}</td>
+            <td class="px-4 py-3 text-sm text-text-secondary">
+              {{ new Date(eventItem.startsAt).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) }}
             </td>
             <td class="px-4 py-3">
-              <span :class="['inline-flex rounded-full px-2.5 py-1 text-xs font-medium', visibilityClasses(a.visibility)]">
-                {{ visibilityLabel(a.visibility) }}
+              <StatusBadge :status="eventItem.status" @click="toggleStatus(eventItem)" class="cursor-pointer" />
+            </td>
+            <td class="px-4 py-3">
+              <span :class="['inline-flex rounded-full px-2.5 py-1 text-xs font-medium', visibilityClasses(eventItem.visibility)]">
+                {{ visibilityLabel(eventItem.visibility) }}
               </span>
             </td>
             <td class="table-actions-cell">
               <div class="table-actions-group">
                 <button
-                  @click="router.push(`/articles/${a.id}/edit`)"
+                  @click="router.push(`/events/${eventItem.id}/edit`)"
                   class="icon-action-button icon-action-button-neutral"
                   title="Modifica"
                   aria-label="Modifica"
@@ -97,7 +93,7 @@ onMounted(fetchArticles)
                   </svg>
                 </button>
                 <button
-                  @click="deleteArticle(a)"
+                  @click="deleteEvent(eventItem)"
                   class="icon-action-button icon-action-button-danger"
                   title="Elimina"
                   aria-label="Elimina"
@@ -109,8 +105,8 @@ onMounted(fetchArticles)
               </div>
             </td>
           </tr>
-          <tr v-if="!articles.length && !loading">
-            <td colspan="6" class="px-4 py-8 text-center text-text-secondary">Nessun articolo</td>
+          <tr v-if="!events.length && !loading">
+            <td colspan="6" class="px-4 py-8 text-center text-text-secondary">Nessun evento</td>
           </tr>
         </tbody>
       </table>

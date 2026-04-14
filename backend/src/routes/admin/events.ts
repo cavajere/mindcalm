@@ -1,15 +1,15 @@
 import { Request, Response } from 'express'
 import { createAsyncRouter } from '../../utils/asyncRouter'
-import { AuditAction, AuditEntityType, Prisma, Status } from '@prisma/client'
+import { AuditAction, AuditEntityType, ContentVisibility, Prisma, Status } from '@prisma/client'
 import { validationResult } from 'express-validator'
 import { adminAuthMiddleware, requireAdmin } from '../../middleware/auth'
 import { uploadImage } from '../../middleware/upload'
 import { eventValidation, statusValidation, paginationQuery } from '../../utils/validators'
 import { extractPlainText, sanitizeBody } from '../../utils/sanitize'
-import { getSingleString } from '../../utils/request'
+import { getBoolean, getSingleString } from '../../utils/request'
 import { prisma } from '../../lib/prisma'
 import { getAuditActorFromRequest, logAuditEventSafe } from '../../services/auditLogService'
-import { buildUploadMetadata } from '../../services/uploadMetadataService'
+import { buildUploadMetadata, renameStoredUpload } from '../../services/uploadMetadataService'
 import { deleteDirectCoverImage, resolveCoverImageSource } from '../../services/albumImageService'
 import { queuePublishedContentOutboxEntry } from '../../services/notificationService'
 import { buildAppUrl, derivePublicAppBaseUrl } from '../../utils/appUrls'
@@ -62,6 +62,7 @@ function serializeEvent(event: {
   venue: string | null
   startsAt: Date
   endsAt: Date | null
+  visibility: ContentVisibility
   status: Status
   publishedAt: Date | null
   createdAt: Date
@@ -98,6 +99,7 @@ function serializeEvent(event: {
     venue: event.venue,
     startsAt: event.startsAt,
     endsAt: event.endsAt,
+    visibility: event.visibility,
     status: event.status,
     publishedAt: event.publishedAt,
     createdAt: event.createdAt,
@@ -168,6 +170,7 @@ router.post('/', uploadImage.single('coverImage'), eventValidation, async (req: 
   const startsAt = getSingleString(req.body.startsAt)
   const endsAt = getSingleString(req.body.endsAt)
   const status = getSingleString(req.body.status)
+  const visibility = getSingleString(req.body.visibility)
   const slug = createTagSlug(title!)
   const requestedCoverAlbumImageId = getSingleString(req.body.coverAlbumImageId)?.trim() || undefined
   const coverImageNames = req.file
@@ -213,6 +216,7 @@ router.post('/', uploadImage.single('coverImage'), eventValidation, async (req: 
         venue: venue || null,
         startsAt: new Date(startsAt!),
         endsAt: endsAt ? new Date(endsAt) : null,
+        visibility: visibility === 'PUBLIC' ? 'PUBLIC' : 'REGISTERED',
         coverImage: req.file ? `images/${req.file.filename}` : null,
         coverImageOriginalName: coverImageNames?.originalName ?? null,
         coverImageDisplayName: coverImageNames?.displayName ?? null,
@@ -234,7 +238,13 @@ router.post('/', uploadImage.single('coverImage'), eventValidation, async (req: 
     entityId: event.id,
     entityLabel: event.title,
     ...getAuditActorFromRequest(req),
-    metadata: { slug: event.slug, status: event.status, startsAt: event.startsAt.toISOString(), city: event.city },
+    metadata: {
+      slug: event.slug,
+      status: event.status,
+      visibility: event.visibility,
+      startsAt: event.startsAt.toISOString(),
+      city: event.city,
+    },
   })
 
   res.status(201).json(serializeEvent(event))
@@ -277,7 +287,13 @@ router.put('/:id', uploadImage.single('coverImage'), eventValidation, async (req
   const startsAt = getSingleString(req.body.startsAt)
   const endsAt = getSingleString(req.body.endsAt)
   const status = getSingleString(req.body.status)
-  const requestedCoverAlbumImageId = getSingleString(req.body.coverAlbumImageId)?.trim() || undefined
+  const visibility = getSingleString(req.body.visibility)
+  const requestedCoverImageDisplayName = getSingleString(req.body.coverImageDisplayName)
+  const removeCoverImage = getBoolean(req.body.removeCoverImage) === true
+  const hasCoverAlbumImageId = Object.prototype.hasOwnProperty.call(req.body, 'coverAlbumImageId')
+  const requestedCoverAlbumImageId = hasCoverAlbumImageId
+    ? (getSingleString(req.body.coverAlbumImageId)?.trim() || null)
+    : undefined
   const slug = createTagSlug(title!)
 
   if (endsAt && new Date(endsAt) < new Date(startsAt!)) {
@@ -302,14 +318,8 @@ router.put('/:id', uploadImage.single('coverImage'), eventValidation, async (req
     return
   }
 
-  const nextCoverImagePath = req.file
-    ? `images/${req.file.filename}`
-    : requestedCoverAlbumImageId
-      ? null
-      : existing.coverImage
-
   const coverImageNames = req.file
-    ? buildUploadMetadata(req.file, getSingleString(req.body.coverImageDisplayName))
+    ? buildUploadMetadata(req.file, requestedCoverImageDisplayName)
     : null
 
   const sanitizedBody = sanitizeBody(body!)
@@ -328,12 +338,45 @@ router.put('/:id', uploadImage.single('coverImage'), eventValidation, async (req
         venue: venue || null,
         startsAt: new Date(startsAt!),
         endsAt: endsAt ? new Date(endsAt) : null,
+        visibility: visibility === 'PUBLIC' ? 'PUBLIC' : 'REGISTERED',
         status: status === 'PUBLISHED' ? 'PUBLISHED' : 'DRAFT',
         publishedAt: status === 'PUBLISHED' ? (existing.publishedAt ?? new Date()) : null,
-        coverImage: nextCoverImagePath,
-        coverImageOriginalName: req.file ? coverImageNames?.originalName ?? null : existing.coverImageOriginalName,
-        coverImageDisplayName: req.file ? coverImageNames?.displayName ?? null : existing.coverImageDisplayName,
-        coverAlbumImageId: selectedAlbumImage ? selectedAlbumImage.id : requestedCoverAlbumImageId ? null : existing.coverAlbumImageId,
+        coverImage: req.file
+          ? `images/${req.file.filename}`
+          : selectedAlbumImage
+            ? null
+            : removeCoverImage
+              ? null
+              : existing.coverImage,
+        coverImageOriginalName: req.file
+          ? coverImageNames?.originalName ?? null
+          : selectedAlbumImage || removeCoverImage
+            ? null
+            : requestedCoverImageDisplayName !== undefined && existing.coverImage && !existing.coverAlbumImageId
+              ? renameStoredUpload(
+                  existing.coverImageOriginalName ?? '',
+                  existing.coverImageDisplayName,
+                  requestedCoverImageDisplayName,
+                ).originalName
+              : existing.coverImageOriginalName,
+        coverImageDisplayName: req.file
+          ? coverImageNames?.displayName ?? null
+          : selectedAlbumImage || removeCoverImage
+            ? null
+            : requestedCoverImageDisplayName !== undefined && existing.coverImage && !existing.coverAlbumImageId
+              ? renameStoredUpload(
+                  existing.coverImageOriginalName ?? '',
+                  existing.coverImageDisplayName,
+                  requestedCoverImageDisplayName,
+                ).displayName
+              : existing.coverImageDisplayName,
+        coverAlbumImageId: selectedAlbumImage
+          ? selectedAlbumImage.id
+          : req.file
+            ? null
+          : removeCoverImage
+            ? null
+            : existing.coverAlbumImageId,
       },
       include: { coverAlbumImage: { select: albumImageSelect } },
     })
@@ -342,7 +385,7 @@ router.put('/:id', uploadImage.single('coverImage'), eventValidation, async (req
     return event
   })
 
-  if (req.file && existing.coverImage) {
+  if ((req.file || selectedAlbumImage || removeCoverImage) && existing.coverImage) {
     deleteDirectCoverImage(existing.coverImage)
   }
 
@@ -353,7 +396,13 @@ router.put('/:id', uploadImage.single('coverImage'), eventValidation, async (req
     entityId: updated.id,
     entityLabel: updated.title,
     ...getAuditActorFromRequest(req),
-    metadata: { slug: updated.slug, status: updated.status, startsAt: updated.startsAt.toISOString(), city: updated.city },
+    metadata: {
+      slug: updated.slug,
+      status: updated.status,
+      visibility: updated.visibility,
+      startsAt: updated.startsAt.toISOString(),
+      city: updated.city,
+    },
   })
 
   res.json(serializeEvent(updated))

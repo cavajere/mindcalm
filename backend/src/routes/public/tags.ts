@@ -1,14 +1,16 @@
 import { Request, Response } from 'express'
 import { createAsyncRouter } from '../../utils/asyncRouter'
+import { Prisma } from '@prisma/client'
 import { validationResult } from 'express-validator'
 import { prisma } from '../../lib/prisma'
-import { appAuthMiddleware } from '../../middleware/auth'
+import { optionalAppAuthMiddleware } from '../../middleware/auth'
 import { getBoolean, getSingleString } from '../../utils/request'
 import { tagFilterQuery } from '../../utils/validators'
+import { getVisibleContentVisibilities } from '../../utils/contentVisibility'
 
 const router = createAsyncRouter()
 
-router.use(appAuthMiddleware)
+router.use(optionalAppAuthMiddleware)
 
 router.get('/', tagFilterQuery, async (req: Request, res: Response) => {
   const errors = validationResult(req)
@@ -20,22 +22,44 @@ router.get('/', tagFilterQuery, async (req: Request, res: Response) => {
   const contentType = getSingleString(req.query.contentType) || 'all'
   const activeOnly = getBoolean(req.query.activeOnly) ?? true
   const search = getSingleString(req.query.search)?.trim()
+  const articleVisibilityFilter = {
+    status: 'PUBLISHED' as const,
+    visibility: { in: getVisibleContentVisibilities(req) },
+  }
+
+  if (!req.adminUser && contentType !== 'article') {
+    res.json([])
+    return
+  }
+
+  const where: Prisma.TagWhereInput = {
+    AND: [
+      {
+        isActive: activeOnly ? true : undefined,
+      },
+      search
+        ? {
+            OR: [
+              { label: { contains: search, mode: 'insensitive' } },
+              { aliases: { some: { alias: { contains: search, mode: 'insensitive' } } } },
+            ],
+          }
+        : {},
+      contentType === 'audio'
+        ? { audioTags: { some: { audio: { status: 'PUBLISHED' } } } }
+        : contentType === 'article'
+          ? { articleTags: { some: { article: articleVisibilityFilter } } }
+          : {
+              OR: [
+                { audioTags: { some: { audio: { status: 'PUBLISHED' } } } },
+                { articleTags: { some: { article: articleVisibilityFilter } } },
+              ],
+            },
+    ],
+  }
 
   const tags = await prisma.tag.findMany({
-    where: {
-      isActive: activeOnly ? true : undefined,
-      OR: search
-        ? [
-            { label: { contains: search, mode: 'insensitive' } },
-            { aliases: { some: { alias: { contains: search, mode: 'insensitive' } } } },
-          ]
-        : undefined,
-      ...(contentType === 'audio'
-        ? { audioTags: { some: {} } }
-        : contentType === 'article'
-          ? { articleTags: { some: {} } }
-          : {}),
-    },
+    where,
     include: {
       _count: { select: { audioTags: true, articleTags: true } },
     },
@@ -50,7 +74,7 @@ router.get('/', tagFilterQuery, async (req: Request, res: Response) => {
     label: tag.label,
     slug: tag.slug,
     description: tag.description,
-    audioCount: tag._count.audioTags,
+    audioCount: req.adminUser ? tag._count.audioTags : 0,
     articleCount: tag._count.articleTags,
   })))
 })

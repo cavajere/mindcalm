@@ -1,31 +1,31 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useAuthStore } from '../stores/authStore'
 import { useAudioStore } from '../stores/audioStore'
 import AudioCard from '../components/AudioCard.vue'
 import ArticleCover from '../components/ArticleCover.vue'
 import axios from 'axios'
 
+const auth = useAuthStore()
 const store = useAudioStore()
 const latestArticles = ref<any[]>([])
 const latestEvents = ref<any[]>([])
 const featuredAudio = ref<any>(null)
 
 onMounted(async () => {
-  await store.fetchCategories()
-  await store.fetchAudio()
+  if (auth.isAuthenticated) {
+    await store.fetchCategories()
+    await store.fetchAudio()
 
-  // Audio in evidenza (casuale tra i pubblicati)
-  if (store.audioItems.length > 0) {
-    featuredAudio.value = store.audioItems[Math.floor(Math.random() * store.audioItems.length)]
+    if (store.audioItems.length > 0) {
+      featuredAudio.value = store.audioItems[Math.floor(Math.random() * store.audioItems.length)]
+    }
   }
-
-  // Ultimi 3 articoli
   try {
     const { data } = await axios.get('/api/articles?limit=3')
     latestArticles.value = data.data
   } catch {}
 
-  // Ultimi 3 eventi
   try {
     const { data } = await axios.get('/api/events?limit=3')
     latestEvents.value = data.data
@@ -35,8 +35,7 @@ onMounted(async () => {
 
 <template>
   <div class="page-container">
-    <!-- Hero -->
-    <section v-if="featuredAudio" class="mb-12">
+    <section v-if="auth.isAuthenticated && featuredAudio" class="mb-12">
       <div class="card overflow-hidden">
         <div class="relative bg-gradient-to-br from-primary/10 to-secondary/10 p-8 sm:p-12">
           <div class="max-w-lg">
@@ -54,8 +53,26 @@ onMounted(async () => {
       </div>
     </section>
 
-    <!-- Categorie -->
-    <section v-if="store.categories.length" class="mb-12">
+    <section v-else class="mb-12">
+      <div class="card overflow-hidden">
+        <div class="relative bg-gradient-to-br from-sky-50 via-white to-emerald-50 p-8 sm:p-12">
+          <div class="max-w-2xl">
+            <p class="text-sm font-medium text-primary mb-2">Portale pubblico</p>
+            <h1 class="text-3xl sm:text-4xl font-bold text-text-primary mb-4">Articoli ed eventi accessibili anche senza login</h1>
+            <p class="text-text-secondary mb-6">
+              Esplora i contenuti pubblici del progetto. Gli audio restano riservati agli utenti registrati.
+            </p>
+            <div class="flex flex-wrap gap-3">
+              <router-link to="/articles" class="btn-primary">Esplora gli articoli</router-link>
+              <router-link to="/events" class="btn-secondary">Guarda gli eventi</router-link>
+              <router-link to="/login" class="btn-secondary">Accedi</router-link>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section v-if="auth.isAuthenticated && store.categories.length" class="mb-12">
       <h2 class="text-2xl font-bold text-text-primary mb-6">Esplora per categoria</h2>
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <router-link
@@ -76,8 +93,7 @@ onMounted(async () => {
       </div>
     </section>
 
-    <!-- Audio recenti -->
-    <section v-if="store.audioItems.length" class="mb-12">
+    <section v-if="auth.isAuthenticated && store.audioItems.length" class="mb-12">
       <div class="flex items-center justify-between mb-6">
         <h2 class="text-2xl font-bold text-text-primary">Audio recenti</h2>
         <router-link to="/audio" class="text-sm font-medium text-primary hover:underline">Vedi tutti</router-link>
@@ -87,7 +103,6 @@ onMounted(async () => {
       </div>
     </section>
 
-    <!-- Ultimi articoli -->
     <section v-if="latestArticles.length" class="mb-12">
       <div class="flex items-center justify-between mb-6">
         <h2 class="text-2xl font-bold text-text-primary">Dal blog</h2>
@@ -115,7 +130,6 @@ onMounted(async () => {
       </div>
     </section>
 
-    <!-- Eventi -->
     <section v-if="latestEvents.length" class="mb-12">
       <div class="flex items-center justify-between mb-6">
         <h2 class="text-2xl font-bold text-text-primary">Eventi</h2>

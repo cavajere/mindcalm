@@ -1,6 +1,6 @@
 import { Request, Response } from 'express'
 import { createAsyncRouter } from '../../utils/asyncRouter'
-import { AuditAction, AuditEntityType, Prisma, Status } from '@prisma/client'
+import { AuditAction, AuditEntityType, ContentVisibility, Prisma, Status } from '@prisma/client'
 import { validationResult } from 'express-validator'
 import { adminAuthMiddleware, requireAdmin } from '../../middleware/auth'
 import { uploadImage } from '../../middleware/upload'
@@ -69,6 +69,7 @@ function serializeAdminArticle(article: {
   body: string
   excerpt: string | null
   author: string
+  visibility: ContentVisibility
   status: Status
   publishedAt: Date | null
   createdAt: Date
@@ -102,6 +103,7 @@ function serializeAdminArticle(article: {
     body: article.body,
     excerpt: article.excerpt,
     author: article.author,
+    visibility: article.visibility,
     status: article.status,
     publishedAt: article.publishedAt,
     createdAt: article.createdAt,
@@ -191,6 +193,7 @@ router.post('/',
     const excerpt = getSingleString(req.body.excerpt)
     const author = getSingleString(req.body.author)
     const status = getSingleString(req.body.status)
+    const visibility = getSingleString(req.body.visibility)
     const tagIds = parseTagIds(req.body.tagIds)
     const slug = createTagSlug(title!)
     const requestedCoverAlbumImageId = getSingleString(req.body.coverAlbumImageId)?.trim() || undefined
@@ -244,6 +247,7 @@ router.post('/',
           bodyText: extractPlainText(sanitizedBody),
           excerpt: excerpt || null,
           author: author!,
+          visibility: visibility === 'PUBLIC' ? 'PUBLIC' : 'REGISTERED',
           coverImage: req.file ? `images/${req.file.filename}` : null,
           coverImageOriginalName: coverImageNames?.originalName ?? null,
           coverImageDisplayName: coverImageNames?.displayName ?? null,
@@ -280,6 +284,7 @@ router.post('/',
         slug: article.slug,
         author: article.author,
         status: article.status,
+        visibility: article.visibility,
         hasCoverImage: Boolean(article.coverImage || article.coverAlbumImageId),
         tagIds,
       },
@@ -318,6 +323,7 @@ router.put('/:id',
     const author = getSingleString(req.body.author)
     const excerpt = getSingleString(req.body.excerpt)
     const status = getSingleString(req.body.status)
+    const visibility = getSingleString(req.body.visibility)
     const requestedCoverImageDisplayName = getSingleString(req.body.coverImageDisplayName)
     const removeCoverImage = getBoolean(req.body.removeCoverImage) === true
     const hasCoverAlbumImageId = Object.prototype.hasOwnProperty.call(req.body, 'coverAlbumImageId')
@@ -396,6 +402,11 @@ router.put('/:id',
         data.publishedAt = null
       }
       if (status !== existing.status) changedFields.push('status')
+    }
+
+    if (visibility && ['PUBLIC', 'REGISTERED'].includes(visibility)) {
+      data.visibility = visibility as ContentVisibility
+      if (visibility !== existing.visibility) changedFields.push('visibility')
     }
 
     if (req.file) {
@@ -479,6 +490,8 @@ router.put('/:id',
         changedFields,
         previousStatus: existing.status,
         nextStatus: article.status,
+        previousVisibility: existing.visibility,
+        nextVisibility: article.visibility,
         tagIds,
       },
     })

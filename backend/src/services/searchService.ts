@@ -1,4 +1,4 @@
-import { Level, Prisma } from '@prisma/client'
+import { ContentVisibility, Level, Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma'
 
 type MatchMode = 'any' | 'all'
@@ -19,6 +19,7 @@ export type RankedAudioSearchParams = RankedSearchParams & {
 
 export type RankedArticleSearchParams = RankedSearchParams & {
   author?: string
+  visibilities: ContentVisibility[]
 }
 
 type RankedIdRow = {
@@ -224,6 +225,7 @@ export async function getRankedPublishedArticleIds(params: RankedArticleSearchPa
         WHERE at."articleId" = ar."id"
       ) tags ON true
       WHERE ar."status" = 'PUBLISHED'
+        AND ar."visibility" IN (${Prisma.join(params.visibilities)})
         ${params.author ? Prisma.sql`AND lower(ar."author") = lower(${params.author})` : Prisma.empty}
         ${tagFilter}
     ),

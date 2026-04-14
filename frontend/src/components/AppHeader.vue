@@ -21,7 +21,7 @@ const hasEvents = ref(true)
 const navigationItems = computed(() => {
   const items = [{ label: 'Home', to: '/' }]
 
-  if (hasAudio.value) {
+  if (auth.isAuthenticated && hasAudio.value) {
     items.push({ label: 'Audio', to: '/audio' })
   }
   if (hasArticles.value) {
@@ -83,27 +83,30 @@ async function handleLogout() {
 }
 
 async function loadContentAvailability() {
-  if (!auth.isAuthenticated) {
-    hasAudio.value = false
-    hasArticles.value = false
-    hasEvents.value = false
-    return
-  }
-
-  const [audioResult, articlesResult, eventsResult] = await Promise.allSettled([
-    axios.get('/api/audio?limit=1'),
+  const requests = [
     axios.get('/api/articles?limit=1'),
     axios.get('/api/events?limit=1'),
-  ])
+  ]
 
-  if (audioResult.status === 'fulfilled') {
+  if (auth.isAuthenticated) {
+    requests.unshift(axios.get('/api/audio?limit=1'))
+  } else {
+    hasAudio.value = false
+  }
+
+  const results = await Promise.allSettled(requests)
+  const [audioResult, articlesResult, eventsResult] = auth.isAuthenticated
+    ? results
+    : [null, results[0], results[1]]
+
+  if (audioResult && audioResult.status === 'fulfilled') {
     hasAudio.value = Number(audioResult.value.data?.pagination?.total ?? 0) > 0
   }
 
-  if (articlesResult.status === 'fulfilled') {
+  if (articlesResult && articlesResult.status === 'fulfilled') {
     hasArticles.value = Number(articlesResult.value.data?.pagination?.total ?? 0) > 0
   }
-  if (eventsResult.status === 'fulfilled') {
+  if (eventsResult && eventsResult.status === 'fulfilled') {
     hasEvents.value = Number(eventsResult.value.data?.pagination?.total ?? 0) > 0
   }
 }
@@ -130,8 +133,15 @@ watch(
   },
 )
 
+watch(
+  () => auth.isAuthenticated,
+  () => {
+    void loadContentAvailability()
+  },
+  { immediate: true },
+)
+
 onMounted(() => {
-  void loadContentAvailability()
   document.addEventListener('click', handleDocumentClick)
   document.addEventListener('keydown', handleEscape)
 })
@@ -184,7 +194,7 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="flex items-center gap-2">
-          <div class="relative hidden md:block">
+          <div v-if="auth.isAuthenticated" class="relative hidden md:block">
             <button
               type="button"
               class="flex items-center gap-3 rounded-2xl border border-ui-border bg-surface px-3 py-2 text-left transition-all hover:border-primary/30 hover:shadow-sm"
@@ -265,6 +275,11 @@ onBeforeUnmount(() => {
             </div>
           </div>
 
+          <div v-else class="hidden items-center gap-2 md:flex">
+            <router-link to="/login" class="btn-secondary">Accedi</router-link>
+            <router-link to="/register" class="btn-primary">Registrati</router-link>
+          </div>
+
           <button
             type="button"
             class="inline-flex rounded-xl border border-ui-border p-2 text-text-secondary transition-colors hover:border-primary/30 hover:text-primary md:hidden"
@@ -305,7 +320,7 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="mt-4 rounded-3xl border border-ui-border bg-muted p-4">
-          <div class="space-y-2">
+          <div v-if="auth.isAuthenticated" class="space-y-2">
             <router-link
               to="/profile"
               class="flex items-center gap-3 rounded-2xl bg-surface px-4 py-3 text-sm font-medium text-text-primary transition-colors hover:bg-muted"
@@ -327,7 +342,18 @@ onBeforeUnmount(() => {
               </svg>
               {{ isLoggingOut ? 'Uscita...' : 'Esci' }}
             </button>
+          </div>
 
+          <div v-else class="space-y-2">
+            <router-link to="/login" class="flex items-center justify-center rounded-2xl bg-surface px-4 py-3 text-sm font-medium text-text-primary transition-colors hover:bg-white">
+              Accedi
+            </router-link>
+            <router-link to="/register" class="flex items-center justify-center rounded-2xl bg-primary px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-primary-dark">
+              Registrati
+            </router-link>
+          </div>
+
+          <div class="mt-2 space-y-2">
             <button
               type="button"
               class="flex w-full items-center gap-3 rounded-2xl bg-surface px-4 py-3 text-left text-sm font-medium text-text-primary transition-colors hover:bg-muted"

@@ -4,15 +4,16 @@ import { Prisma } from '@prisma/client'
 import { validationResult } from 'express-validator'
 import { getSingleString, getStringList } from '../../utils/request'
 import { prisma } from '../../lib/prisma'
-import { appAuthMiddleware } from '../../middleware/auth'
+import { optionalAppAuthMiddleware } from '../../middleware/auth'
 import { articleFilterQuery } from '../../utils/validators'
 import { getRankedPublishedArticleIds } from '../../services/searchService'
 import { mapArticleTags } from '../../services/tagService'
 import { resolveCoverImageSource } from '../../services/albumImageService'
+import { getVisibleContentVisibilities } from '../../utils/contentVisibility'
 
 const router = createAsyncRouter()
 
-router.use(appAuthMiddleware)
+router.use(optionalAppAuthMiddleware)
 
 function mapArticleListItem(article: {
   id: string
@@ -71,6 +72,7 @@ router.get('/', articleFilterQuery, async (req: Request, res: Response) => {
   const matchMode = getSingleString(req.query.matchMode) === 'all' ? 'all' : 'any'
   const author = getSingleString(req.query.author)?.trim()
   const sort = getSingleString(req.query.sort) || 'recent'
+  const visibleVisibilities = getVisibleContentVisibilities(req)
 
   if (!search && sort === 'relevance') {
     res.status(400).json({ error: 'sort=relevance richiede una query di ricerca' })
@@ -103,6 +105,7 @@ router.get('/', articleFilterQuery, async (req: Request, res: Response) => {
       tagSlugs,
       matchMode,
       author,
+      visibilities: visibleVisibilities,
     })
 
     if (!ids.length) {
@@ -114,7 +117,11 @@ router.get('/', articleFilterQuery, async (req: Request, res: Response) => {
     }
 
     const articles = await prisma.article.findMany({
-      where: { id: { in: ids } },
+      where: {
+        id: { in: ids },
+        status: 'PUBLISHED',
+        visibility: { in: visibleVisibilities },
+      },
       select: {
         id: true,
         title: true,
@@ -143,7 +150,10 @@ router.get('/', articleFilterQuery, async (req: Request, res: Response) => {
     return
   }
 
-  const where: Prisma.ArticleWhereInput = { status: 'PUBLISHED' }
+  const where: Prisma.ArticleWhereInput = {
+    status: 'PUBLISHED',
+    visibility: { in: visibleVisibilities },
+  }
   if (author) {
     where.author = { equals: author, mode: 'insensitive' }
   }
@@ -202,7 +212,11 @@ router.get('/:slug', async (req: Request, res: Response) => {
   }
 
   const article = await prisma.article.findFirst({
-    where: { slug, status: 'PUBLISHED' },
+    where: {
+      slug,
+      status: 'PUBLISHED',
+      visibility: { in: getVisibleContentVisibilities(req) },
+    },
     include: {
       coverAlbumImage: {
         select: {

@@ -4,13 +4,14 @@ import { Prisma } from '@prisma/client'
 import { validationResult } from 'express-validator'
 import { getSingleString } from '../../utils/request'
 import { prisma } from '../../lib/prisma'
-import { appAuthMiddleware } from '../../middleware/auth'
+import { optionalAppAuthMiddleware } from '../../middleware/auth'
 import { paginationQuery } from '../../utils/validators'
 import { resolveCoverImageSource } from '../../services/albumImageService'
+import { getVisibleContentVisibilities } from '../../utils/contentVisibility'
 
 const router = createAsyncRouter()
 
-router.use(appAuthMiddleware)
+router.use(optionalAppAuthMiddleware)
 
 function mapEventListItem(event: {
   id: string
@@ -70,8 +71,12 @@ router.get('/', paginationQuery, async (req: Request, res: Response) => {
   const limit = parseInt(req.query.limit as string) || 20
   const skip = (page - 1) * limit
   const city = getSingleString(req.query.city)?.trim()
+  const visibleVisibilities = getVisibleContentVisibilities(req)
 
-  const where: Prisma.EventWhereInput = { status: 'PUBLISHED' }
+  const where: Prisma.EventWhereInput = {
+    status: 'PUBLISHED',
+    visibility: { in: visibleVisibilities },
+  }
   if (city) {
     where.city = { equals: city, mode: 'insensitive' }
   }
@@ -127,7 +132,11 @@ router.get('/:slug', async (req: Request, res: Response) => {
   }
 
   const event = await prisma.event.findFirst({
-    where: { slug, status: 'PUBLISHED' },
+    where: {
+      slug,
+      status: 'PUBLISHED',
+      visibility: { in: getVisibleContentVisibilities(req) },
+    },
     include: {
       coverAlbumImage: {
         select: {

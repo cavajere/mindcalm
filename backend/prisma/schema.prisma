@@ -443,6 +443,7 @@ model Event {
   venue       String?
   startsAt    DateTime
   endsAt      DateTime?
+  visibility  ContentVisibility @default(REGISTERED)
   coverImage  String?
   coverImageOriginalName String?
   coverImageDisplayName  String?
@@ -454,7 +455,7 @@ model Event {
   updatedAt   DateTime  @updatedAt
 
   @@index([coverAlbumImageId])
-  @@index([status])
+  @@index([status, visibility])
   @@index([slug])
   @@index([startsAt])
   @@map("events")
@@ -581,6 +582,7 @@ model Article {
   bodyText    String    @default("")
   excerpt     String?
   author      String
+  visibility  ContentVisibility @default(REGISTERED)
   coverImage  String?
   coverImageOriginalName String?
   coverImageDisplayName  String?
@@ -594,7 +596,7 @@ model Article {
   articleTags ArticleTag[]
 
   @@index([coverAlbumImageId])
-  @@index([status])
+  @@index([status, visibility])
   @@index([slug])
   @@map("articles")
 }
@@ -751,6 +753,11 @@ enum Level {
 enum Status {
   DRAFT
   PUBLISHED
+}
+
+enum ContentVisibility {
+  PUBLIC
+  REGISTERED
 }
 
 enum UserRole {

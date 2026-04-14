@@ -171,6 +171,7 @@ export const articleValidation = [
   body('body').trim().notEmpty().withMessage('Contenuto obbligatorio'),
   body('author').trim().notEmpty().withMessage('Autore obbligatorio'),
   body('excerpt').optional().trim().isLength({ max: 300 }).withMessage('Excerpt max 300 caratteri'),
+  body('visibility').optional().isIn(['PUBLIC', 'REGISTERED']).withMessage('Visibilità non valida'),
 ]
 
 export const eventValidation = [
@@ -182,6 +183,7 @@ export const eventValidation = [
   body('startsAt').isISO8601().withMessage('Data inizio non valida'),
   body('endsAt').optional({ values: 'falsy' }).isISO8601().withMessage('Data fine non valida'),
   body('excerpt').optional().trim().isLength({ max: 300 }).withMessage('Excerpt max 300 caratteri'),
+  body('visibility').optional().isIn(['PUBLIC', 'REGISTERED']).withMessage('Visibilità non valida'),
 ]
 
 export const tagValidation = [
