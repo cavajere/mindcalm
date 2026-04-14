@@ -8,6 +8,7 @@ import TagSelector, { type SelectableTag } from '../components/TagSelector.vue'
 import AlbumImagePicker from '../components/AlbumImagePicker.vue'
 import FileUploader, { type UploadFileItem, type ExistingFileMeta } from '../components/FileUploader.vue'
 import type { AlbumImage } from '../types/album'
+import { getPublicAppUrl } from '../utils/appUrls'
 
 const route = useRoute()
 const router = useRouter()
@@ -105,6 +106,7 @@ async function save() {
     fd.append('excerpt', form.value.excerpt)
     fd.append('body', form.value.body)
     fd.append('status', form.value.status)
+    fd.append('publicBaseUrl', getPublicAppUrl())
     fd.append('tagIds', JSON.stringify(form.value.tagIds))
     fd.append('coverImageDisplayName', coverFiles.value.length ? coverFiles.value[0].displayName : coverImageDisplayName.value)
 

@@ -18,6 +18,7 @@ import { transcodeAudioFileToHls } from '../../services/audioDeliveryService'
 import { buildUploadMetadata, renameStoredUpload } from '../../services/uploadMetadataService'
 import { deleteDirectCoverImage, resolveCoverImageSource } from '../../services/albumImageService'
 import { queuePublishedContentOutboxEntry } from '../../services/notificationService'
+import { buildAppUrl, derivePublicAppBaseUrl } from '../../utils/appUrls'
 
 const router = createAsyncRouter()
 
@@ -60,6 +61,7 @@ async function getAlbumImageOrNull(albumImageId: string) {
 
 async function queueAudioPublicationOutbox(
   tx: Prisma.TransactionClient,
+  publicBaseUrl: string,
   audio: {
   id: string
   title: string
@@ -76,6 +78,7 @@ async function queueAudioPublicationOutbox(
     type: 'audio',
     title: audio.title,
     publishedAt: audio.publishedAt,
+    contentUrl: buildAppUrl(publicBaseUrl, `/audio/${audio.id}`),
   })
 }
 
@@ -213,6 +216,14 @@ router.post('/',
   ]),
   audioValidation,
   async (req: Request, res: Response) => {
+    const publicBaseUrl = derivePublicAppBaseUrl({
+      override: getSingleString(req.body.publicBaseUrl),
+      requestOrigin: req.get('origin'),
+      requestProtocol: req.protocol,
+      requestHost: req.get('host'),
+      fallback: config.appUrls.public,
+    })
+
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
       res.status(400).json({ error: 'Dati non validi', details: errors.array() })
@@ -322,7 +333,7 @@ router.post('/',
           },
         })
 
-        await queueAudioPublicationOutbox(tx, created)
+        await queueAudioPublicationOutbox(tx, publicBaseUrl, created)
 
         return created
       })
@@ -362,6 +373,14 @@ router.put('/:id',
     { name: 'coverImage', maxCount: 1 },
   ]),
   async (req: Request, res: Response) => {
+    const publicBaseUrl = derivePublicAppBaseUrl({
+      override: getSingleString(req.body.publicBaseUrl),
+      requestOrigin: req.get('origin'),
+      requestProtocol: req.protocol,
+      requestHost: req.get('host'),
+      fallback: config.appUrls.public,
+    })
+
     const audioId = getSingleString(req.params.id)
     if (!audioId) {
       res.status(400).json({ error: 'ID audio non valido' })
@@ -554,7 +573,7 @@ router.put('/:id',
       })
 
       if (existing.status !== 'PUBLISHED' && updated.status === 'PUBLISHED') {
-        await queueAudioPublicationOutbox(tx, updated)
+        await queueAudioPublicationOutbox(tx, publicBaseUrl, updated)
       }
 
       return updated
@@ -652,6 +671,14 @@ router.patch('/:id/status', statusValidation, async (req: Request, res: Response
   }
 
   const audio = await prisma.$transaction(async (tx) => {
+    const publicBaseUrl = derivePublicAppBaseUrl({
+      override: getSingleString(req.body.publicBaseUrl),
+      requestOrigin: req.get('origin'),
+      requestProtocol: req.protocol,
+      requestHost: req.get('host'),
+      fallback: config.appUrls.public,
+    })
+
     const updated = await tx.audio.update({
       where: { id: audioId },
       data: {
@@ -662,7 +689,7 @@ router.patch('/:id/status', statusValidation, async (req: Request, res: Response
     })
 
     if (existing.status !== 'PUBLISHED' && updated.status === 'PUBLISHED') {
-      await queueAudioPublicationOutbox(tx, updated)
+      await queueAudioPublicationOutbox(tx, publicBaseUrl, updated)
     }
 
     return updated

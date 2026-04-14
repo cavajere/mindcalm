@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import axios from 'axios'
 import PageHeader from '../components/PageHeader.vue'
 import StatusBadge from '../components/StatusBadge.vue'
+import { getPublicAppUrl } from '../utils/appUrls'
 
 const router = useRouter()
 const articles = ref<any[]>([])
@@ -21,7 +22,10 @@ async function fetchArticles() {
 
 async function toggleStatus(article: any) {
   const newStatus = article.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED'
-  await axios.patch(`/api/admin/articles/${article.id}/status`, { status: newStatus })
+  await axios.patch(`/api/admin/articles/${article.id}/status`, {
+    status: newStatus,
+    publicBaseUrl: getPublicAppUrl(),
+  })
   article.status = newStatus
 }
 
