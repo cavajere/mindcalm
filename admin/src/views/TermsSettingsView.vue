@@ -191,7 +191,7 @@ onMounted(() => {
 <template>
   <div>
     <PageHeader
-      title="Terms & Conditions"
+      title="Legal"
       description="Gestisci le versioni dei termini contrattuali richiesti durante la registrazione."
     >
       <template #actions>
