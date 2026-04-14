@@ -4,16 +4,28 @@ import { validationResult } from 'express-validator'
 import { createAsyncRouter } from '../../utils/asyncRouter'
 import { adminAuthMiddleware, requireAdmin } from '../../middleware/auth'
 import { campaignSendValidation } from '../../utils/validators'
-import { previewCampaignAudience, sendCampaign } from '../../services/subscriptionService'
+import { getSingleString } from '../../utils/request'
+import {
+  getCampaignAudienceOptions,
+  listCampaigns,
+  previewCampaignAudience,
+  sendCampaign,
+} from '../../services/subscriptionService'
 import { getAuditActorFromRequest, logAuditEventSafe } from '../../services/auditLogService'
 
 const router = createAsyncRouter()
 router.use(adminAuthMiddleware, requireAdmin)
 
+router.get('/', async (req: Request, res: Response) => {
+  const rawLimit = getSingleString(req.query.limit)
+  const limit = rawLimit ? Number.parseInt(rawLimit, 10) : 20
+  const data = await listCampaigns(limit)
+  res.json({ data })
+})
+
 router.get('/audience-options', async (_req: Request, res: Response) => {
-  res.json({
-    matchModes: ['ALL', 'ANY'],
-  })
+  const options = await getCampaignAudienceOptions()
+  res.json(options)
 })
 
 router.post('/audience-preview', async (req: Request, res: Response) => {
@@ -50,6 +62,8 @@ router.post('/send', campaignSendValidation, async (req: Request, res: Response)
     ...getAuditActorFromRequest(req),
     metadata: {
       recipientsCount: result.recipientsCount,
+      sentCount: result.sentCount,
+      failedCount: result.failedCount,
       matchMode,
     },
   })

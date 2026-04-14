@@ -26,6 +26,7 @@ const router = createRouter({
     { path: '/users', component: () => import('../views/UsersListView.vue'), meta: { requiresAuth: true } },
     { path: '/users/new', component: () => import('../views/UserFormView.vue'), meta: { requiresAuth: true } },
     { path: '/users/:id/edit', component: () => import('../views/UserFormView.vue'), meta: { requiresAuth: true } },
+    { path: '/communications', component: () => import('../views/CommunicationsView.vue'), meta: { requiresAuth: true } },
     { path: '/settings/notifications', component: () => import('../views/NotificationSettingsView.vue'), meta: { requiresAuth: true } },
     { path: '/settings/legal', redirect: '/settings/legal/privacy', meta: { requiresAuth: true } },
     { path: '/settings/legal/privacy', component: () => import('../views/PrivacySettingsView.vue'), meta: { requiresAuth: true } },

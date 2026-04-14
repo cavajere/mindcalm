@@ -13,6 +13,7 @@ const router = createRouter({
     { path: '/reset-password', component: () => import('../views/ResetPasswordView.vue'), meta: { hideChrome: true } },
     { path: '/verify-registration', component: () => import('../views/VerifyRegistrationView.vue'), meta: { publicOnly: true, hideChrome: true } },
     { path: '/accept-invite', component: () => import('../views/AcceptInviteView.vue'), meta: { publicOnly: true, hideChrome: true } },
+    { path: '/unsubscribe', component: () => import('../views/UnsubscribeView.vue'), meta: { hideChrome: true } },
     { path: '/license-expired', component: () => import('../views/LicenseExpiredView.vue'), meta: { hideChrome: true } },
     { path: '/', component: HomeView, meta: { requiresAuth: true } },
     { path: '/audio', component: () => import('../views/AudioView.vue'), meta: { requiresAuth: true } },

@@ -320,6 +320,35 @@ export function buildContentNotificationEmail(input: {
   }
 }
 
+export function buildCommunicationEmail(input: {
+  subject: string
+  title: string
+  bodyHtml: string
+  bodyText: string
+  unsubscribeUrl: string
+}): EmailTemplate {
+  const text = joinTextBlocks([
+    input.bodyText,
+    `Gestisci le preferenze comunicazioni: ${input.unsubscribeUrl}`,
+  ])
+  const html = renderEmailLayout({
+    subject: input.subject,
+    preheader: input.subject,
+    title: input.title,
+    bodyHtml:
+      input.bodyHtml +
+      renderInfoCard([{ label: 'Preferenze comunicazioni', value: input.unsubscribeUrl }]) +
+      renderMutedNote('Puoi aggiornare o revocare queste comunicazioni in qualsiasi momento dal link qui sopra.'),
+    footerNote: 'Comunicazione email MindCalm.',
+  })
+
+  return {
+    subject: input.subject,
+    text,
+    html,
+  }
+}
+
 export function buildSmtpTestEmail(): EmailTemplate {
   const subject = 'Test configurazione SMTP MindCalm'
   const text = "La configurazione SMTP di MindCalm e' valida."

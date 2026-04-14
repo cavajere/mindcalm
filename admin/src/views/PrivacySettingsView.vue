@@ -356,8 +356,8 @@ onMounted(() => {
 <template>
   <div>
     <PageHeader
-      title="Privacy & Consensi"
-      description="Gestisci l’informativa privacy pubblica e le formule usate nei consensi marketing."
+      title="Legal"
+      description="Gestisci l’informativa privacy pubblica e le formule usate nei consensi comunicazione."
     >
       <template #actions>
         <button class="btn-secondary" :disabled="refreshing || loading" @click="fetchPolicy(true)">
@@ -384,8 +384,8 @@ onMounted(() => {
         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p class="text-lg font-semibold text-text-primary">Informativa privacy</p>
-            <p class="mt-1 text-sm text-text-secondary">
-              Versiona il testo privacy pubblico e le etichette usate per i consensi marketing.
+              <p class="mt-1 text-sm text-text-secondary">
+              Versiona il testo privacy pubblico e le etichette usate per i consensi comunicazione.
             </p>
           </div>
 
@@ -498,7 +498,7 @@ onMounted(() => {
       <section class="card mt-6 space-y-6">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p class="text-lg font-semibold text-text-primary">Consensi marketing</p>
+            <p class="text-lg font-semibold text-text-primary">Consensi comunicazione</p>
             <p class="mt-1 text-sm text-text-secondary">
               Le traduzioni delle formule seguono la versione privacy selezionata. Le modifiche sono consentite solo su una bozza.
             </p>
@@ -515,7 +515,7 @@ onMounted(() => {
         <form class="grid grid-cols-1 gap-4 rounded-2xl border border-dashed border-ui-border p-4 md:grid-cols-[minmax(0,1fr)_180px_auto]" @submit.prevent="createConsentFormula">
           <div>
             <label class="label">Codice formula</label>
-            <input v-model="newFormula.code" class="input-field" placeholder="newsletter_marketing" />
+            <input v-model="newFormula.code" class="input-field" placeholder="newsletter_comunicazioni" />
           </div>
           <label class="flex items-center gap-3 rounded-xl border border-ui-border px-4 py-3 text-sm text-text-primary">
             <input v-model="newFormula.required" type="checkbox" class="h-4 w-4 rounded border-ui-border" />
@@ -588,7 +588,7 @@ onMounted(() => {
                   </div>
                   <div>
                     <label class="label">Titolo</label>
-                    <input v-model="translation.title" :disabled="!canEditSelectedFormulaVersion(formula)" class="input-field" placeholder="Acconsento al marketing" />
+                    <input v-model="translation.title" :disabled="!canEditSelectedFormulaVersion(formula)" class="input-field" placeholder="Acconsento a ricevere comunicazioni" />
                   </div>
                 </div>
 

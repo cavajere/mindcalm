@@ -10,8 +10,13 @@ import {
   SubscriptionPolicyStatus,
   SubscriptionPolicyVersionStatus,
 } from '@prisma/client'
+import sanitizeHtml from 'sanitize-html'
 import { prisma } from '../lib/prisma'
+import { config } from '../config'
+import { buildAppUrl } from '../utils/appUrls'
 import { generateRandomToken, hashToken } from './cryptoService'
+import { buildCommunicationEmail } from './email/templates'
+import { sendMail } from './smtpService'
 
 const CONFIRM_TOKEN_HOURS = 48
 const UNSUBSCRIBE_TOKEN_DAYS = 30
@@ -27,6 +32,30 @@ type FormulaTranslationPayload = {
   lang: string
   title: string
   text: string
+}
+
+type CampaignFilterInput = {
+  formulaId: string
+  versionIds?: string[]
+}
+
+const COMMUNICATION_HTML_SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
+  allowedTags: sanitizeHtml.defaults.allowedTags.concat([
+    'img',
+    'h1',
+    'h2',
+    'h3',
+    'span',
+    'div',
+    'br',
+  ]),
+  allowedAttributes: {
+    ...sanitizeHtml.defaults.allowedAttributes,
+    a: ['href', 'name', 'target', 'rel'],
+    img: ['src', 'alt'],
+    '*': ['style'],
+  },
+  allowedSchemes: ['http', 'https', 'mailto'],
 }
 
 export async function getOrCreateSubscriptionPolicy() {
@@ -631,6 +660,13 @@ export async function getUnsubscribePreferences(rawToken: string) {
   const tokenHash = hashToken(rawToken)
   const token = await prisma.unsubscribeToken.findUnique({
     where: { tokenHash },
+    include: {
+      contact: {
+        select: {
+          email: true,
+        },
+      },
+    },
   })
 
   if (!token || token.expiresAt < new Date()) {
@@ -654,6 +690,7 @@ export async function getUnsubscribePreferences(rawToken: string) {
 
   return {
     contactId: token.contactId,
+    email: token.contact.email,
     consents,
   }
 }
@@ -738,6 +775,136 @@ function buildAudienceWhere(filters: Array<{ formulaId: string, versionIds?: str
     : { OR: condition }
 }
 
+function buildCommunicationHtmlBody(htmlBody: string, unsubscribeUrl: string) {
+  const bodyWithToken = htmlBody
+    .replaceAll('{{unsubscribe_url}}', unsubscribeUrl)
+    .replaceAll('{{unsubscribeUrl}}', unsubscribeUrl)
+    .replaceAll('[[unsubscribe_url]]', unsubscribeUrl)
+
+  return sanitizeHtml(bodyWithToken, COMMUNICATION_HTML_SANITIZE_OPTIONS)
+}
+
+function buildCommunicationTextBody(htmlBody: string) {
+  const withLineBreaks = htmlBody
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|h1|h2|h3|li|blockquote)>/gi, '\n')
+
+  return sanitizeHtml(withLineBreaks, { allowedTags: [], allowedAttributes: {} })
+    .replace(/\n\s*\n\s*\n+/g, '\n\n')
+    .replace(/[ \t]+\n/g, '\n')
+    .trim()
+}
+
+export async function getCampaignAudienceOptions() {
+  const policy = await getOrCreateSubscriptionPolicy()
+
+  return {
+    matchModes: ['ALL', 'ANY'] as const,
+    placeholders: ['{{unsubscribe_url}}', '{{unsubscribeUrl}}'],
+    formulas: policy.consentFormulas.map((formula) => ({
+      id: formula.id,
+      code: formula.code,
+      required: formula.required,
+      currentVersionId: formula.currentVersionId,
+      versions: formula.versions.map((version) => ({
+        id: version.id,
+        versionNumber: version.versionNumber,
+        status: version.status,
+        subscriptionPolicyVersionId: version.subscriptionPolicyVersionId,
+        translations: version.translations,
+      })),
+    })),
+  }
+}
+
+export async function listCampaigns(limit = 20) {
+  const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(100, Math.trunc(limit))) : 20
+  const campaigns = await prisma.campaign.findMany({
+    take: safeLimit,
+    orderBy: [{ createdAt: 'desc' }],
+    include: {
+      createdByUser: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+      filters: {
+        include: {
+          consentFormula: {
+            select: {
+              id: true,
+              code: true,
+            },
+          },
+        },
+      },
+      _count: {
+        select: {
+          recipients: true,
+        },
+      },
+    },
+  })
+
+  if (!campaigns.length) {
+    return []
+  }
+
+  const recipientSummaryRows = await prisma.campaignRecipient.groupBy({
+    by: ['campaignId', 'status'],
+    where: {
+      campaignId: {
+        in: campaigns.map((campaign) => campaign.id),
+      },
+    },
+    _count: {
+      status: true,
+    },
+  })
+
+  const recipientStats = new Map<string, {
+    pendingCount: number
+    sentCount: number
+    failedCount: number
+  }>()
+
+  for (const row of recipientSummaryRows) {
+    const existing = recipientStats.get(row.campaignId) ?? {
+      pendingCount: 0,
+      sentCount: 0,
+      failedCount: 0,
+    }
+
+    if (row.status === CampaignRecipientStatus.PENDING) {
+      existing.pendingCount = row._count.status
+    } else if (row.status === CampaignRecipientStatus.SENT) {
+      existing.sentCount = row._count.status
+    } else if (row.status === CampaignRecipientStatus.FAILED) {
+      existing.failedCount = row._count.status
+    }
+
+    recipientStats.set(row.campaignId, existing)
+  }
+
+  return campaigns.map((campaign) => {
+    const stats = recipientStats.get(campaign.id) ?? {
+      pendingCount: 0,
+      sentCount: 0,
+      failedCount: 0,
+    }
+
+    return {
+      ...campaign,
+      recipientsCount: campaign._count.recipients,
+      pendingCount: stats.pendingCount,
+      sentCount: stats.sentCount,
+      failedCount: stats.failedCount,
+    }
+  })
+}
+
 export async function previewCampaignAudience(filters: Array<{ formulaId: string, versionIds?: string[] }>, matchMode: CampaignMatchMode) {
   if (!filters.length) return []
 
@@ -788,7 +955,7 @@ export async function sendCampaign(input: {
   name: string
   subject: string
   htmlBody: string
-  filters: Array<{ formulaId: string, versionIds?: string[] }>
+  filters: CampaignFilterInput[]
   matchMode: CampaignMatchMode
   createdByUserId?: string
 }) {
@@ -797,15 +964,14 @@ export async function sendCampaign(input: {
     throw new Error('CAMPAIGN_AUDIENCE_EMPTY')
   }
 
-  return prisma.$transaction(async (tx) => {
+  const campaign = await prisma.$transaction(async (tx) => {
     const campaign = await tx.campaign.create({
       data: {
         name: input.name,
         subject: input.subject,
         htmlBody: input.htmlBody,
         matchMode: input.matchMode,
-        status: CampaignStatus.SENT,
-        sentAt: new Date(),
+        status: CampaignStatus.DRAFT,
         createdByUserId: input.createdByUserId ?? null,
       },
     })
@@ -822,14 +988,82 @@ export async function sendCampaign(input: {
       data: recipients.map((contact) => ({
         campaignId: campaign.id,
         contactId: contact.id,
-        status: CampaignRecipientStatus.SENT,
-        sentAt: new Date(),
+        status: CampaignRecipientStatus.PENDING,
       })),
     })
 
-    return {
-      campaign,
-      recipientsCount: recipients.length,
-    }
+    return campaign
   })
+
+  let sentCount = 0
+  let failedCount = 0
+
+  for (const recipient of recipients) {
+    try {
+      const unsubscribeToken = await createUnsubscribeTokenForContact(recipient.id)
+      const unsubscribeUrl = buildAppUrl(
+        config.appUrls.public,
+        `/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`,
+      )
+      const sanitizedHtmlBody = buildCommunicationHtmlBody(input.htmlBody, unsubscribeUrl)
+      const communicationEmail = buildCommunicationEmail({
+        subject: input.subject,
+        title: input.name,
+        bodyHtml: sanitizedHtmlBody,
+        bodyText: buildCommunicationTextBody(sanitizedHtmlBody),
+        unsubscribeUrl,
+      })
+
+      await sendMail({
+        to: recipient.email,
+        subject: communicationEmail.subject,
+        html: communicationEmail.html,
+        text: communicationEmail.text,
+      })
+
+      sentCount += 1
+      await prisma.campaignRecipient.update({
+        where: {
+          campaignId_contactId: {
+            campaignId: campaign.id,
+            contactId: recipient.id,
+          },
+        },
+        data: {
+          status: CampaignRecipientStatus.SENT,
+          sentAt: new Date(),
+          error: null,
+        },
+      })
+    } catch (error) {
+      failedCount += 1
+      await prisma.campaignRecipient.update({
+        where: {
+          campaignId_contactId: {
+            campaignId: campaign.id,
+            contactId: recipient.id,
+          },
+        },
+        data: {
+          status: CampaignRecipientStatus.FAILED,
+          error: error instanceof Error ? error.message : 'Invio non riuscito',
+        },
+      })
+    }
+  }
+
+  const finalCampaign = await prisma.campaign.update({
+    where: { id: campaign.id },
+    data: {
+      status: sentCount > 0 ? CampaignStatus.SENT : CampaignStatus.CANCELLED,
+      sentAt: sentCount > 0 ? new Date() : null,
+    },
+  })
+
+  return {
+    campaign: finalCampaign,
+    recipientsCount: recipients.length,
+    sentCount,
+    failedCount,
+  }
 }
