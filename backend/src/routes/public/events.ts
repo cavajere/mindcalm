@@ -71,14 +71,35 @@ router.get('/', paginationQuery, async (req: Request, res: Response) => {
   const limit = parseInt(req.query.limit as string) || 20
   const skip = (page - 1) * limit
   const city = getSingleString(req.query.city)?.trim()
+  const search = getSingleString(req.query.search)?.trim()
   const visibleVisibilities = getVisibleContentVisibilities(req)
 
   const where: Prisma.EventWhereInput = {
     status: 'PUBLISHED',
     visibility: { in: visibleVisibilities },
   }
+  const andFilters: Prisma.EventWhereInput[] = []
+
   if (city) {
-    where.city = { equals: city, mode: 'insensitive' }
+    andFilters.push({
+      city: { equals: city, mode: 'insensitive' },
+    })
+  }
+  if (search) {
+    andFilters.push({
+      OR: [
+        { title: { contains: search, mode: 'insensitive' } },
+        { excerpt: { contains: search, mode: 'insensitive' } },
+        { bodyText: { contains: search, mode: 'insensitive' } },
+        { organizer: { contains: search, mode: 'insensitive' } },
+        { city: { contains: search, mode: 'insensitive' } },
+        { venue: { contains: search, mode: 'insensitive' } },
+      ],
+    })
+  }
+
+  if (andFilters.length) {
+    where.AND = andFilters
   }
 
   const [events, total] = await Promise.all([

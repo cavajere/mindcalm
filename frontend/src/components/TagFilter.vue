@@ -56,7 +56,7 @@ function clear() {
           'rounded-full border px-3 py-1.5 text-sm transition-colors',
           selected.has(tag.slug)
             ? 'border-primary bg-primary text-white'
-            : 'border-gray-200 bg-white text-text-secondary hover:border-primary/30 hover:text-text-primary'
+            : 'border-ui-border bg-surface text-text-secondary hover:border-primary/30 hover:text-text-primary'
         ]"
       >
         {{ tag.label }}

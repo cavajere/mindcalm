@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import axios from 'axios'
 import ArticleCover from '../components/ArticleCover.vue'
 
@@ -17,8 +17,10 @@ interface EventItem {
 
 const events = ref<EventItem[]>([])
 const loading = ref(true)
+const search = ref('')
 
 const nextEvent = computed(() => events.value[0] ?? null)
+const activeFiltersLabel = computed(() => search.value.trim() ? 'ricerca attiva' : 'Nessun filtro attivo')
 
 function formatEventDate(value: string) {
   return new Date(value).toLocaleDateString('it-IT', {
@@ -39,7 +41,13 @@ async function fetchEvents() {
   loading.value = true
 
   try {
-    const { data } = await axios.get('/api/events?limit=50')
+    const query = new URLSearchParams({ limit: '50' })
+
+    if (search.value.trim()) {
+      query.set('search', search.value.trim())
+    }
+
+    const { data } = await axios.get(`/api/events?${query}`)
     events.value = data.data
   } finally {
     loading.value = false
@@ -47,6 +55,14 @@ async function fetchEvents() {
 }
 
 onMounted(fetchEvents)
+
+let searchTimeout: number
+watch(search, () => {
+  clearTimeout(searchTimeout)
+  searchTimeout = window.setTimeout(() => {
+    fetchEvents()
+  }, 350)
+})
 </script>
 
 <template>
@@ -56,38 +72,55 @@ onMounted(fetchEvents)
 
       <div class="relative grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.85fr)] lg:p-10">
         <div>
-          <span class="eyebrow">Agenda pubblica</span>
-          <h1 class="font-display mt-4 text-4xl font-semibold leading-none text-slate-950 sm:text-5xl">
-            Eventi pensati per incontrarsi con piu presenza.
+          <span class="eyebrow">Eventi pubblici</span>
+          <h1 class="font-display mt-4 text-4xl font-semibold leading-none text-text-primary sm:text-5xl">
+            Eventi, incontri e appuntamenti aperti.
           </h1>
-          <p class="mt-4 max-w-3xl text-base leading-8 text-slate-600 sm:text-lg">
-            Workshop, incontri e appuntamenti aperti per portare la pratica fuori dallo schermo e dentro la vita quotidiana.
+          <p class="mt-4 max-w-3xl text-base leading-8 text-text-secondary sm:text-lg">
+            Consulta gli eventi pubblici di MindCalm e cerca per parole chiave tra titoli, luoghi, organizzatori e descrizioni.
           </p>
         </div>
 
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-          <div class="rounded-[26px] border border-white/80 bg-white/75 p-4 backdrop-blur-sm">
-            <p class="text-2xl font-semibold text-slate-950">{{ events.length }}</p>
-            <p class="mt-1 text-sm text-slate-600">eventi visibili</p>
+          <div class="surface-card-muted p-4">
+            <p class="text-2xl font-semibold text-text-primary">{{ events.length }}</p>
+            <p class="mt-1 text-sm text-text-secondary">eventi visibili</p>
           </div>
-          <div class="rounded-[26px] border border-white/80 bg-white/75 p-4 backdrop-blur-sm">
-            <p class="text-sm font-semibold text-slate-950">
-              {{ nextEvent ? formatEventDate(nextEvent.startsAt) : 'Nessun evento in calendario' }}
+          <div class="surface-card-muted p-4">
+            <p class="text-sm font-semibold text-text-primary">
+              {{ nextEvent ? formatEventDate(nextEvent.startsAt) : activeFiltersLabel }}
             </p>
-            <p class="mt-1 text-sm text-slate-600">prossimo appuntamento</p>
+            <p class="mt-1 text-sm text-text-secondary">
+              {{ nextEvent ? 'prossimo appuntamento' : 'stato della ricerca' }}
+            </p>
           </div>
         </div>
       </div>
     </section>
 
+    <section class="card p-5 sm:p-6">
+      <label class="mb-2 block text-sm font-semibold text-text-primary">Cerca negli eventi</label>
+      <div class="relative">
+        <svg class="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <input
+          v-model="search"
+          type="text"
+          placeholder="Cerca per titolo, citta, luogo o organizzatore..."
+          class="w-full rounded-[22px] border border-ui-border bg-surface/92 py-3 pl-12 pr-4 transition-all"
+        />
+      </div>
+    </section>
+
     <div v-if="loading" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
       <div v-for="item in 6" :key="item" class="card animate-pulse overflow-hidden">
-        <div class="aspect-[4/3] bg-slate-200"></div>
+        <div class="aspect-[4/3] skeleton-block"></div>
         <div class="space-y-3 p-5">
-          <div class="h-3 w-24 rounded-full bg-slate-200"></div>
-          <div class="h-8 w-4/5 rounded-2xl bg-slate-200"></div>
-          <div class="h-4 w-full rounded bg-slate-200"></div>
-          <div class="h-4 w-3/4 rounded bg-slate-200"></div>
+          <div class="skeleton-block h-3 w-24 rounded-full"></div>
+          <div class="skeleton-block h-8 w-4/5 rounded-2xl"></div>
+          <div class="skeleton-block h-4 w-full"></div>
+          <div class="skeleton-block h-4 w-3/4"></div>
         </div>
       </div>
     </div>
@@ -108,7 +141,7 @@ onMounted(fetchEvents)
 
         <div class="p-5">
           <div class="flex items-start gap-4">
-            <div class="flex min-h-16 min-w-16 flex-col items-center justify-center rounded-[22px] bg-primary/10 text-primary">
+            <div class="surface-card-muted flex min-h-16 min-w-16 flex-col items-center justify-center text-primary">
               <span class="text-lg font-semibold leading-none">{{ formatCompactEventDate(eventItem.startsAt).split(' ')[0] }}</span>
               <span class="mt-1 text-[11px] font-semibold uppercase tracking-[0.16em]">
                 {{ formatCompactEventDate(eventItem.startsAt).split(' ').slice(1).join(' ') }}
@@ -116,15 +149,15 @@ onMounted(fetchEvents)
             </div>
 
             <div class="min-w-0">
-              <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+              <p class="text-xs font-semibold uppercase tracking-[0.16em] text-text-secondary">
                 {{ eventItem.city }}<span v-if="eventItem.venue"> · {{ eventItem.venue }}</span>
               </p>
-              <h2 class="mt-2 text-xl font-semibold leading-tight text-slate-950">{{ eventItem.title }}</h2>
+              <h2 class="mt-2 text-xl font-semibold leading-tight text-text-primary">{{ eventItem.title }}</h2>
               <p class="mt-2 text-sm font-medium text-primary">{{ eventItem.organizer }}</p>
             </div>
           </div>
 
-          <p class="mt-4 text-sm leading-7 text-slate-600">
+          <p class="mt-4 text-sm leading-7 text-text-secondary">
             {{ eventItem.excerpt || 'Un incontro aperto per approfondire pratica, ascolto e strumenti utili da portare nella settimana.' }}
           </p>
         </div>
@@ -133,10 +166,10 @@ onMounted(fetchEvents)
 
     <div v-else class="section-panel p-8 text-center sm:p-10">
       <div class="mx-auto max-w-2xl">
-        <span class="eyebrow">Agenda in aggiornamento</span>
-        <h2 class="mt-5 text-2xl font-semibold text-slate-950 sm:text-3xl">Nessun evento pubblico disponibile in questo momento.</h2>
-        <p class="mt-4 text-base leading-8 text-slate-600">
-          Quando saranno programmati nuovi appuntamenti, li troverai qui con data, luogo e tutti i dettagli utili.
+        <span class="eyebrow">Nessun risultato</span>
+        <h2 class="mt-5 text-2xl font-semibold text-text-primary sm:text-3xl">Non ci sono eventi che corrispondono alla ricerca.</h2>
+        <p class="mt-4 text-base leading-8 text-text-secondary">
+          Prova con un'altra parola chiave oppure torna piu tardi per vedere i prossimi appuntamenti pubblici.
         </p>
         <router-link to="/" class="btn-secondary mt-6 inline-flex">Torna alla home</router-link>
       </div>

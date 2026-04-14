@@ -120,23 +120,23 @@ watch(search, () => {
 
       <div class="relative grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:p-10">
         <div>
-          <span class="eyebrow">Archivio pubblico</span>
-          <h1 class="font-display mt-4 text-4xl font-semibold leading-none text-slate-950 sm:text-5xl">
-            Articoli e guide per ritrovare spazio mentale.
+          <span class="eyebrow">Articoli pubblici</span>
+          <h1 class="font-display mt-4 text-4xl font-semibold leading-none text-text-primary sm:text-5xl">
+            Articoli e approfondimenti.
           </h1>
-          <p class="mt-4 max-w-3xl text-base leading-8 text-slate-600 sm:text-lg">
-            Letture brevi, pratiche e ben curate per accompagnare la giornata con piu chiarezza, presenza e continuita.
+          <p class="mt-4 max-w-3xl text-base leading-8 text-text-secondary sm:text-lg">
+            Cerca per parole chiave e trova i contenuti pubblici piu rilevanti tra temi, pratiche e approfondimenti.
           </p>
         </div>
 
         <div class="grid gap-3 sm:grid-cols-2 lg:min-w-[320px]">
-          <div class="rounded-[26px] border border-white/80 bg-white/75 p-4 backdrop-blur-sm">
-            <p class="text-2xl font-semibold text-slate-950">{{ pagination.total }}</p>
-            <p class="mt-1 text-sm text-slate-600">articoli pubblicati</p>
+          <div class="surface-card-muted p-4">
+            <p class="text-2xl font-semibold text-text-primary">{{ pagination.total }}</p>
+            <p class="mt-1 text-sm text-text-secondary">articoli pubblicati</p>
           </div>
-          <div class="rounded-[26px] border border-white/80 bg-white/75 p-4 backdrop-blur-sm">
-            <p class="text-sm font-semibold text-slate-950">{{ activeFiltersLabel }}</p>
-            <p class="mt-1 text-sm text-slate-600">stato della ricerca</p>
+          <div class="surface-card-muted p-4">
+            <p class="text-sm font-semibold text-text-primary">{{ activeFiltersLabel }}</p>
+            <p class="mt-1 text-sm text-text-secondary">stato della ricerca</p>
           </div>
         </div>
       </div>
@@ -145,7 +145,7 @@ watch(search, () => {
     <section class="card p-5 sm:p-6">
       <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start">
         <div>
-          <label class="mb-2 block text-sm font-semibold text-slate-950">Cerca nel journal</label>
+          <label class="mb-2 block text-sm font-semibold text-text-primary">Cerca negli articoli</label>
           <div class="relative">
             <svg class="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -154,7 +154,7 @@ watch(search, () => {
               v-model="search"
               type="text"
               placeholder="Cerca temi, pratiche e parole chiave..."
-              class="w-full rounded-[22px] border border-ui-border bg-white/85 py-3 pl-12 pr-4 transition-all focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              class="w-full rounded-[22px] border border-ui-border bg-surface/92 py-3 pl-12 pr-4 transition-all"
             />
           </div>
         </div>
@@ -164,21 +164,21 @@ watch(search, () => {
             v-if="tags.length"
             v-model="selectedTags"
             :tags="tags"
-            label="Esplora per tag"
+            label="Filtra per tag"
           />
-          <p v-else class="pt-8 text-sm text-slate-500">I tag compariranno qui quando saranno disponibili.</p>
+          <p v-else class="pt-8 text-sm text-text-secondary">I tag compariranno qui quando saranno disponibili.</p>
         </div>
       </div>
     </section>
 
     <div v-if="loading" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
       <div v-for="item in 6" :key="item" class="card animate-pulse overflow-hidden">
-        <div class="aspect-[4/3] bg-slate-200"></div>
+        <div class="aspect-[4/3] skeleton-block"></div>
         <div class="space-y-3 p-5">
-          <div class="h-3 w-24 rounded-full bg-slate-200"></div>
-          <div class="h-8 w-4/5 rounded-2xl bg-slate-200"></div>
-          <div class="h-4 w-full rounded bg-slate-200"></div>
-          <div class="h-4 w-3/4 rounded bg-slate-200"></div>
+          <div class="skeleton-block h-3 w-24 rounded-full"></div>
+          <div class="skeleton-block h-8 w-4/5 rounded-2xl"></div>
+          <div class="skeleton-block h-4 w-full"></div>
+          <div class="skeleton-block h-4 w-3/4"></div>
         </div>
       </div>
     </div>
@@ -198,17 +198,17 @@ watch(search, () => {
         />
 
         <div class="p-5">
-          <div class="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+          <div class="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-text-secondary">
             <span>{{ formatArticleDate(article.publishedAt) }}</span>
             <span>·</span>
             <span>{{ article.author }}</span>
           </div>
 
-          <h2 class="mt-3 text-xl font-semibold leading-tight text-slate-950">
+          <h2 class="mt-3 text-xl font-semibold leading-tight text-text-primary">
             {{ article.title }}
           </h2>
 
-          <p class="mt-3 text-sm leading-7 text-slate-600">
+          <p class="mt-3 text-sm leading-7 text-text-secondary">
             {{ article.excerpt || 'Una lettura pubblica pensata per portare ordine, consapevolezza e strumenti pratici nella quotidianita.' }}
           </p>
 
@@ -228,8 +228,8 @@ watch(search, () => {
     <div v-else class="section-panel p-8 text-center sm:p-10">
       <div class="mx-auto max-w-2xl">
         <span class="eyebrow">Archivio vuoto</span>
-        <h2 class="mt-5 text-2xl font-semibold text-slate-950 sm:text-3xl">Nessun articolo corrisponde alla ricerca attuale.</h2>
-        <p class="mt-4 text-base leading-8 text-slate-600">
+        <h2 class="mt-5 text-2xl font-semibold text-text-primary sm:text-3xl">Nessun articolo corrisponde alla ricerca attuale.</h2>
+        <p class="mt-4 text-base leading-8 text-text-secondary">
           Prova a rimuovere qualche filtro o torna piu tardi: i nuovi contenuti pubblici compariranno qui in automatico.
         </p>
         <router-link to="/" class="btn-secondary mt-6 inline-flex">Torna alla home</router-link>
@@ -243,7 +243,7 @@ watch(search, () => {
           :key="page"
           type="button"
           class="h-11 min-w-11 rounded-full px-4 text-sm font-semibold transition-colors"
-          :class="page === pagination.page ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-white text-slate-600 hover:bg-slate-100'"
+          :class="page === pagination.page ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-surface text-text-secondary hover:bg-muted'"
           @click="changePage(page)"
         >
           {{ page }}

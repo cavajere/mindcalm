@@ -4,6 +4,7 @@ import axios from 'axios'
 import App from './App.vue'
 import router from './router'
 import { useAuthStore } from './stores/authStore'
+import { useUiStore } from './stores/uiStore'
 import { trackApiError, trackAppError } from './services/analyticsService'
 import { injectDesignSystemTokens } from './utils/designSystem'
 import './assets/styles/main.css'
@@ -14,6 +15,8 @@ const pinia = createPinia()
 const app = createApp(App)
 app.use(pinia)
 app.use(router)
+
+useUiStore(pinia).initTheme()
 
 function normalizeRequestPath(requestUrl?: string) {
   if (!requestUrl) return ''

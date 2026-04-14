@@ -48,25 +48,6 @@ const publicCounts = ref({ articles: 0, events: 0 })
 
 const latestStory = computed(() => latestArticles.value[0] ?? null)
 const nextEvent = computed(() => latestEvents.value[0] ?? null)
-const primaryPublicCta = computed(() => {
-  if (latestArticles.value.length) {
-    return { label: 'Leggi gli ultimi articoli', to: '/articles' }
-  }
-
-  if (latestEvents.value.length) {
-    return { label: 'Scopri gli eventi pubblici', to: '/events' }
-  }
-
-  return { label: 'Hai un invito? Attivalo', to: '/register' }
-})
-
-const secondaryPublicCta = computed(() => {
-  if (latestEvents.value.length) {
-    return { label: 'Guarda gli eventi', to: '/events' }
-  }
-
-  return { label: "Accedi all'area riservata", to: '/login' }
-})
 
 function formatArticleDate(value: string) {
   return new Date(value).toLocaleDateString('it-IT', {
@@ -151,46 +132,46 @@ onMounted(async () => {
         <div class="relative grid gap-8 p-6 sm:p-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] lg:p-10">
           <div class="min-w-0">
             <span class="eyebrow">Area personale</span>
-            <h1 class="font-display mt-5 text-4xl font-semibold leading-none text-slate-950 sm:text-5xl lg:text-6xl">
+            <h1 class="font-display mt-5 text-4xl font-semibold leading-none text-text-primary sm:text-5xl lg:text-6xl">
               Un percorso più calmo, un ascolto alla volta.
             </h1>
-            <p class="mt-5 max-w-2xl text-base leading-8 text-slate-600 sm:text-lg">
-              Riprendi dai contenuti più recenti, esplora per categoria e usa il journal pubblico quando vuoi approfondire.
+            <p class="mt-5 max-w-2xl text-base leading-8 text-text-secondary sm:text-lg">
+              Riprendi dai contenuti piu recenti, esplora per categoria e consulta articoli ed eventi pubblici quando vuoi approfondire.
             </p>
 
             <div class="mt-8 flex flex-wrap gap-3">
               <router-link to="/audio" class="btn-primary">Vai alla libreria audio</router-link>
-              <router-link to="/articles" class="btn-secondary">Apri il journal</router-link>
+              <router-link to="/articles" class="btn-secondary">Articoli pubblici</router-link>
             </div>
 
             <div class="mt-8 grid gap-3 sm:grid-cols-3">
-              <div class="rounded-[28px] border border-white/80 bg-white/75 p-4 backdrop-blur-sm">
-                <p class="text-2xl font-semibold text-slate-950">{{ formatCount(store.audioItems.length) }}</p>
-                <p class="mt-1 text-sm text-slate-600">audio pronti all'ascolto</p>
+              <div class="surface-card-muted p-4">
+                <p class="text-2xl font-semibold text-text-primary">{{ formatCount(store.audioItems.length) }}</p>
+                <p class="mt-1 text-sm text-text-secondary">audio pronti all'ascolto</p>
               </div>
-              <div class="rounded-[28px] border border-white/80 bg-white/75 p-4 backdrop-blur-sm">
-                <p class="text-2xl font-semibold text-slate-950">{{ formatCount(store.categories.length) }}</p>
-                <p class="mt-1 text-sm text-slate-600">categorie da esplorare</p>
+              <div class="surface-card-muted p-4">
+                <p class="text-2xl font-semibold text-text-primary">{{ formatCount(store.categories.length) }}</p>
+                <p class="mt-1 text-sm text-text-secondary">categorie da esplorare</p>
               </div>
-              <div class="rounded-[28px] border border-white/80 bg-white/75 p-4 backdrop-blur-sm">
-                <p class="text-2xl font-semibold text-slate-950">{{ formatCount(publicCounts.articles + publicCounts.events) }}</p>
-                <p class="mt-1 text-sm text-slate-600">contenuti pubblici di contesto</p>
+              <div class="surface-card-muted p-4">
+                <p class="text-2xl font-semibold text-text-primary">{{ formatCount(publicCounts.articles + publicCounts.events) }}</p>
+                <p class="mt-1 text-sm text-text-secondary">contenuti pubblici di contesto</p>
               </div>
             </div>
           </div>
 
-          <div v-if="featuredAudio" class="rounded-[30px] border border-slate-200 bg-slate-950 p-6 text-white shadow-2xl shadow-slate-900/15">
-            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-sky-200">Suggerimento del giorno</p>
+          <div v-if="featuredAudio" class="surface-inverse p-6">
+            <p class="text-xs font-semibold uppercase tracking-[0.24em] opacity-75">Suggerimento del giorno</p>
             <h2 class="mt-4 text-2xl font-semibold leading-tight">{{ featuredAudio.title }}</h2>
-            <p class="mt-4 text-sm leading-7 text-slate-300">
+            <p class="mt-4 text-sm leading-7 opacity-80">
               {{ featuredAudio.description || 'Un contenuto da ascoltare quando vuoi ritrovare concentrazione e spazio mentale.' }}
             </p>
 
             <div class="mt-6 flex flex-wrap gap-2">
-              <span class="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-medium text-slate-100">
+              <span class="inverse-chip">
                 {{ featuredAudio.category?.name || 'Percorso guidato' }}
               </span>
-              <span class="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-medium text-slate-100">
+              <span class="inverse-chip">
                 {{ featuredAudio.level }}
               </span>
             </div>
@@ -209,9 +190,9 @@ onMounted(async () => {
         <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <span class="eyebrow">Esplora</span>
-            <h2 class="font-display mt-4 text-3xl font-semibold text-slate-950 sm:text-4xl">Scegli il ritmo giusto per oggi</h2>
+            <h2 class="font-display mt-4 text-3xl font-semibold text-text-primary sm:text-4xl">Scegli il ritmo giusto per oggi</h2>
           </div>
-          <p class="max-w-xl text-sm leading-7 text-slate-600">
+          <p class="max-w-xl text-sm leading-7 text-text-secondary">
             Categorie semplici da capire, per arrivare piu rapidamente al contenuto che ti serve davvero.
           </p>
         </div>
@@ -239,7 +220,7 @@ onMounted(async () => {
         <div class="flex items-center justify-between gap-4">
           <div>
             <span class="eyebrow">Novita audio</span>
-            <h2 class="font-display mt-4 text-3xl font-semibold text-slate-950 sm:text-4xl">Gli ultimi percorsi pubblicati</h2>
+            <h2 class="font-display mt-4 text-3xl font-semibold text-text-primary sm:text-4xl">Gli ultimi percorsi pubblicati</h2>
           </div>
           <router-link to="/audio" class="btn-ghost hidden sm:inline-flex">Vedi tutto</router-link>
         </div>
@@ -256,50 +237,47 @@ onMounted(async () => {
 
         <div class="relative grid gap-8 p-6 sm:p-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)] lg:p-10">
           <div class="min-w-0">
-            <span class="eyebrow">MindCalm Journal</span>
-            <h1 class="font-display mt-5 text-5xl font-semibold leading-none text-slate-950 sm:text-6xl lg:text-[4.5rem]">
+            <span class="eyebrow">Contenuti pubblici</span>
+            <h1 class="font-display mt-5 text-5xl font-semibold leading-none text-text-primary sm:text-6xl lg:text-[4.5rem]">
               Spazio per respirare, capire, ricominciare.
             </h1>
-            <p class="mt-5 max-w-2xl text-base leading-8 text-slate-600 sm:text-xl">
-              Esplora articoli ed eventi pubblici per conoscere l'approccio MindCalm. I percorsi audio e le meditazioni guidate restano disponibili nell'area riservata.
+            <p class="mt-5 max-w-2xl text-base leading-8 text-text-secondary sm:text-xl">
+              Nella parte pubblica trovi solo due percorsi chiari: articoli ed eventi. Da li puoi cercare per parole chiave e arrivare subito ai contenuti che ti servono.
             </p>
 
             <div class="mt-8 flex flex-wrap gap-3">
-              <router-link :to="primaryPublicCta.to" class="btn-primary">
-                {{ primaryPublicCta.label }}
-              </router-link>
-              <router-link :to="secondaryPublicCta.to" class="btn-secondary">
-                {{ secondaryPublicCta.label }}
-              </router-link>
+              <router-link to="/articles" class="btn-primary">Articoli</router-link>
+              <router-link to="/events" class="btn-secondary">Eventi</router-link>
+              <router-link to="/login" class="btn-ghost">Accedi</router-link>
             </div>
 
             <div class="mt-8 grid gap-3 sm:grid-cols-3">
-              <div class="rounded-[28px] border border-white/80 bg-white/75 p-4 backdrop-blur-sm">
-                <p class="text-2xl font-semibold text-slate-950">{{ formatCount(publicCounts.articles) }}</p>
-                <p class="mt-1 text-sm text-slate-600">articoli pubblici</p>
+              <div class="surface-card-muted p-4">
+                <p class="text-2xl font-semibold text-text-primary">{{ formatCount(publicCounts.articles) }}</p>
+                <p class="mt-1 text-sm text-text-secondary">articoli pubblici</p>
               </div>
-              <div class="rounded-[28px] border border-white/80 bg-white/75 p-4 backdrop-blur-sm">
-                <p class="text-2xl font-semibold text-slate-950">{{ formatCount(publicCounts.events) }}</p>
-                <p class="mt-1 text-sm text-slate-600">eventi visibili senza login</p>
+              <div class="surface-card-muted p-4">
+                <p class="text-2xl font-semibold text-text-primary">{{ formatCount(publicCounts.events) }}</p>
+                <p class="mt-1 text-sm text-text-secondary">eventi visibili senza login</p>
               </div>
-              <div class="rounded-[28px] border border-white/80 bg-white/75 p-4 backdrop-blur-sm">
-                <p class="text-2xl font-semibold text-slate-950">Privato</p>
-                <p class="mt-1 text-sm text-slate-600">accesso audio solo con account attivo</p>
+              <div class="surface-card-muted p-4">
+                <p class="text-2xl font-semibold text-text-primary">Ricerca</p>
+                <p class="mt-1 text-sm text-text-secondary">parole chiave in articoli ed eventi</p>
               </div>
             </div>
           </div>
 
           <div class="space-y-4">
-            <div class="rounded-[30px] border border-slate-200 bg-slate-950 p-6 text-white shadow-2xl shadow-slate-900/15">
-              <p class="text-xs font-semibold uppercase tracking-[0.24em] text-sky-200">Parti da qui</p>
+            <div class="surface-inverse p-6">
+              <p class="text-xs font-semibold uppercase tracking-[0.24em] opacity-75">Parti da qui</p>
 
               <template v-if="latestStory">
-                <p class="mt-4 text-sm font-medium text-slate-300">Ultimo articolo pubblicato</p>
+                <p class="mt-4 text-sm font-medium opacity-70">Ultimo articolo pubblicato</p>
                 <h2 class="mt-2 text-2xl font-semibold leading-tight">{{ latestStory.title }}</h2>
-                <p class="mt-4 text-sm leading-7 text-slate-300">
+                <p class="mt-4 text-sm leading-7 opacity-80">
                   {{ latestStory.excerpt || 'Una lettura breve per orientarti tra pratica, consapevolezza e benessere mentale.' }}
                 </p>
-                <div class="mt-6 flex items-center justify-between gap-4 text-xs uppercase tracking-[0.18em] text-slate-400">
+                <div class="mt-6 flex items-center justify-between gap-4 text-xs uppercase tracking-[0.18em] opacity-60">
                   <span>{{ formatArticleDate(latestStory.publishedAt) }}</span>
                   <span>{{ latestStory.author }}</span>
                 </div>
@@ -312,12 +290,12 @@ onMounted(async () => {
               </template>
 
               <template v-else-if="nextEvent">
-                <p class="mt-4 text-sm font-medium text-slate-300">Prossimo evento aperto</p>
+                <p class="mt-4 text-sm font-medium opacity-70">Prossimo evento aperto</p>
                 <h2 class="mt-2 text-2xl font-semibold leading-tight">{{ nextEvent.title }}</h2>
-                <p class="mt-4 text-sm leading-7 text-slate-300">
+                <p class="mt-4 text-sm leading-7 opacity-80">
                   {{ nextEvent.excerpt || 'Un incontro pubblico per approfondire pratiche, strumenti e nuove abitudini di benessere.' }}
                 </p>
-                <div class="mt-6 flex items-center justify-between gap-4 text-xs uppercase tracking-[0.18em] text-slate-400">
+                <div class="mt-6 flex items-center justify-between gap-4 text-xs uppercase tracking-[0.18em] opacity-60">
                   <span>{{ formatEventDate(nextEvent.startsAt) }}</span>
                   <span>{{ nextEvent.city }}</span>
                 </div>
@@ -331,14 +309,14 @@ onMounted(async () => {
 
               <template v-else>
                 <p class="mt-4 text-2xl font-semibold leading-tight">Contenuti pubblici in arrivo</p>
-                <p class="mt-4 text-sm leading-7 text-slate-300">
+                <p class="mt-4 text-sm leading-7 opacity-80">
                   Quando verranno pubblicati articoli o eventi, li troverai qui in evidenza. Nel frattempo puoi accedere con il tuo account oppure attivare un invito.
                 </p>
                 <div class="mt-6 flex flex-wrap gap-2">
-                  <span class="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-medium text-slate-100">
+                  <span class="inverse-chip">
                     Nuovi contenuti in arrivo
                   </span>
-                  <span class="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-medium text-slate-100">
+                  <span class="inverse-chip">
                     Accesso ai percorsi con invito
                   </span>
                 </div>
@@ -346,8 +324,8 @@ onMounted(async () => {
             </div>
 
             <div class="card p-5">
-              <p class="text-sm font-semibold text-slate-950">Percorsi audio riservati</p>
-              <p class="mt-2 text-sm leading-7 text-slate-600">
+              <p class="text-sm font-semibold text-text-primary">Percorsi audio riservati</p>
+              <p class="mt-2 text-sm leading-7 text-text-secondary">
                 Le meditazioni guidate, i percorsi e l'ascolto in app restano nell'area protetta. La parte pubblica introduce il progetto senza confondere i livelli di accesso.
               </p>
             </div>
@@ -357,21 +335,21 @@ onMounted(async () => {
 
       <section class="grid gap-4 md:grid-cols-3">
         <div class="card p-6">
-          <p class="text-sm font-semibold text-slate-950">Percorso chiaro</p>
-          <p class="mt-3 text-sm leading-7 text-slate-600">
-            In pochi secondi capisci cosa puoi leggere subito e cosa richiede l'accesso all'area personale.
+          <p class="text-sm font-semibold text-text-primary">Articoli</p>
+          <p class="mt-3 text-sm leading-7 text-text-secondary">
+            Entri subito nell'archivio articoli e puoi cercare i contenuti con parole chiave e tag.
           </p>
         </div>
         <div class="card p-6">
-          <p class="text-sm font-semibold text-slate-950">Contenuti selezionati</p>
-          <p class="mt-3 text-sm leading-7 text-slate-600">
-            Gli ultimi articoli e i prossimi eventi emergono subito, cosi trovi un punto di ingresso semplice.
+          <p class="text-sm font-semibold text-text-primary">Eventi</p>
+          <p class="mt-3 text-sm leading-7 text-text-secondary">
+            Gli eventi pubblici hanno un accesso dedicato e una ricerca semplice per titolo, luogo o organizzatore.
           </p>
         </div>
         <div class="card p-6">
-          <p class="text-sm font-semibold text-slate-950">Accesso semplice</p>
-          <p class="mt-3 text-sm leading-7 text-slate-600">
-            Se hai gia un invito puoi entrare subito; se stai solo esplorando, il journal pubblico ti orienta senza frizione.
+          <p class="text-sm font-semibold text-text-primary">Area riservata</p>
+          <p class="mt-3 text-sm leading-7 text-text-secondary">
+            L'accesso resta separato: gli audio guidati si sbloccano solo dopo il login.
           </p>
         </div>
       </section>
@@ -381,19 +359,19 @@ onMounted(async () => {
           <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <span class="eyebrow">Ultimi articoli</span>
-              <h2 class="font-display mt-4 text-3xl font-semibold text-slate-950 sm:text-4xl">Letture pubbliche per fare ordine</h2>
+              <h2 class="font-display mt-4 text-3xl font-semibold text-text-primary sm:text-4xl">Letture pubbliche per fare ordine</h2>
             </div>
             <router-link to="/articles" class="btn-ghost hidden sm:inline-flex">Archivio articoli</router-link>
           </div>
 
           <div v-if="publicLoading" class="grid gap-5 sm:grid-cols-2">
             <div v-for="item in 2" :key="item" class="card animate-pulse overflow-hidden">
-              <div class="aspect-[4/3] bg-slate-200"></div>
+              <div class="aspect-[4/3] skeleton-block"></div>
               <div class="space-y-3 p-5">
-                <div class="h-3 w-24 rounded-full bg-slate-200"></div>
-                <div class="h-8 w-4/5 rounded-2xl bg-slate-200"></div>
-                <div class="h-4 w-full rounded bg-slate-200"></div>
-                <div class="h-4 w-3/4 rounded bg-slate-200"></div>
+                <div class="skeleton-block h-3 w-24 rounded-full"></div>
+                <div class="skeleton-block h-8 w-4/5 rounded-2xl"></div>
+                <div class="skeleton-block h-4 w-full"></div>
+                <div class="skeleton-block h-4 w-3/4"></div>
               </div>
             </div>
           </div>
@@ -412,13 +390,13 @@ onMounted(async () => {
                 image-class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
               />
               <div class="p-5">
-                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary">
                   {{ formatArticleDate(article.publishedAt) }}
                 </p>
-                <h3 class="mt-3 text-xl font-semibold leading-tight text-slate-950">
+                <h3 class="mt-3 text-xl font-semibold leading-tight text-text-primary">
                   {{ article.title }}
                 </h3>
-                <p class="mt-3 text-sm leading-7 text-slate-600">
+                <p class="mt-3 text-sm leading-7 text-text-secondary">
                   {{ article.excerpt || 'Una lettura breve per ritrovare prospettiva e trasformare intuizioni in pratica quotidiana.' }}
                 </p>
                 <p class="mt-4 text-sm font-medium text-primary">Di {{ article.author }}</p>
@@ -427,8 +405,8 @@ onMounted(async () => {
           </div>
 
           <div v-else class="card p-6">
-            <p class="text-lg font-semibold text-slate-950">Nessun articolo pubblicato per ora</p>
-            <p class="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
+            <p class="text-lg font-semibold text-text-primary">Nessun articolo pubblicato per ora</p>
+            <p class="mt-3 max-w-2xl text-sm leading-7 text-text-secondary">
               Qui compariranno automaticamente gli ultimi articoli pubblici non appena saranno disponibili.
             </p>
           </div>
@@ -437,15 +415,15 @@ onMounted(async () => {
         <div class="space-y-5">
           <div>
             <span class="eyebrow">Prossimi eventi</span>
-            <h2 class="font-display mt-4 text-3xl font-semibold text-slate-950 sm:text-4xl">Incontri e appuntamenti aperti</h2>
+            <h2 class="font-display mt-4 text-3xl font-semibold text-text-primary sm:text-4xl">Incontri e appuntamenti aperti</h2>
           </div>
 
           <div v-if="publicLoading" class="space-y-4">
             <div v-for="item in 3" :key="item" class="card animate-pulse p-5">
-              <div class="h-3 w-24 rounded-full bg-slate-200"></div>
-              <div class="mt-3 h-7 w-4/5 rounded-2xl bg-slate-200"></div>
-              <div class="mt-3 h-4 w-full rounded bg-slate-200"></div>
-              <div class="mt-2 h-4 w-3/4 rounded bg-slate-200"></div>
+              <div class="skeleton-block h-3 w-24 rounded-full"></div>
+              <div class="skeleton-block mt-3 h-7 w-4/5 rounded-2xl"></div>
+              <div class="skeleton-block mt-3 h-4 w-full"></div>
+              <div class="skeleton-block mt-2 h-4 w-3/4"></div>
             </div>
           </div>
 
@@ -457,7 +435,7 @@ onMounted(async () => {
               class="card block p-5"
             >
               <div class="flex items-start gap-4">
-                <div class="flex min-h-16 min-w-16 flex-col items-center justify-center rounded-[22px] bg-primary/10 text-primary">
+                <div class="surface-card-muted flex min-h-16 min-w-16 flex-col items-center justify-center text-primary">
                   <span class="text-lg font-semibold leading-none">{{ formatCompactEventDate(eventItem.startsAt).split(' ')[0] }}</span>
                   <span class="mt-1 text-[11px] font-semibold uppercase tracking-[0.16em]">
                     {{ formatCompactEventDate(eventItem.startsAt).split(' ').slice(1).join(' ') }}
@@ -465,11 +443,11 @@ onMounted(async () => {
                 </div>
 
                 <div class="min-w-0">
-                  <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                  <p class="text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary">
                     {{ eventItem.city }}<span v-if="eventItem.venue"> · {{ eventItem.venue }}</span>
                   </p>
-                  <h3 class="mt-2 text-xl font-semibold leading-tight text-slate-950">{{ eventItem.title }}</h3>
-                  <p class="mt-3 text-sm leading-7 text-slate-600">
+                  <h3 class="mt-2 text-xl font-semibold leading-tight text-text-primary">{{ eventItem.title }}</h3>
+                  <p class="mt-3 text-sm leading-7 text-text-secondary">
                     {{ eventItem.excerpt || 'Un appuntamento pensato per portare pratica, ascolto e confronto in uno spazio condiviso.' }}
                   </p>
                 </div>
@@ -478,8 +456,8 @@ onMounted(async () => {
           </div>
 
           <div v-else class="card p-6">
-            <p class="text-lg font-semibold text-slate-950">Ancora nessun evento pubblico</p>
-            <p class="mt-3 text-sm leading-7 text-slate-600">
+            <p class="text-lg font-semibold text-text-primary">Ancora nessun evento pubblico</p>
+            <p class="mt-3 text-sm leading-7 text-text-secondary">
               Quando saranno programmati nuovi appuntamenti, questa sezione mostrerà automaticamente i prossimi eventi aperti.
             </p>
           </div>
@@ -490,10 +468,10 @@ onMounted(async () => {
         <div class="grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:p-10">
           <div>
             <span class="eyebrow">Accesso riservato</span>
-            <h2 class="font-display mt-4 text-3xl font-semibold text-slate-950 sm:text-4xl">
+            <h2 class="font-display mt-4 text-3xl font-semibold text-text-primary sm:text-4xl">
               Quando vuoi ascoltare, entra nell'area personale.
             </h2>
-            <p class="mt-4 max-w-2xl text-base leading-8 text-slate-600">
+            <p class="mt-4 max-w-2xl text-base leading-8 text-text-secondary">
               La parte pubblica introduce il progetto. L'area riservata sblocca meditazioni guidate, cronologia di ascolto e percorsi strutturati.
             </p>
           </div>
@@ -509,8 +487,8 @@ onMounted(async () => {
     <section v-if="auth.isAuthenticated && latestArticles.length" class="space-y-5">
       <div class="flex items-center justify-between gap-4">
         <div>
-          <span class="eyebrow">Journal pubblico</span>
-          <h2 class="font-display mt-4 text-3xl font-semibold text-slate-950 sm:text-4xl">Articoli e approfondimenti</h2>
+          <span class="eyebrow">Articoli pubblici</span>
+          <h2 class="font-display mt-4 text-3xl font-semibold text-text-primary sm:text-4xl">Articoli e approfondimenti</h2>
         </div>
         <router-link to="/articles" class="btn-ghost hidden sm:inline-flex">Tutti gli articoli</router-link>
       </div>
@@ -529,9 +507,9 @@ onMounted(async () => {
             image-class="h-full w-full object-cover"
           />
           <div class="p-5">
-            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{{ formatArticleDate(article.publishedAt) }}</p>
-            <h3 class="mt-3 text-lg font-semibold leading-tight text-slate-950">{{ article.title }}</h3>
-            <p class="mt-3 text-sm leading-7 text-slate-600">
+            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary">{{ formatArticleDate(article.publishedAt) }}</p>
+            <h3 class="mt-3 text-lg font-semibold leading-tight text-text-primary">{{ article.title }}</h3>
+            <p class="mt-3 text-sm leading-7 text-text-secondary">
               {{ article.excerpt || 'Un approfondimento pubblico per aggiungere contesto e strumenti pratici al tuo percorso.' }}
             </p>
           </div>
@@ -543,7 +521,7 @@ onMounted(async () => {
       <div class="flex items-center justify-between gap-4">
         <div>
           <span class="eyebrow">Agenda</span>
-          <h2 class="font-display mt-4 text-3xl font-semibold text-slate-950 sm:text-4xl">Eventi in programma</h2>
+          <h2 class="font-display mt-4 text-3xl font-semibold text-text-primary sm:text-4xl">Eventi in programma</h2>
         </div>
         <router-link to="/events" class="btn-ghost hidden sm:inline-flex">Tutti gli eventi</router-link>
       </div>
@@ -562,11 +540,11 @@ onMounted(async () => {
             image-class="h-full w-full object-cover"
           />
           <div class="p-5">
-            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary">
               {{ formatEventDate(eventItem.startsAt) }} · {{ eventItem.city }}
             </p>
-            <h3 class="mt-3 text-lg font-semibold leading-tight text-slate-950">{{ eventItem.title }}</h3>
-            <p class="mt-3 text-sm leading-7 text-slate-600">
+            <h3 class="mt-3 text-lg font-semibold leading-tight text-text-primary">{{ eventItem.title }}</h3>
+            <p class="mt-3 text-sm leading-7 text-text-secondary">
               {{ eventItem.excerpt || 'Un appuntamento pubblico per approfondire pratiche, strumenti e nuove abitudini di benessere.' }}
             </p>
           </div>

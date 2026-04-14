@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUiStore } from './stores/uiStore'
 import { useAudio } from './composables/useAudio'
@@ -13,17 +12,16 @@ const player = usePlayerStore()
 const route = useRoute()
 
 useAudio()
-
-onMounted(() => {
-  ui.initTheme()
-})
 </script>
 
 <template>
   <AppHeader v-if="!route.meta.hideChrome" />
 
   <!-- Offline banner -->
-  <div v-if="!route.meta.hideChrome && !ui.isOnline" class="bg-accent/10 text-accent-dark text-center text-sm py-2 px-4">
+  <div
+    v-if="!route.meta.hideChrome && !ui.isOnline"
+    class="border-b border-accent/20 bg-accent/12 px-4 py-2 text-center text-sm text-text-primary"
+  >
     Sei offline — per ascoltare gli audio serve una connessione attiva
   </div>
 
