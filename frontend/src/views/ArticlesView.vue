@@ -3,6 +3,7 @@ import { onMounted, ref, watch } from 'vue'
 import axios from 'axios'
 import ArticleCover from '../components/ArticleCover.vue'
 import TagFilter, { type FilterTag } from '../components/TagFilter.vue'
+import { useRoute } from 'vue-router'
 
 interface Article {
   id: string
@@ -21,6 +22,21 @@ const pagination = ref({ page: 1, limit: 12, total: 0, totalPages: 0 })
 const search = ref('')
 const tags = ref<FilterTag[]>([])
 const selectedTags = ref<string[]>([])
+const route = useRoute()
+
+function parseTagsFromRoute() {
+  const raw = route.query.tags
+  const value = Array.isArray(raw) ? raw.join(',') : raw
+  if (!value) {
+    selectedTags.value = []
+    return
+  }
+
+  selectedTags.value = value
+    .split(',')
+    .map(tag => tag.trim())
+    .filter(Boolean)
+}
 
 async function fetchArticles() {
   loading.value = true
@@ -48,7 +64,12 @@ function changePage(page: number) {
 onMounted(async () => {
   const { data } = await axios.get('/api/tags?contentType=article')
   tags.value = data
+  parseTagsFromRoute()
   await fetchArticles()
+})
+
+watch(() => route.query.tags, () => {
+  parseTagsFromRoute()
 })
 
 watch(selectedTags, () => {

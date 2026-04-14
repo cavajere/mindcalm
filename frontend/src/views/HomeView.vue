@@ -7,6 +7,7 @@ import axios from 'axios'
 
 const store = useAudioStore()
 const latestArticles = ref<any[]>([])
+const latestEvents = ref<any[]>([])
 const featuredAudio = ref<any>(null)
 
 onMounted(async () => {
@@ -22,6 +23,12 @@ onMounted(async () => {
   try {
     const { data } = await axios.get('/api/articles?limit=3')
     latestArticles.value = data.data
+  } catch {}
+
+  // Ultimi 3 eventi
+  try {
+    const { data } = await axios.get('/api/events?limit=3')
+    latestEvents.value = data.data
   } catch {}
 })
 </script>
@@ -103,6 +110,34 @@ onMounted(async () => {
             <p class="text-xs text-text-secondary mb-1">{{ new Date(a.publishedAt).toLocaleDateString('it-IT') }}</p>
             <h3 class="font-semibold text-text-primary mb-2 line-clamp-2">{{ a.title }}</h3>
             <p v-if="a.excerpt" class="text-sm text-text-secondary line-clamp-2">{{ a.excerpt }}</p>
+          </div>
+        </router-link>
+      </div>
+    </section>
+
+    <!-- Eventi -->
+    <section v-if="latestEvents.length" class="mb-12">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-2xl font-bold text-text-primary">Eventi</h2>
+        <router-link to="/events" class="text-sm font-medium text-primary hover:underline">Tutti gli eventi</router-link>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <router-link
+          v-for="eventItem in latestEvents"
+          :key="eventItem.id"
+          :to="`/events/${eventItem.slug}`"
+          class="card overflow-hidden hover:scale-[1.01] transition-transform"
+        >
+          <ArticleCover
+            :src="eventItem.coverImage"
+            :alt="eventItem.title"
+            container-class="aspect-video"
+            image-class="h-full w-full object-cover"
+          />
+          <div class="p-4">
+            <p class="text-xs text-text-secondary mb-1">{{ new Date(eventItem.startsAt).toLocaleDateString('it-IT') }} · {{ eventItem.city }}</p>
+            <h3 class="font-semibold text-text-primary mb-2 line-clamp-2">{{ eventItem.title }}</h3>
+            <p v-if="eventItem.excerpt" class="text-sm text-text-secondary line-clamp-2">{{ eventItem.excerpt }}</p>
           </div>
         </router-link>
       </div>

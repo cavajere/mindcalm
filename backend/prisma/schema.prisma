@@ -131,6 +131,35 @@ model ContentPublicationOutbox {
   @@map("content_publication_outbox")
 }
 
+model Event {
+  id          String    @id @default(uuid())
+  title       String
+  slug        String    @unique
+  body        String
+  bodyText    String    @default("")
+  excerpt     String?
+  organizer   String
+  city        String
+  venue       String?
+  startsAt    DateTime
+  endsAt      DateTime?
+  coverImage  String?
+  coverImageOriginalName String?
+  coverImageDisplayName  String?
+  coverAlbumImageId String?
+  coverAlbumImage AlbumImage? @relation("EventCoverAlbumImage", fields: [coverAlbumImageId], references: [id], onDelete: SetNull)
+  status      Status    @default(DRAFT)
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([coverAlbumImageId])
+  @@index([status])
+  @@index([slug])
+  @@index([startsAt])
+  @@map("events")
+}
+
 model InviteCode {
   id                   String                  @id @default(uuid())
   code                 String                  @unique
@@ -281,6 +310,7 @@ model AlbumImage {
   updatedAt   DateTime  @updatedAt
   audioCoverFor Audio[] @relation("AudioCoverAlbumImage")
   articleCoverFor Article[] @relation("ArticleCoverAlbumImage")
+  eventCoverFor Event[] @relation("EventCoverAlbumImage")
 
   @@index([createdAt])
   @@map("album_images")
@@ -481,6 +511,10 @@ enum AuditAction {
   ARTICLE_UPDATED
   ARTICLE_DELETED
   ARTICLE_STATUS_CHANGED
+  EVENT_CREATED
+  EVENT_UPDATED
+  EVENT_DELETED
+  EVENT_STATUS_CHANGED
   CATEGORY_CREATED
   CATEGORY_UPDATED
   CATEGORY_DELETED
@@ -501,6 +535,7 @@ enum AuditEntityType {
   AUDIO
   ALBUM_IMAGE
   ARTICLE
+  EVENT
   CATEGORY
   TAG
   SETTINGS
@@ -545,6 +580,7 @@ enum NotificationDispatchStatus {
 enum ContentPublicationType {
   AUDIO
   ARTICLE
+  EVENT
 }
 
 enum PublicationOutboxStatus {

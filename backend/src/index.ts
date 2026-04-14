@@ -9,12 +9,14 @@ import { errorHandler } from './middleware/errorHandler'
 import { authMiddleware, clearAuthCookie, resolveAdminRequest } from './middleware/auth'
 import audioPublicRouter from './routes/public/audio'
 import articlesPublicRouter from './routes/public/articles'
+import eventsPublicRouter from './routes/public/events'
 import categoriesPublicRouter from './routes/public/categories'
 import tagsPublicRouter from './routes/public/tags'
 import authRouter from './routes/admin/auth'
 import audioAdminRouter from './routes/admin/audio'
 import albumAdminRouter from './routes/admin/album'
 import articlesAdminRouter from './routes/admin/articles'
+import eventsAdminRouter from './routes/admin/events'
 import categoriesAdminRouter from './routes/admin/categories'
 import tagsAdminRouter from './routes/admin/tags'
 import usersAdminRouter from './routes/admin/users'
@@ -60,6 +62,7 @@ app.get('/api/health', (_req, res) => {
 // Public API routes
 app.use('/api/audio', audioPublicRouter)
 app.use('/api/articles', articlesPublicRouter)
+app.use('/api/events', eventsPublicRouter)
 app.use('/api/categories', categoriesPublicRouter)
 app.use('/api/tags', tagsPublicRouter)
 app.use('/api/analytics', analyticsPublicRouter)
@@ -69,6 +72,7 @@ app.use('/api/auth', authRouter)
 app.use('/api/admin/audio', audioAdminRouter)
 app.use('/api/admin/album', albumAdminRouter)
 app.use('/api/admin/articles', articlesAdminRouter)
+app.use('/api/admin/events', eventsAdminRouter)
 app.use('/api/admin/categories', categoriesAdminRouter)
 app.use('/api/admin/tags', tagsAdminRouter)
 app.use('/api/admin/users', usersAdminRouter)
