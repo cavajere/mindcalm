@@ -1,146 +1,559 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import axios from 'axios'
 import { useAuthStore } from '../stores/authStore'
 import { useAudioStore } from '../stores/audioStore'
 import AudioCard from '../components/AudioCard.vue'
 import ArticleCover from '../components/ArticleCover.vue'
-import axios from 'axios'
+
+interface ArticleItem {
+  id: string
+  title: string
+  slug: string
+  excerpt: string | null
+  author: string
+  coverImage: string | null
+  publishedAt: string
+}
+
+interface EventItem {
+  id: string
+  title: string
+  slug: string
+  excerpt: string | null
+  city: string
+  venue: string | null
+  startsAt: string
+  coverImage: string | null
+}
+
+interface PaginatedResponse<T> {
+  data: T[]
+  pagination?: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+}
 
 const auth = useAuthStore()
 const store = useAudioStore()
-const latestArticles = ref<any[]>([])
-const latestEvents = ref<any[]>([])
+
+const latestArticles = ref<ArticleItem[]>([])
+const latestEvents = ref<EventItem[]>([])
 const featuredAudio = ref<any>(null)
+const publicLoading = ref(true)
+const publicCounts = ref({ articles: 0, events: 0 })
+
+const latestStory = computed(() => latestArticles.value[0] ?? null)
+const nextEvent = computed(() => latestEvents.value[0] ?? null)
+const primaryPublicCta = computed(() => {
+  if (latestArticles.value.length) {
+    return { label: 'Leggi gli ultimi articoli', to: '/articles' }
+  }
+
+  if (latestEvents.value.length) {
+    return { label: 'Scopri gli eventi pubblici', to: '/events' }
+  }
+
+  return { label: 'Hai un invito? Attivalo', to: '/register' }
+})
+
+const secondaryPublicCta = computed(() => {
+  if (latestEvents.value.length) {
+    return { label: 'Guarda gli eventi', to: '/events' }
+  }
+
+  return { label: "Accedi all'area riservata", to: '/login' }
+})
+
+function formatArticleDate(value: string) {
+  return new Date(value).toLocaleDateString('it-IT', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
+function formatEventDate(value: string) {
+  return new Date(value).toLocaleDateString('it-IT', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
+function formatCompactEventDate(value: string) {
+  return new Date(value).toLocaleDateString('it-IT', {
+    day: 'numeric',
+    month: 'short',
+  })
+}
+
+function formatCount(value: number) {
+  return new Intl.NumberFormat('it-IT').format(value)
+}
+
+function pickFeaturedAudio() {
+  if (!store.audioItems.length) {
+    featuredAudio.value = null
+    return
+  }
+
+  featuredAudio.value = store.audioItems[Math.floor(Math.random() * store.audioItems.length)]
+}
+
+async function loadPrivateHome() {
+  await store.fetchCategories()
+  await store.fetchAudio()
+  pickFeaturedAudio()
+}
+
+async function loadPublicHome() {
+  publicLoading.value = true
+
+  const [articlesResult, eventsResult] = await Promise.allSettled([
+    axios.get<PaginatedResponse<ArticleItem>>('/api/articles?limit=4'),
+    axios.get<PaginatedResponse<EventItem>>('/api/events?limit=3'),
+  ])
+
+  if (articlesResult.status === 'fulfilled') {
+    latestArticles.value = articlesResult.value.data.data
+    publicCounts.value.articles = Number(articlesResult.value.data.pagination?.total ?? latestArticles.value.length)
+  }
+
+  if (eventsResult.status === 'fulfilled') {
+    latestEvents.value = eventsResult.value.data.data
+    publicCounts.value.events = Number(eventsResult.value.data.pagination?.total ?? latestEvents.value.length)
+  }
+
+  publicLoading.value = false
+}
 
 onMounted(async () => {
+  const tasks = [loadPublicHome()]
+
   if (auth.isAuthenticated) {
-    await store.fetchCategories()
-    await store.fetchAudio()
-
-    if (store.audioItems.length > 0) {
-      featuredAudio.value = store.audioItems[Math.floor(Math.random() * store.audioItems.length)]
-    }
+    tasks.unshift(loadPrivateHome())
   }
-  try {
-    const { data } = await axios.get('/api/articles?limit=3')
-    latestArticles.value = data.data
-  } catch {}
 
-  try {
-    const { data } = await axios.get('/api/events?limit=3')
-    latestEvents.value = data.data
-  } catch {}
+  await Promise.all(tasks)
 })
 </script>
 
 <template>
-  <div class="page-container">
-    <section v-if="auth.isAuthenticated && featuredAudio" class="mb-12">
-      <div class="card overflow-hidden">
-        <div class="relative bg-gradient-to-br from-primary/10 to-secondary/10 p-8 sm:p-12">
-          <div class="max-w-lg">
-            <p class="text-sm font-medium text-primary mb-2">Audio del giorno</p>
-            <h1 class="text-3xl sm:text-4xl font-bold text-text-primary mb-4">{{ featuredAudio.title }}</h1>
-            <p class="text-text-secondary mb-6 line-clamp-2">{{ featuredAudio.description }}</p>
-            <router-link :to="`/audio/${featuredAudio.id}`" class="btn-primary inline-flex items-center gap-2">
-              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"/>
-              </svg>
+  <div class="page-container space-y-12 pb-10">
+    <template v-if="auth.isAuthenticated">
+      <section class="section-panel relative overflow-hidden">
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(74,144,217,0.18),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(80,184,96,0.14),_transparent_28%)]" />
+
+        <div class="relative grid gap-8 p-6 sm:p-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] lg:p-10">
+          <div class="min-w-0">
+            <span class="eyebrow">Area personale</span>
+            <h1 class="font-display mt-5 text-4xl font-semibold leading-none text-slate-950 sm:text-5xl lg:text-6xl">
+              Un percorso più calmo, un ascolto alla volta.
+            </h1>
+            <p class="mt-5 max-w-2xl text-base leading-8 text-slate-600 sm:text-lg">
+              Riprendi dai contenuti più recenti, esplora per categoria e usa il journal pubblico quando vuoi approfondire.
+            </p>
+
+            <div class="mt-8 flex flex-wrap gap-3">
+              <router-link to="/audio" class="btn-primary">Vai alla libreria audio</router-link>
+              <router-link to="/articles" class="btn-secondary">Apri il journal</router-link>
+            </div>
+
+            <div class="mt-8 grid gap-3 sm:grid-cols-3">
+              <div class="rounded-[28px] border border-white/80 bg-white/75 p-4 backdrop-blur-sm">
+                <p class="text-2xl font-semibold text-slate-950">{{ formatCount(store.audioItems.length) }}</p>
+                <p class="mt-1 text-sm text-slate-600">audio pronti all'ascolto</p>
+              </div>
+              <div class="rounded-[28px] border border-white/80 bg-white/75 p-4 backdrop-blur-sm">
+                <p class="text-2xl font-semibold text-slate-950">{{ formatCount(store.categories.length) }}</p>
+                <p class="mt-1 text-sm text-slate-600">categorie da esplorare</p>
+              </div>
+              <div class="rounded-[28px] border border-white/80 bg-white/75 p-4 backdrop-blur-sm">
+                <p class="text-2xl font-semibold text-slate-950">{{ formatCount(publicCounts.articles + publicCounts.events) }}</p>
+                <p class="mt-1 text-sm text-slate-600">contenuti pubblici di contesto</p>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="featuredAudio" class="rounded-[30px] border border-slate-200 bg-slate-950 p-6 text-white shadow-2xl shadow-slate-900/15">
+            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-sky-200">Suggerimento del giorno</p>
+            <h2 class="mt-4 text-2xl font-semibold leading-tight">{{ featuredAudio.title }}</h2>
+            <p class="mt-4 text-sm leading-7 text-slate-300">
+              {{ featuredAudio.description || 'Un contenuto da ascoltare quando vuoi ritrovare concentrazione e spazio mentale.' }}
+            </p>
+
+            <div class="mt-6 flex flex-wrap gap-2">
+              <span class="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-medium text-slate-100">
+                {{ featuredAudio.category?.name || 'Percorso guidato' }}
+              </span>
+              <span class="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-medium text-slate-100">
+                {{ featuredAudio.level }}
+              </span>
+            </div>
+
+            <router-link :to="`/audio/${featuredAudio.id}`" class="btn-primary mt-8 inline-flex items-center gap-2">
               Ascolta ora
+              <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+              </svg>
             </router-link>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <section v-else class="mb-12">
-      <div class="card overflow-hidden">
-        <div class="relative bg-gradient-to-br from-sky-50 via-white to-emerald-50 p-8 sm:p-12">
-          <div class="max-w-2xl">
-            <p class="text-sm font-medium text-primary mb-2">Portale pubblico</p>
-            <h1 class="text-3xl sm:text-4xl font-bold text-text-primary mb-4">Articoli ed eventi accessibili anche senza login</h1>
-            <p class="text-text-secondary mb-6">
-              Esplora i contenuti pubblici del progetto. Gli audio restano riservati agli utenti registrati.
+      <section v-if="store.categories.length" class="space-y-5">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <span class="eyebrow">Esplora</span>
+            <h2 class="font-display mt-4 text-3xl font-semibold text-slate-950 sm:text-4xl">Scegli il ritmo giusto per oggi</h2>
+          </div>
+          <p class="max-w-xl text-sm leading-7 text-slate-600">
+            Categorie semplici da capire, per arrivare piu rapidamente al contenuto che ti serve davvero.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+          <router-link
+            v-for="cat in store.categories"
+            :key="cat.id"
+            :to="`/audio?category=${cat.id}`"
+            class="card group p-4 text-left"
+          >
+            <div
+              class="flex h-12 w-12 items-center justify-center rounded-2xl text-xl text-white transition-transform duration-200 group-hover:scale-105"
+              :style="{ backgroundColor: cat.color || '#4A90D9' }"
+            >
+              {{ cat.icon === 'lotus' ? '🧘' : cat.icon === 'wind' ? '🌬️' : cat.icon === 'body' ? '🫁' : cat.icon === 'moon' ? '🌙' : '☀️' }}
+            </div>
+            <p class="mt-4 font-semibold text-text-primary">{{ cat.name }}</p>
+            <p class="mt-1 text-sm text-text-secondary">{{ cat.audioCount }} audio disponibili</p>
+          </router-link>
+        </div>
+      </section>
+
+      <section v-if="store.audioItems.length" class="space-y-5">
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <span class="eyebrow">Novita audio</span>
+            <h2 class="font-display mt-4 text-3xl font-semibold text-slate-950 sm:text-4xl">Gli ultimi percorsi pubblicati</h2>
+          </div>
+          <router-link to="/audio" class="btn-ghost hidden sm:inline-flex">Vedi tutto</router-link>
+        </div>
+
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <AudioCard v-for="audio in store.audioItems.slice(0, 6)" :key="audio.id" :audio="audio" />
+        </div>
+      </section>
+    </template>
+
+    <template v-else>
+      <section class="section-panel relative overflow-hidden">
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(74,144,217,0.18),_transparent_36%),radial-gradient(circle_at_bottom_right,_rgba(80,184,96,0.14),_transparent_30%)]" />
+
+        <div class="relative grid gap-8 p-6 sm:p-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)] lg:p-10">
+          <div class="min-w-0">
+            <span class="eyebrow">MindCalm Journal</span>
+            <h1 class="font-display mt-5 text-5xl font-semibold leading-none text-slate-950 sm:text-6xl lg:text-[4.5rem]">
+              Spazio per respirare, capire, ricominciare.
+            </h1>
+            <p class="mt-5 max-w-2xl text-base leading-8 text-slate-600 sm:text-xl">
+              Esplora articoli ed eventi pubblici per conoscere l'approccio MindCalm. I percorsi audio e le meditazioni guidate restano disponibili nell'area riservata.
             </p>
-            <div class="flex flex-wrap gap-3">
-              <router-link to="/articles" class="btn-primary">Esplora gli articoli</router-link>
-              <router-link to="/events" class="btn-secondary">Guarda gli eventi</router-link>
-              <router-link to="/login" class="btn-secondary">Accedi</router-link>
+
+            <div class="mt-8 flex flex-wrap gap-3">
+              <router-link :to="primaryPublicCta.to" class="btn-primary">
+                {{ primaryPublicCta.label }}
+              </router-link>
+              <router-link :to="secondaryPublicCta.to" class="btn-secondary">
+                {{ secondaryPublicCta.label }}
+              </router-link>
+            </div>
+
+            <div class="mt-8 grid gap-3 sm:grid-cols-3">
+              <div class="rounded-[28px] border border-white/80 bg-white/75 p-4 backdrop-blur-sm">
+                <p class="text-2xl font-semibold text-slate-950">{{ formatCount(publicCounts.articles) }}</p>
+                <p class="mt-1 text-sm text-slate-600">articoli pubblici</p>
+              </div>
+              <div class="rounded-[28px] border border-white/80 bg-white/75 p-4 backdrop-blur-sm">
+                <p class="text-2xl font-semibold text-slate-950">{{ formatCount(publicCounts.events) }}</p>
+                <p class="mt-1 text-sm text-slate-600">eventi visibili senza login</p>
+              </div>
+              <div class="rounded-[28px] border border-white/80 bg-white/75 p-4 backdrop-blur-sm">
+                <p class="text-2xl font-semibold text-slate-950">Privato</p>
+                <p class="mt-1 text-sm text-slate-600">accesso audio solo con account attivo</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-4">
+            <div class="rounded-[30px] border border-slate-200 bg-slate-950 p-6 text-white shadow-2xl shadow-slate-900/15">
+              <p class="text-xs font-semibold uppercase tracking-[0.24em] text-sky-200">Parti da qui</p>
+
+              <template v-if="latestStory">
+                <p class="mt-4 text-sm font-medium text-slate-300">Ultimo articolo pubblicato</p>
+                <h2 class="mt-2 text-2xl font-semibold leading-tight">{{ latestStory.title }}</h2>
+                <p class="mt-4 text-sm leading-7 text-slate-300">
+                  {{ latestStory.excerpt || 'Una lettura breve per orientarti tra pratica, consapevolezza e benessere mentale.' }}
+                </p>
+                <div class="mt-6 flex items-center justify-between gap-4 text-xs uppercase tracking-[0.18em] text-slate-400">
+                  <span>{{ formatArticleDate(latestStory.publishedAt) }}</span>
+                  <span>{{ latestStory.author }}</span>
+                </div>
+                <router-link :to="`/articles/${latestStory.slug}`" class="btn-primary mt-6 inline-flex items-center gap-2">
+                  Apri l'articolo
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 5l7 7-7 7" />
+                  </svg>
+                </router-link>
+              </template>
+
+              <template v-else-if="nextEvent">
+                <p class="mt-4 text-sm font-medium text-slate-300">Prossimo evento aperto</p>
+                <h2 class="mt-2 text-2xl font-semibold leading-tight">{{ nextEvent.title }}</h2>
+                <p class="mt-4 text-sm leading-7 text-slate-300">
+                  {{ nextEvent.excerpt || 'Un incontro pubblico per approfondire pratiche, strumenti e nuove abitudini di benessere.' }}
+                </p>
+                <div class="mt-6 flex items-center justify-between gap-4 text-xs uppercase tracking-[0.18em] text-slate-400">
+                  <span>{{ formatEventDate(nextEvent.startsAt) }}</span>
+                  <span>{{ nextEvent.city }}</span>
+                </div>
+                <router-link :to="`/events/${nextEvent.slug}`" class="btn-primary mt-6 inline-flex items-center gap-2">
+                  Vai all'evento
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 5l7 7-7 7" />
+                  </svg>
+                </router-link>
+              </template>
+
+              <template v-else>
+                <p class="mt-4 text-2xl font-semibold leading-tight">Contenuti pubblici in arrivo</p>
+                <p class="mt-4 text-sm leading-7 text-slate-300">
+                  Quando verranno pubblicati articoli o eventi, li troverai qui in evidenza. Nel frattempo puoi accedere con il tuo account oppure attivare un invito.
+                </p>
+                <div class="mt-6 flex flex-wrap gap-2">
+                  <span class="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-medium text-slate-100">
+                    Nuovi contenuti in arrivo
+                  </span>
+                  <span class="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-medium text-slate-100">
+                    Accesso ai percorsi con invito
+                  </span>
+                </div>
+              </template>
+            </div>
+
+            <div class="card p-5">
+              <p class="text-sm font-semibold text-slate-950">Percorsi audio riservati</p>
+              <p class="mt-2 text-sm leading-7 text-slate-600">
+                Le meditazioni guidate, i percorsi e l'ascolto in app restano nell'area protetta. La parte pubblica introduce il progetto senza confondere i livelli di accesso.
+              </p>
             </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <section v-if="auth.isAuthenticated && store.categories.length" class="mb-12">
-      <h2 class="text-2xl font-bold text-text-primary mb-6">Esplora per categoria</h2>
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-        <router-link
-          v-for="cat in store.categories"
-          :key="cat.id"
-          :to="`/audio?category=${cat.id}`"
-          class="card p-4 text-center hover:scale-[1.02] transition-transform"
-        >
-          <div
-            class="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center text-white text-xl"
-            :style="{ backgroundColor: cat.color || '#4A90D9' }"
-          >
-            {{ cat.icon === 'lotus' ? '🧘' : cat.icon === 'wind' ? '🌬️' : cat.icon === 'body' ? '🫁' : cat.icon === 'moon' ? '🌙' : '☀️' }}
+      <section class="grid gap-4 md:grid-cols-3">
+        <div class="card p-6">
+          <p class="text-sm font-semibold text-slate-950">Percorso chiaro</p>
+          <p class="mt-3 text-sm leading-7 text-slate-600">
+            In pochi secondi capisci cosa puoi leggere subito e cosa richiede l'accesso all'area personale.
+          </p>
+        </div>
+        <div class="card p-6">
+          <p class="text-sm font-semibold text-slate-950">Contenuti selezionati</p>
+          <p class="mt-3 text-sm leading-7 text-slate-600">
+            Gli ultimi articoli e i prossimi eventi emergono subito, cosi trovi un punto di ingresso semplice.
+          </p>
+        </div>
+        <div class="card p-6">
+          <p class="text-sm font-semibold text-slate-950">Accesso semplice</p>
+          <p class="mt-3 text-sm leading-7 text-slate-600">
+            Se hai gia un invito puoi entrare subito; se stai solo esplorando, il journal pubblico ti orienta senza frizione.
+          </p>
+        </div>
+      </section>
+
+      <section class="grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+        <div class="space-y-5">
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <span class="eyebrow">Ultimi articoli</span>
+              <h2 class="font-display mt-4 text-3xl font-semibold text-slate-950 sm:text-4xl">Letture pubbliche per fare ordine</h2>
+            </div>
+            <router-link to="/articles" class="btn-ghost hidden sm:inline-flex">Archivio articoli</router-link>
           </div>
-          <p class="font-medium text-sm text-text-primary">{{ cat.name }}</p>
-          <p class="text-xs text-text-secondary mt-1">{{ cat.audioCount }} audio</p>
-        </router-link>
-      </div>
-    </section>
 
-    <section v-if="auth.isAuthenticated && store.audioItems.length" class="mb-12">
-      <div class="flex items-center justify-between mb-6">
-        <h2 class="text-2xl font-bold text-text-primary">Audio recenti</h2>
-        <router-link to="/audio" class="text-sm font-medium text-primary hover:underline">Vedi tutti</router-link>
-      </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        <AudioCard v-for="audio in store.audioItems.slice(0, 6)" :key="audio.id" :audio="audio" />
-      </div>
-    </section>
+          <div v-if="publicLoading" class="grid gap-5 sm:grid-cols-2">
+            <div v-for="item in 2" :key="item" class="card animate-pulse overflow-hidden">
+              <div class="aspect-[4/3] bg-slate-200"></div>
+              <div class="space-y-3 p-5">
+                <div class="h-3 w-24 rounded-full bg-slate-200"></div>
+                <div class="h-8 w-4/5 rounded-2xl bg-slate-200"></div>
+                <div class="h-4 w-full rounded bg-slate-200"></div>
+                <div class="h-4 w-3/4 rounded bg-slate-200"></div>
+              </div>
+            </div>
+          </div>
 
-    <section v-if="latestArticles.length" class="mb-12">
-      <div class="flex items-center justify-between mb-6">
-        <h2 class="text-2xl font-bold text-text-primary">Dal blog</h2>
-        <router-link to="/articles" class="text-sm font-medium text-primary hover:underline">Tutti gli articoli</router-link>
+          <div v-else-if="latestArticles.length" class="grid gap-5 sm:grid-cols-2">
+            <router-link
+              v-for="article in latestArticles"
+              :key="article.id"
+              :to="`/articles/${article.slug}`"
+              class="card group overflow-hidden"
+            >
+              <ArticleCover
+                :src="article.coverImage"
+                :alt="article.title"
+                container-class="aspect-[4/3] overflow-hidden"
+                image-class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+              />
+              <div class="p-5">
+                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                  {{ formatArticleDate(article.publishedAt) }}
+                </p>
+                <h3 class="mt-3 text-xl font-semibold leading-tight text-slate-950">
+                  {{ article.title }}
+                </h3>
+                <p class="mt-3 text-sm leading-7 text-slate-600">
+                  {{ article.excerpt || 'Una lettura breve per ritrovare prospettiva e trasformare intuizioni in pratica quotidiana.' }}
+                </p>
+                <p class="mt-4 text-sm font-medium text-primary">Di {{ article.author }}</p>
+              </div>
+            </router-link>
+          </div>
+
+          <div v-else class="card p-6">
+            <p class="text-lg font-semibold text-slate-950">Nessun articolo pubblicato per ora</p>
+            <p class="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
+              Qui compariranno automaticamente gli ultimi articoli pubblici non appena saranno disponibili.
+            </p>
+          </div>
+        </div>
+
+        <div class="space-y-5">
+          <div>
+            <span class="eyebrow">Prossimi eventi</span>
+            <h2 class="font-display mt-4 text-3xl font-semibold text-slate-950 sm:text-4xl">Incontri e appuntamenti aperti</h2>
+          </div>
+
+          <div v-if="publicLoading" class="space-y-4">
+            <div v-for="item in 3" :key="item" class="card animate-pulse p-5">
+              <div class="h-3 w-24 rounded-full bg-slate-200"></div>
+              <div class="mt-3 h-7 w-4/5 rounded-2xl bg-slate-200"></div>
+              <div class="mt-3 h-4 w-full rounded bg-slate-200"></div>
+              <div class="mt-2 h-4 w-3/4 rounded bg-slate-200"></div>
+            </div>
+          </div>
+
+          <div v-else-if="latestEvents.length" class="space-y-4">
+            <router-link
+              v-for="eventItem in latestEvents"
+              :key="eventItem.id"
+              :to="`/events/${eventItem.slug}`"
+              class="card block p-5"
+            >
+              <div class="flex items-start gap-4">
+                <div class="flex min-h-16 min-w-16 flex-col items-center justify-center rounded-[22px] bg-primary/10 text-primary">
+                  <span class="text-lg font-semibold leading-none">{{ formatCompactEventDate(eventItem.startsAt).split(' ')[0] }}</span>
+                  <span class="mt-1 text-[11px] font-semibold uppercase tracking-[0.16em]">
+                    {{ formatCompactEventDate(eventItem.startsAt).split(' ').slice(1).join(' ') }}
+                  </span>
+                </div>
+
+                <div class="min-w-0">
+                  <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                    {{ eventItem.city }}<span v-if="eventItem.venue"> · {{ eventItem.venue }}</span>
+                  </p>
+                  <h3 class="mt-2 text-xl font-semibold leading-tight text-slate-950">{{ eventItem.title }}</h3>
+                  <p class="mt-3 text-sm leading-7 text-slate-600">
+                    {{ eventItem.excerpt || 'Un appuntamento pensato per portare pratica, ascolto e confronto in uno spazio condiviso.' }}
+                  </p>
+                </div>
+              </div>
+            </router-link>
+          </div>
+
+          <div v-else class="card p-6">
+            <p class="text-lg font-semibold text-slate-950">Ancora nessun evento pubblico</p>
+            <p class="mt-3 text-sm leading-7 text-slate-600">
+              Quando saranno programmati nuovi appuntamenti, questa sezione mostrerà automaticamente i prossimi eventi aperti.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-panel overflow-hidden">
+        <div class="grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:p-10">
+          <div>
+            <span class="eyebrow">Accesso riservato</span>
+            <h2 class="font-display mt-4 text-3xl font-semibold text-slate-950 sm:text-4xl">
+              Quando vuoi ascoltare, entra nell'area personale.
+            </h2>
+            <p class="mt-4 max-w-2xl text-base leading-8 text-slate-600">
+              La parte pubblica introduce il progetto. L'area riservata sblocca meditazioni guidate, cronologia di ascolto e percorsi strutturati.
+            </p>
+          </div>
+
+          <div class="flex flex-wrap gap-3">
+            <router-link to="/login" class="btn-secondary">Accedi</router-link>
+            <router-link to="/register" class="btn-primary">Hai un invito?</router-link>
+          </div>
+        </div>
+      </section>
+    </template>
+
+    <section v-if="auth.isAuthenticated && latestArticles.length" class="space-y-5">
+      <div class="flex items-center justify-between gap-4">
+        <div>
+          <span class="eyebrow">Journal pubblico</span>
+          <h2 class="font-display mt-4 text-3xl font-semibold text-slate-950 sm:text-4xl">Articoli e approfondimenti</h2>
+        </div>
+        <router-link to="/articles" class="btn-ghost hidden sm:inline-flex">Tutti gli articoli</router-link>
       </div>
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+
+      <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         <router-link
-          v-for="a in latestArticles"
-          :key="a.id"
-          :to="`/articles/${a.slug}`"
-          class="card overflow-hidden hover:scale-[1.01] transition-transform"
+          v-for="article in latestArticles.slice(0, 3)"
+          :key="article.id"
+          :to="`/articles/${article.slug}`"
+          class="card overflow-hidden"
         >
           <ArticleCover
-            :src="a.coverImage"
-            :alt="a.title"
+            :src="article.coverImage"
+            :alt="article.title"
             container-class="aspect-video"
             image-class="h-full w-full object-cover"
           />
-          <div class="p-4">
-            <p class="text-xs text-text-secondary mb-1">{{ new Date(a.publishedAt).toLocaleDateString('it-IT') }}</p>
-            <h3 class="font-semibold text-text-primary mb-2 line-clamp-2">{{ a.title }}</h3>
-            <p v-if="a.excerpt" class="text-sm text-text-secondary line-clamp-2">{{ a.excerpt }}</p>
+          <div class="p-5">
+            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{{ formatArticleDate(article.publishedAt) }}</p>
+            <h3 class="mt-3 text-lg font-semibold leading-tight text-slate-950">{{ article.title }}</h3>
+            <p class="mt-3 text-sm leading-7 text-slate-600">
+              {{ article.excerpt || 'Un approfondimento pubblico per aggiungere contesto e strumenti pratici al tuo percorso.' }}
+            </p>
           </div>
         </router-link>
       </div>
     </section>
 
-    <section v-if="latestEvents.length" class="mb-12">
-      <div class="flex items-center justify-between mb-6">
-        <h2 class="text-2xl font-bold text-text-primary">Eventi</h2>
-        <router-link to="/events" class="text-sm font-medium text-primary hover:underline">Tutti gli eventi</router-link>
+    <section v-if="auth.isAuthenticated && latestEvents.length" class="space-y-5">
+      <div class="flex items-center justify-between gap-4">
+        <div>
+          <span class="eyebrow">Agenda</span>
+          <h2 class="font-display mt-4 text-3xl font-semibold text-slate-950 sm:text-4xl">Eventi in programma</h2>
+        </div>
+        <router-link to="/events" class="btn-ghost hidden sm:inline-flex">Tutti gli eventi</router-link>
       </div>
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+
+      <div class="grid grid-cols-1 gap-6 sm:grid-cols-3">
         <router-link
           v-for="eventItem in latestEvents"
           :key="eventItem.id"
           :to="`/events/${eventItem.slug}`"
-          class="card overflow-hidden hover:scale-[1.01] transition-transform"
+          class="card overflow-hidden"
         >
           <ArticleCover
             :src="eventItem.coverImage"
@@ -148,10 +561,14 @@ onMounted(async () => {
             container-class="aspect-video"
             image-class="h-full w-full object-cover"
           />
-          <div class="p-4">
-            <p class="text-xs text-text-secondary mb-1">{{ new Date(eventItem.startsAt).toLocaleDateString('it-IT') }} · {{ eventItem.city }}</p>
-            <h3 class="font-semibold text-text-primary mb-2 line-clamp-2">{{ eventItem.title }}</h3>
-            <p v-if="eventItem.excerpt" class="text-sm text-text-secondary line-clamp-2">{{ eventItem.excerpt }}</p>
+          <div class="p-5">
+            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+              {{ formatEventDate(eventItem.startsAt) }} · {{ eventItem.city }}
+            </p>
+            <h3 class="mt-3 text-lg font-semibold leading-tight text-slate-950">{{ eventItem.title }}</h3>
+            <p class="mt-3 text-sm leading-7 text-slate-600">
+              {{ eventItem.excerpt || 'Un appuntamento pubblico per approfondire pratiche, strumenti e nuove abitudini di benessere.' }}
+            </p>
           </div>
         </router-link>
       </div>

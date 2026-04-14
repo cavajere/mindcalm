@@ -17,6 +17,7 @@ const isLoggingOut = ref(false)
 const hasAudio = ref(true)
 const hasArticles = ref(true)
 const hasEvents = ref(true)
+const isPublicVisitor = computed(() => !auth.isAuthenticated)
 
 const navigationItems = computed(() => {
   const items = [{ label: 'Home', to: '/' }]
@@ -167,11 +168,14 @@ onBeforeUnmount(() => {
           >
             <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-secondary text-white shadow-sm shadow-primary/20">
               <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                <path d="M10 2a4 4 0 00-4 4v1a2 2 0 00-2 2v5a2 2 0 002 2h8a2 2 0 002-2V9a2 2 0 00-2-2V6a4 4 0 00-4-4z" />
+                <path d="M10 2.75l1.54 3.388 3.71.431-2.757 2.526.75 3.681L10 10.924 6.757 12.776l.75-3.681L4.75 6.569l3.71-.431L10 2.75z" />
               </svg>
             </div>
             <div class="min-w-0">
               <p class="truncate text-base font-semibold text-text-primary">MindCalm</p>
+              <p class="hidden truncate text-xs text-text-secondary lg:block">
+                {{ isPublicVisitor ? 'Journal pubblico e percorsi audio riservati' : 'Percorsi audio e contenuti selezionati' }}
+              </p>
             </div>
           </router-link>
 
@@ -276,8 +280,9 @@ onBeforeUnmount(() => {
           </div>
 
           <div v-else class="hidden items-center gap-2 md:flex">
+            <router-link to="/articles" class="btn-ghost">Esplora il journal</router-link>
             <router-link to="/login" class="btn-secondary">Accedi</router-link>
-            <router-link to="/register" class="btn-primary">Registrati</router-link>
+            <router-link to="/register" class="btn-primary">Hai un invito?</router-link>
           </div>
 
           <button
@@ -345,11 +350,17 @@ onBeforeUnmount(() => {
           </div>
 
           <div v-else class="space-y-2">
+            <p class="px-1 text-sm leading-6 text-text-secondary">
+              Leggi gli ultimi contenuti pubblici oppure entra con il tuo invito per ascoltare i percorsi audio.
+            </p>
+            <router-link to="/articles" class="flex items-center justify-center rounded-2xl bg-surface px-4 py-3 text-sm font-medium text-text-primary transition-colors hover:bg-white">
+              Esplora il journal
+            </router-link>
             <router-link to="/login" class="flex items-center justify-center rounded-2xl bg-surface px-4 py-3 text-sm font-medium text-text-primary transition-colors hover:bg-white">
               Accedi
             </router-link>
             <router-link to="/register" class="flex items-center justify-center rounded-2xl bg-primary px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-primary-dark">
-              Registrati
+              Hai un invito?
             </router-link>
           </div>
 

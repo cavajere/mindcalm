@@ -8,11 +8,16 @@
   }
 
   body {
-    @apply min-h-screen bg-background text-text-primary transition-colors duration-200;
+    font-family: 'Manrope', sans-serif;
+    background:
+      radial-gradient(circle at top left, rgba(74, 144, 217, 0.12), transparent 28%),
+      radial-gradient(circle at top right, rgba(80, 184, 96, 0.1), transparent 26%),
+      linear-gradient(180deg, rgba(248, 250, 254, 0.96) 0%, rgba(255, 255, 255, 1) 32%, rgba(244, 248, 252, 0.92) 100%);
+    @apply min-h-screen text-text-primary transition-colors duration-200;
   }
 
   #app {
-    @apply min-h-screen bg-background;
+    @apply min-h-screen bg-transparent;
   }
 
   input,
@@ -24,26 +29,45 @@
 
 @layer components {
   .btn-primary {
-    @apply bg-primary text-white px-6 py-3 rounded-xl font-medium
-           hover:bg-primary-dark transition-colors duration-200
-           active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply rounded-full bg-primary px-6 py-3 font-semibold text-white
+           shadow-[0_14px_32px_-18px_rgba(74,144,217,0.8)]
+           hover:bg-primary-dark transition-all duration-200
+           active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .btn-secondary {
-    @apply bg-surface text-primary border border-primary/20 px-6 py-3 rounded-xl font-medium
-           hover:bg-primary/5 transition-colors duration-200;
+    @apply rounded-full border border-primary/20 bg-white/85 px-6 py-3 font-semibold text-primary
+           shadow-sm backdrop-blur-sm hover:bg-primary/5 transition-colors duration-200;
+  }
+
+  .btn-ghost {
+    @apply rounded-full border border-ui-border bg-surface/70 px-5 py-3 font-medium text-text-primary
+           backdrop-blur-sm transition-colors duration-200 hover:border-primary/25 hover:text-primary;
   }
 
   .card {
-    @apply bg-surface rounded-2xl shadow-sm border border-ui-border
+    @apply rounded-[28px] border border-ui-border bg-surface/90 shadow-sm shadow-slate-900/5
            transition-shadow duration-200 hover:shadow-md;
   }
 
   .badge {
-    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium;
+    @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-medium;
+  }
+
+  .eyebrow {
+    @apply inline-flex items-center gap-2 rounded-full border border-primary/10 bg-white/80 px-4 py-2 text-[11px]
+           font-semibold uppercase tracking-[0.24em] text-primary backdrop-blur-sm;
+  }
+
+  .section-panel {
+    @apply rounded-[32px] border border-white/70 bg-white/80 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.45)] backdrop-blur-xl;
+  }
+
+  .font-display {
+    font-family: 'Cormorant Garamond', serif;
   }
 
   .page-container {
-    @apply max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6;
+    @apply mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8;
   }
 }

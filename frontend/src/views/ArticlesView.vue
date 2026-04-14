@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import axios from 'axios'
 import ArticleCover from '../components/ArticleCover.vue'
 import TagFilter, { type FilterTag } from '../components/TagFilter.vue'
-import { useRoute } from 'vue-router'
 
 interface Article {
   id: string
@@ -24,6 +24,30 @@ const tags = ref<FilterTag[]>([])
 const selectedTags = ref<string[]>([])
 const route = useRoute()
 
+const activeFiltersLabel = computed(() => {
+  if (!selectedTags.value.length && !search.value.trim()) {
+    return 'Nessun filtro attivo'
+  }
+
+  const parts = []
+  if (search.value.trim()) {
+    parts.push('ricerca attiva')
+  }
+  if (selectedTags.value.length) {
+    parts.push(`${selectedTags.value.length} tag`)
+  }
+
+  return parts.join(' · ')
+})
+
+function formatArticleDate(value: string) {
+  return new Date(value).toLocaleDateString('it-IT', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
 function parseTagsFromRoute() {
   const raw = route.query.tags
   const value = Array.isArray(raw) ? raw.join(',') : raw
@@ -40,11 +64,13 @@ function parseTagsFromRoute() {
 
 async function fetchArticles() {
   loading.value = true
+
   try {
     const query = new URLSearchParams({
       page: String(pagination.value.page),
       limit: String(pagination.value.limit),
     })
+
     if (search.value) query.set('search', search.value)
     if (selectedTags.value.length) query.set('tags', selectedTags.value.join(','))
 
@@ -88,68 +114,109 @@ watch(search, () => {
 </script>
 
 <template>
-  <div class="page-container">
-    <h1 class="text-3xl font-bold text-text-primary mb-8">Articoli e guide</h1>
+  <div class="page-container space-y-8 pb-10">
+    <section class="section-panel relative overflow-hidden">
+      <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(74,144,217,0.16),_transparent_34%),radial-gradient(circle_at_bottom_right,_rgba(80,184,96,0.12),_transparent_26%)]" />
 
-    <div class="mb-8 space-y-4">
-      <div class="relative">
-        <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
-        <input
-          v-model="search"
-          type="text"
-          placeholder="Cerca articoli, temi e argomenti..."
-          class="w-full rounded-xl border border-gray-200 bg-surface py-3 pl-10 pr-4 transition-all focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-        />
+      <div class="relative grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:p-10">
+        <div>
+          <span class="eyebrow">Archivio pubblico</span>
+          <h1 class="font-display mt-4 text-4xl font-semibold leading-none text-slate-950 sm:text-5xl">
+            Articoli e guide per ritrovare spazio mentale.
+          </h1>
+          <p class="mt-4 max-w-3xl text-base leading-8 text-slate-600 sm:text-lg">
+            Letture brevi, pratiche e ben curate per accompagnare la giornata con piu chiarezza, presenza e continuita.
+          </p>
+        </div>
+
+        <div class="grid gap-3 sm:grid-cols-2 lg:min-w-[320px]">
+          <div class="rounded-[26px] border border-white/80 bg-white/75 p-4 backdrop-blur-sm">
+            <p class="text-2xl font-semibold text-slate-950">{{ pagination.total }}</p>
+            <p class="mt-1 text-sm text-slate-600">articoli pubblicati</p>
+          </div>
+          <div class="rounded-[26px] border border-white/80 bg-white/75 p-4 backdrop-blur-sm">
+            <p class="text-sm font-semibold text-slate-950">{{ activeFiltersLabel }}</p>
+            <p class="mt-1 text-sm text-slate-600">stato della ricerca</p>
+          </div>
+        </div>
       </div>
+    </section>
 
-      <TagFilter
-        v-if="tags.length"
-        v-model="selectedTags"
-        :tags="tags"
-        label="Tag"
-      />
-    </div>
+    <section class="card p-5 sm:p-6">
+      <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start">
+        <div>
+          <label class="mb-2 block text-sm font-semibold text-slate-950">Cerca nel journal</label>
+          <div class="relative">
+            <svg class="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              v-model="search"
+              type="text"
+              placeholder="Cerca temi, pratiche e parole chiave..."
+              class="w-full rounded-[22px] border border-ui-border bg-white/85 py-3 pl-12 pr-4 transition-all focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+        </div>
 
-    <!-- Loading -->
-    <div v-if="loading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-      <div v-for="i in 6" :key="i" class="card animate-pulse">
-        <div class="aspect-video bg-gray-200"></div>
-        <div class="p-4">
-          <div class="h-4 bg-gray-200 rounded mb-2 w-3/4"></div>
-          <div class="h-3 bg-gray-200 rounded w-full"></div>
+        <div>
+          <TagFilter
+            v-if="tags.length"
+            v-model="selectedTags"
+            :tags="tags"
+            label="Esplora per tag"
+          />
+          <p v-else class="pt-8 text-sm text-slate-500">I tag compariranno qui quando saranno disponibili.</p>
+        </div>
+      </div>
+    </section>
+
+    <div v-if="loading" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div v-for="item in 6" :key="item" class="card animate-pulse overflow-hidden">
+        <div class="aspect-[4/3] bg-slate-200"></div>
+        <div class="space-y-3 p-5">
+          <div class="h-3 w-24 rounded-full bg-slate-200"></div>
+          <div class="h-8 w-4/5 rounded-2xl bg-slate-200"></div>
+          <div class="h-4 w-full rounded bg-slate-200"></div>
+          <div class="h-4 w-3/4 rounded bg-slate-200"></div>
         </div>
       </div>
     </div>
 
-    <!-- Articoli -->
-    <div v-else-if="articles.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div v-else-if="articles.length" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
       <router-link
-        v-for="a in articles"
-        :key="a.id"
-        :to="`/articles/${a.slug}`"
-        class="card overflow-hidden hover:scale-[1.01] transition-transform"
+        v-for="article in articles"
+        :key="article.id"
+        :to="`/articles/${article.slug}`"
+        class="card group overflow-hidden"
       >
         <ArticleCover
-          :src="a.coverImage"
-          :alt="a.title"
-          container-class="aspect-video"
-          image-class="h-full w-full object-cover"
+          :src="article.coverImage"
+          :alt="article.title"
+          container-class="aspect-[4/3] overflow-hidden"
+          image-class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
+
         <div class="p-5">
-          <div class="flex items-center gap-2 text-xs text-text-secondary mb-2">
-            <span>{{ a.author }}</span>
-            <span>&middot;</span>
-            <span>{{ new Date(a.publishedAt).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' }) }}</span>
+          <div class="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+            <span>{{ formatArticleDate(article.publishedAt) }}</span>
+            <span>·</span>
+            <span>{{ article.author }}</span>
           </div>
-          <h3 class="font-semibold text-text-primary mb-2 line-clamp-2">{{ a.title }}</h3>
-          <p v-if="a.excerpt" class="text-sm text-text-secondary line-clamp-3">{{ a.excerpt }}</p>
-          <div v-if="a.tags.length" class="mt-4 flex flex-wrap gap-2">
+
+          <h2 class="mt-3 text-xl font-semibold leading-tight text-slate-950">
+            {{ article.title }}
+          </h2>
+
+          <p class="mt-3 text-sm leading-7 text-slate-600">
+            {{ article.excerpt || 'Una lettura pubblica pensata per portare ordine, consapevolezza e strumenti pratici nella quotidianita.' }}
+          </p>
+
+          <div v-if="article.tags.length" class="mt-5 flex flex-wrap gap-2">
             <span
-              v-for="tag in a.tags.slice(0, 3)"
+              v-for="tag in article.tags.slice(0, 3)"
               :key="tag.id"
-              class="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600"
+              class="rounded-full border border-primary/10 bg-primary/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-primary"
             >
               {{ tag.label }}
             </span>
@@ -158,21 +225,26 @@ watch(search, () => {
       </router-link>
     </div>
 
-    <div v-else class="text-center py-16">
-      <p class="text-text-secondary text-lg">Nessun articolo pubblicato</p>
+    <div v-else class="section-panel p-8 text-center sm:p-10">
+      <div class="mx-auto max-w-2xl">
+        <span class="eyebrow">Archivio vuoto</span>
+        <h2 class="mt-5 text-2xl font-semibold text-slate-950 sm:text-3xl">Nessun articolo corrisponde alla ricerca attuale.</h2>
+        <p class="mt-4 text-base leading-8 text-slate-600">
+          Prova a rimuovere qualche filtro o torna piu tardi: i nuovi contenuti pubblici compariranno qui in automatico.
+        </p>
+        <router-link to="/" class="btn-secondary mt-6 inline-flex">Torna alla home</router-link>
+      </div>
     </div>
 
-    <!-- Paginazione -->
-    <div v-if="pagination.totalPages > 1" class="mt-8 overflow-x-auto pb-2">
+    <div v-if="pagination.totalPages > 1" class="overflow-x-auto pb-2">
       <div class="flex w-full min-w-max justify-start gap-2 sm:justify-center">
         <button
           v-for="page in pagination.totalPages"
           :key="page"
+          type="button"
+          class="h-11 min-w-11 rounded-full px-4 text-sm font-semibold transition-colors"
+          :class="page === pagination.page ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-white text-slate-600 hover:bg-slate-100'"
           @click="changePage(page)"
-          :class="[
-            'h-10 min-w-10 rounded-lg px-3 text-sm font-medium transition-colors',
-            page === pagination.page ? 'bg-primary text-white' : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
-          ]"
         >
           {{ page }}
         </button>
