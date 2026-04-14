@@ -5,6 +5,7 @@ import axios from 'axios'
 import PageHeader from '../components/PageHeader.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import { getAudioLevelLabel } from '../utils/audioLevels'
+import { getPublicAppUrl } from '../utils/appUrls'
 
 const router = useRouter()
 const audioItems = ref<any[]>([])
@@ -24,7 +25,10 @@ async function fetchAudio() {
 
 async function toggleStatus(audio: any) {
   const newStatus = audio.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED'
-  await axios.patch(`/api/admin/audio/${audio.id}/status`, { status: newStatus })
+  await axios.patch(`/api/admin/audio/${audio.id}/status`, {
+    status: newStatus,
+    publicBaseUrl: getPublicAppUrl(),
+  })
   audio.status = newStatus
 }
 

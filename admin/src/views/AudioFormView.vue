@@ -8,6 +8,7 @@ import AlbumImagePicker from '../components/AlbumImagePicker.vue'
 import FileUploader, { type UploadFileItem, type ExistingFileMeta } from '../components/FileUploader.vue'
 import type { AlbumImage } from '../types/album'
 import { audioLevelOptions } from '../utils/audioLevels'
+import { getPublicAppUrl } from '../utils/appUrls'
 
 const route = useRoute()
 const router = useRouter()
@@ -124,6 +125,7 @@ async function save() {
     fd.append('categoryId', form.value.categoryId)
     fd.append('level', form.value.level)
     fd.append('status', form.value.status)
+    fd.append('publicBaseUrl', getPublicAppUrl())
     fd.append('tagIds', JSON.stringify(form.value.tagIds))
     fd.append('audioFileDisplayName', audioFiles.value.length ? audioFiles.value[0].displayName : audioDisplayName.value)
     fd.append('coverImageDisplayName', coverFiles.value.length ? coverFiles.value[0].displayName : coverImageDisplayName.value)

@@ -114,6 +114,7 @@ model ContentPublicationOutbox {
   contentType  ContentPublicationType
   contentId    String
   title        String
+  contentUrl   String?
   publishedAt  DateTime
   status       PublicationOutboxStatus @default(PENDING)
   availableAt  DateTime               @default(now())

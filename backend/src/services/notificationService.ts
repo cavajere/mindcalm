@@ -81,6 +81,7 @@ const contentPublicationOutboxSelect = {
   contentType: true,
   contentId: true,
   title: true,
+  contentUrl: true,
   publishedAt: true,
   status: true,
   availableAt: true,
@@ -109,9 +110,19 @@ export interface ContentPublicationOutboxInput {
   type: ContentNotificationItem['type']
   title: string
   publishedAt: Date
+  contentUrl?: string
 }
 
 async function buildImmediateNotificationItem(input: ContentPublicationOutboxInput): Promise<ContentNotificationItem> {
+  if (input.contentUrl) {
+    return {
+      type: input.type,
+      title: input.title,
+      publishedAt: input.publishedAt,
+      url: input.contentUrl,
+    }
+  }
+
   if (input.type === 'audio') {
     return toAudioItem({
       id: input.contentId,
@@ -370,6 +381,7 @@ export async function queuePublishedContentOutboxEntry(
       contentType: toContentPublicationType(input.type),
       contentId: input.contentId,
       title: input.title,
+      contentUrl: input.contentUrl ?? null,
       publishedAt: input.publishedAt,
       status: PublicationOutboxStatus.PENDING,
       availableAt: input.publishedAt,
@@ -1181,6 +1193,7 @@ export async function processPublicationOutbox(now = new Date()) {
         type: toNotificationItemType(entry.contentType),
         title: entry.title,
         publishedAt: entry.publishedAt,
+        contentUrl: entry.contentUrl ?? undefined,
       })
 
       await finalizeSuccessfulPublicationOutboxEntry(entry, new Date())
