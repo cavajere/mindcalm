@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import axios from 'axios'
+import AdminModal from './AdminModal.vue'
 import type { AlbumImage } from '../types/album'
 
 const props = withDefaults(defineProps<{
@@ -127,12 +128,8 @@ function selectImage(image: AlbumImage) {
       <button type="button" class="btn-secondary mt-4" @click="openPicker">Scegli dall'album</button>
     </div>
 
-    <div
-      v-if="open"
-      class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4"
-      @click.self="open = false"
-    >
-      <div class="flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-[28px] bg-white shadow-2xl">
+    <AdminModal :open="open" panel-class="max-w-6xl" overlay-class="bg-slate-950/60 p-4" @close="open = false">
+      <div class="flex max-h-[90vh] w-full flex-col overflow-hidden rounded-[28px] bg-white shadow-2xl">
         <div class="border-b border-gray-100 px-6 py-5">
           <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -233,6 +230,6 @@ function selectImage(image: AlbumImage) {
           </div>
         </div>
       </div>
-    </div>
+    </AdminModal>
   </div>
 </template>

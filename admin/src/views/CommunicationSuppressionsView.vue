@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
 import axios from 'axios'
+import AdminModal from '../components/AdminModal.vue'
 import CommunicationSectionTabs from '../components/CommunicationSectionTabs.vue'
 import PageHeader from '../components/PageHeader.vue'
 import { getApiErrorMessage } from '../utils/apiMessages'
@@ -204,12 +205,8 @@ onMounted(fetchItems)
       </div>
     </div>
 
-    <div
-      v-if="dialogOpen"
-      class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/45 px-4 py-8"
-      @click.self="dialogOpen = false"
-    >
-      <div class="w-full max-w-lg rounded-[28px] bg-white p-6 shadow-2xl">
+    <AdminModal :open="dialogOpen" panel-class="max-w-lg" @close="dialogOpen = false">
+      <div class="w-full rounded-[28px] bg-white p-6 shadow-2xl">
         <div class="flex items-start justify-between gap-4">
           <div>
             <h2 class="text-xl font-semibold text-text-primary">Aggiungi suppression</h2>
@@ -242,6 +239,6 @@ onMounted(fetchItems)
           </div>
         </div>
       </div>
-    </div>
+    </AdminModal>
   </div>
 </template>

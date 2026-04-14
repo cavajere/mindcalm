@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import axios from 'axios'
+import AdminModal from '../components/AdminModal.vue'
 import PageHeader from '../components/PageHeader.vue'
 import type { AlbumImage } from '../types/album'
 
@@ -397,12 +398,8 @@ onBeforeUnmount(() => {
       <button type="button" class="btn-secondary" @click="loadMore">Carica altre</button>
     </div>
 
-    <div
-      v-if="createDialogOpen"
-      class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4"
-      @click.self="closeCreateDialog"
-    >
-      <div class="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-[28px] bg-white shadow-2xl">
+    <AdminModal :open="createDialogOpen" panel-class="max-w-3xl" overlay-class="bg-slate-950/60 p-4" @close="closeCreateDialog">
+      <div class="flex max-h-[90vh] w-full flex-col overflow-hidden rounded-[28px] bg-white shadow-2xl">
         <div class="border-b border-gray-100 px-6 py-5">
           <div class="flex items-center justify-between gap-3">
             <div>
@@ -491,14 +488,10 @@ onBeforeUnmount(() => {
           </div>
         </div>
       </div>
-    </div>
+    </AdminModal>
 
-    <div
-      v-if="editDialogOpen"
-      class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4"
-      @click.self="editDialogOpen = false"
-    >
-      <div class="w-full max-w-xl rounded-[28px] bg-white p-6 shadow-2xl">
+    <AdminModal :open="editDialogOpen" panel-class="max-w-xl" overlay-class="bg-slate-950/60 p-4" @close="editDialogOpen = false">
+      <div class="w-full rounded-[28px] bg-white p-6 shadow-2xl">
         <p class="text-lg font-semibold text-text-primary">Modifica metadati</p>
         <p class="mt-1 text-sm text-text-secondary">Aggiorna titolo e descrizione dell’immagine selezionata.</p>
 
@@ -520,6 +513,6 @@ onBeforeUnmount(() => {
           </button>
         </div>
       </div>
-    </div>
+    </AdminModal>
   </div>
 </template>

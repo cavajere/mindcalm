@@ -11,6 +11,39 @@ function normalizeEmail(email: string) {
   return email.trim().toLowerCase()
 }
 
+function normalizeOptionalNamePart(value?: string | null) {
+  const normalized = value?.trim() ?? ''
+  return normalized.length ? normalized : null
+}
+
+function buildContactSearchWhere(search?: string) {
+  const normalized = search?.trim()
+  if (!normalized) return {}
+
+  return {
+    OR: [
+      {
+        email: {
+          contains: normalized,
+          mode: 'insensitive' as const,
+        },
+      },
+      {
+        firstName: {
+          contains: normalized,
+          mode: 'insensitive' as const,
+        },
+      },
+      {
+        lastName: {
+          contains: normalized,
+          mode: 'insensitive' as const,
+        },
+      },
+    ],
+  }
+}
+
 function resolveTranslationTitle(translations: Array<{ lang: string; title: string }> | undefined, fallback: string) {
   return translations?.find((translation) => translation.lang === 'it')?.title
     || translations?.[0]?.title
@@ -34,16 +67,7 @@ export async function listCommunicationContacts(input: {
   const page = Math.max(1, input.page ?? 1)
   const limit = Math.min(100, Math.max(1, input.limit ?? 25))
   const skip = (page - 1) * limit
-  const search = input.search?.trim()
-
-  const where = {
-    ...(search ? {
-      email: {
-        contains: search,
-        mode: 'insensitive' as const,
-      },
-    } : {}),
-  }
+  const where = buildContactSearchWhere(input.search)
 
   const [contacts, total] = await Promise.all([
     prisma.contact.findMany({
@@ -72,6 +96,8 @@ export async function listCommunicationContacts(input: {
       return {
         id: contact.id,
         email: contact.email,
+        firstName: contact.firstName,
+        lastName: contact.lastName,
         status: contact.status,
         suppressedAt: contact.suppressedAt,
         suppressionReason: contact.suppressionReason,
@@ -95,7 +121,16 @@ export async function lookupCommunicationContactByEmail(email: string) {
   const normalizedEmail = normalizeEmail(email)
   const contact = await prisma.contact.findUnique({
     where: { email: normalizedEmail },
-    include: {
+    select: {
+      id: true,
+      email: true,
+      firstName: true,
+      lastName: true,
+      status: true,
+      suppressedAt: true,
+      suppressionReason: true,
+      createdAt: true,
+      updatedAt: true,
       consents: {
         where: { invalidatedAt: null },
         include: {
@@ -123,15 +158,41 @@ export async function lookupCommunicationContactByEmail(email: string) {
 
 export async function upsertCommunicationContact(input: {
   email: string
-  consents: Array<{ formulaId: string; value: ConsentValue }>
+  firstName?: string | null
+  lastName?: string | null
+  consents?: Array<{ formulaId: string; value: ConsentValue }>
   adminUserId?: string
 }) {
+  const email = normalizeEmail(input.email)
+  const firstName = normalizeOptionalNamePart(input.firstName)
+  const lastName = normalizeOptionalNamePart(input.lastName)
+  const consents = Array.isArray(input.consents) ? input.consents : []
+
+  if (!consents.length) {
+    return prisma.contact.upsert({
+      where: { email },
+      update: {
+        status: ContactStatus.ACTIVE,
+        suppressedAt: null,
+        suppressionReason: null,
+        ...(firstName !== null ? { firstName } : {}),
+        ...(lastName !== null ? { lastName } : {}),
+      },
+      create: {
+        email,
+        firstName,
+        lastName,
+        status: ContactStatus.ACTIVE,
+      },
+    })
+  }
+
   const policy = await getActiveCommunicationPolicy()
   if (!policy.currentVersionId || !policy.consentFormulas.length) {
     throw new Error('CONSENT_POLICY_NOT_PUBLISHED')
   }
 
-  const requested = new Map(input.consents.map((consent) => [consent.formulaId, consent.value]))
+  const requested = new Map(consents.map((consent) => [consent.formulaId, consent.value]))
   if (requested.size !== policy.consentFormulas.length) {
     throw new Error('CONSENT_PAYLOAD_INCOMPLETE')
   }
@@ -144,8 +205,6 @@ export async function upsertCommunicationContact(input: {
     }
   }
 
-  const email = normalizeEmail(input.email)
-
   return prisma.$transaction(async (tx) => {
     const contact = await tx.contact.upsert({
       where: { email },
@@ -153,9 +212,13 @@ export async function upsertCommunicationContact(input: {
         status: ContactStatus.ACTIVE,
         suppressedAt: null,
         suppressionReason: null,
+        ...(firstName !== null ? { firstName } : {}),
+        ...(lastName !== null ? { lastName } : {}),
       },
       create: {
         email,
+        firstName,
+        lastName,
         status: ContactStatus.ACTIVE,
       },
     })
@@ -272,6 +335,20 @@ export async function getCommunicationContactDetail(contactId: string) {
       },
     })),
   }
+}
+
+export async function updateCommunicationContactProfile(input: {
+  contactId: string
+  firstName?: string | null
+  lastName?: string | null
+}) {
+  return prisma.contact.update({
+    where: { id: input.contactId },
+    data: {
+      firstName: normalizeOptionalNamePart(input.firstName),
+      lastName: normalizeOptionalNamePart(input.lastName),
+    },
+  })
 }
 
 export async function updateCommunicationContactConsent(input: {
@@ -473,12 +550,7 @@ export async function listCommunicationSuppressions(input: {
 
   const where = {
     status: ContactStatus.SUPPRESSED,
-    ...(search ? {
-      email: {
-        contains: search,
-        mode: 'insensitive' as const,
-      },
-    } : {}),
+    ...buildContactSearchWhere(search),
   }
 
   const [items, total] = await Promise.all([
@@ -502,8 +574,12 @@ export async function listCommunicationSuppressions(input: {
 export async function createCommunicationSuppression(input: {
   email: string
   reason?: string
+  firstName?: string | null
+  lastName?: string | null
 }) {
   const email = normalizeEmail(input.email)
+  const firstName = normalizeOptionalNamePart(input.firstName)
+  const lastName = normalizeOptionalNamePart(input.lastName)
 
   return prisma.contact.upsert({
     where: { email },
@@ -511,9 +587,13 @@ export async function createCommunicationSuppression(input: {
       status: ContactStatus.SUPPRESSED,
       suppressedAt: new Date(),
       suppressionReason: input.reason ?? 'manual',
+      ...(firstName !== null ? { firstName } : {}),
+      ...(lastName !== null ? { lastName } : {}),
     },
     create: {
       email,
+      firstName,
+      lastName,
       status: ContactStatus.SUPPRESSED,
       suppressedAt: new Date(),
       suppressionReason: input.reason ?? 'manual',

@@ -5,6 +5,7 @@ import { useAudio } from './composables/useAudio'
 import AudioPlayer from './components/AudioPlayer.vue'
 import InstallPrompt from './components/InstallPrompt.vue'
 import AppHeader from './components/AppHeader.vue'
+import AppFooter from './components/AppFooter.vue'
 import { usePlayerStore } from './stores/playerStore'
 
 const ui = useUiStore()
@@ -33,6 +34,8 @@ useAudio()
       </transition>
     </router-view>
   </main>
+
+  <AppFooter v-if="!route.meta.hideChrome" :class="{ 'pb-24': player.currentAudio }" />
 
   <!-- Global audio player -->
   <AudioPlayer v-if="!route.meta.hideChrome" />

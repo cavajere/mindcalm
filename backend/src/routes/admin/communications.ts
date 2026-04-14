@@ -11,6 +11,7 @@ import {
   listCommunicationSuppressions,
   lookupCommunicationContactByEmail,
   removeCommunicationSuppression,
+  updateCommunicationContactProfile,
   updateCommunicationContactConsent,
   upsertCommunicationContact,
 } from '../../services/communicationAdminService'
@@ -69,13 +70,10 @@ router.post('/contacts', async (req: Request, res: Response) => {
     return
   }
 
-  if (!consents.length) {
-    res.status(400).json({ error: 'Consensi obbligatori' })
-    return
-  }
-
   const result = await upsertCommunicationContact({
     email,
+    firstName: getSingleString(req.body.firstName),
+    lastName: getSingleString(req.body.lastName),
     consents: consents.map((consent: any): CommunicationConsentInput => ({
       formulaId: String(consent.formulaId),
       value: String(consent.value) as ConsentValue,
@@ -98,6 +96,31 @@ router.get('/contacts/:contactId', async (req: Request, res: Response) => {
     res.json(detail)
   } catch (error) {
     if ((error as Error).message === 'CONTACT_NOT_FOUND') {
+      res.status(404).json({ error: 'Contatto non trovato' })
+      return
+    }
+
+    throw error
+  }
+})
+
+router.put('/contacts/:contactId', async (req: Request, res: Response) => {
+  const contactId = getSingleString(req.params.contactId)
+  if (!contactId) {
+    res.status(400).json({ error: 'contactId non valido' })
+    return
+  }
+
+  try {
+    const result = await updateCommunicationContactProfile({
+      contactId,
+      firstName: getSingleString(req.body.firstName),
+      lastName: getSingleString(req.body.lastName),
+    })
+
+    res.json(result)
+  } catch (error) {
+    if ((error as Error).message.includes('Record to update not found')) {
       res.status(404).json({ error: 'Contatto non trovato' })
       return
     }
@@ -222,6 +245,8 @@ router.post('/suppressions', async (req: Request, res: Response) => {
   const result = await createCommunicationSuppression({
     email,
     reason: getSingleString(req.body.reason) ?? undefined,
+    firstName: getSingleString(req.body.firstName),
+    lastName: getSingleString(req.body.lastName),
   })
 
   res.status(201).json(result)

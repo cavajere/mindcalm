@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
+import AdminModal from '../components/AdminModal.vue'
 import CommunicationSectionTabs from '../components/CommunicationSectionTabs.vue'
 import PageHeader from '../components/PageHeader.vue'
 import { getApiErrorMessage } from '../utils/apiMessages'
@@ -34,6 +35,8 @@ type AudienceOptionsResponse = {
 type ContactListItem = {
   id: string
   email: string
+  firstName: string | null
+  lastName: string | null
   status: ContactStatus
   suppressedAt: string | null
   suppressionReason: string | null
@@ -62,6 +65,8 @@ const importSummary = ref('')
 
 const addForm = ref({
   email: '',
+  firstName: '',
+  lastName: '',
   consents: {} as Record<string, ConsentValue>,
 })
 
@@ -89,6 +94,10 @@ function getStatusBadge(status: ContactStatus) {
     : 'bg-emerald-100 text-emerald-700'
 }
 
+function getContactDisplayName(contact: Pick<ContactListItem, 'firstName' | 'lastName'>) {
+  return [contact.firstName, contact.lastName].filter(Boolean).join(' ').trim()
+}
+
 function resetMessages() {
   error.value = ''
   success.value = ''
@@ -98,6 +107,8 @@ function resetMessages() {
 function resetAddForm() {
   addForm.value = {
     email: '',
+    firstName: '',
+    lastName: '',
     consents: Object.fromEntries(
       activeFormulas.value.map((formula) => [formula.id, formula.required ? 'YES' : 'NO']),
     ),
@@ -150,6 +161,8 @@ async function submitAdd() {
   try {
     await axios.post('/api/admin/communications/contacts', {
       email: addForm.value.email.trim(),
+      firstName: addForm.value.firstName.trim() || undefined,
+      lastName: addForm.value.lastName.trim() || undefined,
       consents: activeFormulas.value.map((formula) => ({
         formulaId: formula.id,
         value: addForm.value.consents[formula.id] ?? 'NO',
@@ -187,6 +200,8 @@ async function exportContacts() {
   try {
     const rows: Array<Array<unknown>> = [[
       'Email',
+      'Nome',
+      'Cognome',
       'Stato',
       'Consensi YES',
       'Consensi NO',
@@ -207,6 +222,8 @@ async function exportContacts() {
       for (const contact of data.data ?? []) {
         rows.push([
           contact.email,
+          contact.firstName ?? '',
+          contact.lastName ?? '',
           contact.status,
           contact.consentCounts?.accepted ?? 0,
           contact.consentCounts?.rejected ?? 0,
@@ -228,18 +245,21 @@ async function exportContacts() {
 
 function downloadTemplate() {
   downloadCsv('template-contatti-comunicazione.csv', [
-    ['email'],
-    ['utente@example.com'],
+    ['email', 'firstName', 'lastName'],
+    ['utente@example.com', 'Mario', 'Rossi'],
   ])
 }
 
-function parseCsvEmails(content: string) {
+function parseCsvContacts(content: string) {
   return content
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean)
-    .map((line) => line.split(/[;,]/)[0]?.trim() ?? '')
-    .filter((value) => value && value.toLowerCase() !== 'email')
+    .map((line) => {
+      const [email, firstName = '', lastName = ''] = line.split(/[;,]/).map((value) => value.trim())
+      return { email, firstName, lastName }
+    })
+    .filter((row) => row.email && row.email.toLowerCase() !== 'email')
 }
 
 async function handleImportFile(event: Event) {
@@ -251,18 +271,20 @@ async function handleImportFile(event: Event) {
   resetMessages()
 
   try {
-    const emails = parseCsvEmails(await file.text())
-    if (!emails.length) {
+    const contactsToImport = parseCsvContacts(await file.text())
+    if (!contactsToImport.length) {
       throw new Error('Nessun indirizzo email valido trovato nel file')
     }
 
     let imported = 0
     let failed = 0
 
-    for (const email of emails) {
+    for (const contact of contactsToImport) {
       try {
         await axios.post('/api/admin/communications/contacts', {
-          email,
+          email: contact.email,
+          firstName: contact.firstName || undefined,
+          lastName: contact.lastName || undefined,
           consents: activeFormulas.value.map((formula) => ({
             formulaId: formula.id,
             value: formula.required ? 'YES' : 'NO',
@@ -350,7 +372,7 @@ onMounted(async () => {
       <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr),220px] lg:items-end">
         <div>
           <label class="label">Cerca</label>
-          <input v-model="searchQuery" type="text" class="input-field" placeholder="Cerca per email" />
+          <input v-model="searchQuery" type="text" class="input-field" placeholder="Cerca per email, nome o cognome" />
         </div>
         <div class="rounded-2xl bg-slate-100 px-4 py-3">
           <p class="text-sm text-text-secondary">Totale contatti</p>
@@ -384,7 +406,12 @@ onMounted(async () => {
                 class="text-left"
                 @click="router.push(`/communications/contacts/${contact.id}`)"
               >
-                <span class="block text-sm font-semibold text-text-primary hover:text-primary">{{ contact.email }}</span>
+                <span v-if="getContactDisplayName(contact)" class="block text-sm font-semibold text-text-primary hover:text-primary">
+                  {{ getContactDisplayName(contact) }}
+                </span>
+                <span class="block text-sm" :class="getContactDisplayName(contact) ? 'text-text-secondary' : 'font-semibold text-text-primary hover:text-primary'">
+                  {{ contact.email }}
+                </span>
                 <span v-if="contact.suppressionReason" class="mt-1 block text-xs text-text-secondary">
                   {{ contact.suppressionReason }}
                 </span>
@@ -430,83 +457,90 @@ onMounted(async () => {
       </div>
     </div>
 
-    <div
-      v-if="addDialogOpen"
-      class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/45 px-4 py-8"
-      @click.self="addDialogOpen = false"
-    >
-      <div class="w-full max-w-2xl rounded-[28px] bg-white p-6 shadow-2xl">
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <h2 class="text-xl font-semibold text-text-primary">Nuovo contatto</h2>
-            <p class="mt-1 text-sm text-text-secondary">Inserimento manuale con assegnazione consensi correnti.</p>
-          </div>
-          <button type="button" class="btn-secondary" @click="addDialogOpen = false">Chiudi</button>
-        </div>
-
-        <div class="mt-6 space-y-5">
-          <div>
-            <label class="label">Email</label>
-            <input v-model="addForm.email" type="email" class="input-field" placeholder="utente@example.com" />
-          </div>
-
-          <div>
-            <p class="label">Consensi</p>
-            <div v-if="!activeFormulas.length" class="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-              Nessuna formula consenso pubblicata.
+    <AdminModal :open="addDialogOpen" panel-class="max-w-2xl" @close="addDialogOpen = false">
+      <div class="w-full rounded-[28px] bg-white p-6 shadow-2xl">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <h2 class="text-xl font-semibold text-text-primary">Nuovo contatto</h2>
+              <p class="mt-1 text-sm text-text-secondary">Inserimento manuale con anagrafica minima e consensi opzionali.</p>
             </div>
-            <div v-else class="space-y-3">
-              <div
-                v-for="formula in activeFormulas"
-                :key="formula.id"
-                class="rounded-2xl border border-ui-border px-4 py-4"
-              >
-                <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                  <div>
-                    <p class="text-sm font-semibold text-text-primary">{{ getFormulaTitle(formula) }}</p>
-                    <p class="mt-1 text-xs text-text-secondary">{{ formula.code }}</p>
-                  </div>
+            <button type="button" class="btn-secondary" @click="addDialogOpen = false">Chiudi</button>
+          </div>
 
-                  <div class="flex gap-2">
-                    <button
-                      type="button"
-                      :class="[
-                        'rounded-xl px-3 py-2 text-sm font-medium transition-colors',
-                        addForm.consents[formula.id] === 'YES'
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-slate-100 text-slate-700',
-                      ]"
-                      @click="addForm.consents[formula.id] = 'YES'"
-                    >
-                      Sì
-                    </button>
-                    <button
-                      type="button"
-                      :disabled="formula.required"
-                      :class="[
-                        'rounded-xl px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-                        addForm.consents[formula.id] === 'NO'
-                          ? 'bg-red-600 text-white'
-                          : 'bg-slate-100 text-slate-700',
-                      ]"
-                      @click="addForm.consents[formula.id] = 'NO'"
-                    >
-                      No
-                    </button>
+          <div class="mt-6 space-y-5">
+            <div>
+              <label class="label">Email</label>
+              <input v-model="addForm.email" type="email" class="input-field" placeholder="utente@example.com" />
+            </div>
+
+            <div class="grid gap-4 md:grid-cols-2">
+              <div>
+                <label class="label">Nome</label>
+                <input v-model="addForm.firstName" type="text" class="input-field" placeholder="Mario" />
+              </div>
+              <div>
+                <label class="label">Cognome</label>
+                <input v-model="addForm.lastName" type="text" class="input-field" placeholder="Rossi" />
+              </div>
+            </div>
+
+            <div>
+              <p class="label">Consensi</p>
+              <div v-if="!activeFormulas.length" class="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                Nessuna formula consenso pubblicata. Il contatto può comunque essere creato e completato in seguito.
+              </div>
+              <div v-else class="space-y-3">
+                <div
+                  v-for="formula in activeFormulas"
+                  :key="formula.id"
+                  class="rounded-2xl border border-ui-border px-4 py-4"
+                >
+                  <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                      <p class="text-sm font-semibold text-text-primary">{{ getFormulaTitle(formula) }}</p>
+                      <p class="mt-1 text-xs text-text-secondary">{{ formula.code }}</p>
+                    </div>
+
+                    <div class="flex gap-2">
+                      <button
+                        type="button"
+                        :class="[
+                          'rounded-xl px-3 py-2 text-sm font-medium transition-colors',
+                          addForm.consents[formula.id] === 'YES'
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-slate-100 text-slate-700',
+                        ]"
+                        @click="addForm.consents[formula.id] = 'YES'"
+                      >
+                        Sì
+                      </button>
+                      <button
+                        type="button"
+                        :disabled="formula.required"
+                        :class="[
+                          'rounded-xl px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+                          addForm.consents[formula.id] === 'NO'
+                            ? 'bg-red-600 text-white'
+                            : 'bg-slate-100 text-slate-700',
+                        ]"
+                        @click="addForm.consents[formula.id] = 'NO'"
+                      >
+                        No
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div class="flex justify-end gap-3">
-            <button type="button" class="btn-secondary" @click="addDialogOpen = false">Annulla</button>
-            <button type="button" class="btn-primary" :disabled="submitting || !activeFormulas.length" @click="submitAdd">
-              {{ submitting ? 'Salvataggio...' : 'Salva contatto' }}
-            </button>
+            <div class="flex justify-end gap-3">
+              <button type="button" class="btn-secondary" @click="addDialogOpen = false">Annulla</button>
+              <button type="button" class="btn-primary" :disabled="submitting" @click="submitAdd">
+                {{ submitting ? 'Salvataggio...' : 'Salva contatto' }}
+              </button>
+            </div>
           </div>
-        </div>
       </div>
-    </div>
+    </AdminModal>
   </div>
 </template>

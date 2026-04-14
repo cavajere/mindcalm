@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import axios from 'axios'
+import AdminModal from '../components/AdminModal.vue'
 import PageHeader from '../components/PageHeader.vue'
 
 interface Category {
@@ -139,10 +140,8 @@ onMounted(fetchCategories)
       </table>
     </div>
 
-    <!-- Modal -->
-    <Teleport to="body">
-      <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/30" @click.self="showModal = false">
-        <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+    <AdminModal :open="showModal" panel-class="max-w-md" overlay-class="bg-black/30" @close="showModal = false">
+      <div class="w-full rounded-xl bg-white p-6 shadow-xl">
           <h2 class="text-lg font-bold text-text-primary mb-4">
             {{ editingId ? 'Modifica categoria' : 'Nuova categoria' }}
           </h2>
@@ -191,8 +190,7 @@ onMounted(fetchCategories)
               <button type="button" @click="showModal = false" class="btn-secondary">Annulla</button>
             </div>
           </form>
-        </div>
       </div>
-    </Teleport>
+    </AdminModal>
   </div>
 </template>

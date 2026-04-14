@@ -1032,7 +1032,11 @@ export async function searchCampaignContacts(input: {
     where: {
       status: ContactStatus.ACTIVE,
       ...(audienceIds ? { id: { in: audienceIds } } : {}),
-      email: { contains: normalizedQuery, mode: 'insensitive' },
+      OR: [
+        { email: { contains: normalizedQuery, mode: 'insensitive' } },
+        { firstName: { contains: normalizedQuery, mode: 'insensitive' } },
+        { lastName: { contains: normalizedQuery, mode: 'insensitive' } },
+      ],
       consents: {
         some: {
           value: ConsentValue.YES,
@@ -1082,6 +1086,8 @@ export async function searchCampaignContacts(input: {
     return {
       id: contact.id,
       email: contact.email,
+      firstName: contact.firstName,
+      lastName: contact.lastName,
       activeConsents,
     }
   })

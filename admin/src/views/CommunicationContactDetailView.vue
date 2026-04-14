@@ -13,6 +13,8 @@ type ContactDetail = {
   contact: {
     id: string
     email: string
+    firstName: string | null
+    lastName: string | null
     status: ContactStatus
     suppressedAt: string | null
     suppressionReason: string | null
@@ -57,9 +59,14 @@ const router = useRouter()
 
 const loading = ref(true)
 const togglingFormulaId = ref('')
+const savingProfile = ref(false)
 const error = ref('')
 const success = ref('')
 const detail = ref<ContactDetail | null>(null)
+const profileForm = ref({
+  firstName: '',
+  lastName: '',
+})
 
 const contactId = computed(() => String(route.params.id ?? ''))
 
@@ -77,6 +84,11 @@ function getStatusBadge(status: ContactStatus) {
     : 'bg-emerald-100 text-emerald-700'
 }
 
+const contactDisplayName = computed(() => {
+  if (!detail.value?.contact) return ''
+  return [detail.value.contact.firstName, detail.value.contact.lastName].filter(Boolean).join(' ').trim()
+})
+
 async function fetchDetail() {
   if (!contactId.value) return
 
@@ -86,10 +98,35 @@ async function fetchDetail() {
   try {
     const { data } = await axios.get(`/api/admin/communications/contacts/${contactId.value}`)
     detail.value = data
+    profileForm.value = {
+      firstName: data.contact.firstName || '',
+      lastName: data.contact.lastName || '',
+    }
   } catch (apiError) {
     error.value = getApiErrorMessage(apiError, 'Caricamento dettaglio contatto fallito')
   } finally {
     loading.value = false
+  }
+}
+
+async function saveProfile() {
+  if (!detail.value?.contact) return
+
+  savingProfile.value = true
+  error.value = ''
+  success.value = ''
+
+  try {
+    await axios.put(`/api/admin/communications/contacts/${detail.value.contact.id}`, {
+      firstName: profileForm.value.firstName,
+      lastName: profileForm.value.lastName,
+    })
+    success.value = 'Anagrafica aggiornata'
+    await fetchDetail()
+  } catch (apiError) {
+    error.value = getApiErrorMessage(apiError, 'Aggiornamento anagrafica fallito')
+  } finally {
+    savingProfile.value = false
   }
 }
 
@@ -132,7 +169,7 @@ onMounted(fetchDetail)
 <template>
   <div class="space-y-6">
     <PageHeader
-      :title="detail?.contact.email || 'Dettaglio contatto'"
+      :title="contactDisplayName || detail?.contact.email || 'Dettaglio contatto'"
       description="Stato del contatto, consensi correnti e storico completo delle modifiche."
     >
       <template #actions>
@@ -165,6 +202,14 @@ onMounted(fetchDetail)
           </div>
 
           <dl class="mt-5 grid gap-4 md:grid-cols-2">
+            <div>
+              <dt class="text-xs font-medium uppercase tracking-wide text-text-secondary">Nome</dt>
+              <dd class="mt-1 text-sm text-text-primary">{{ detail.contact.firstName || 'Non impostato' }}</dd>
+            </div>
+            <div>
+              <dt class="text-xs font-medium uppercase tracking-wide text-text-secondary">Cognome</dt>
+              <dd class="mt-1 text-sm text-text-primary">{{ detail.contact.lastName || 'Non impostato' }}</dd>
+            </div>
             <div>
               <dt class="text-xs font-medium uppercase tracking-wide text-text-secondary">Email</dt>
               <dd class="mt-1 text-sm font-semibold text-text-primary">{{ detail.contact.email }}</dd>
@@ -203,6 +248,32 @@ onMounted(fetchDetail)
           <div v-else class="mt-5 rounded-2xl border border-dashed border-ui-border px-4 py-8 text-center text-sm text-text-secondary">
             Nessun consenso su versioni passate.
           </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-semibold text-text-primary">Anagrafica contatto</h2>
+            <p class="mt-1 text-sm text-text-secondary">Puoi aggiungere o correggere nome e cognome in qualsiasi momento.</p>
+          </div>
+        </div>
+
+        <div class="mt-5 grid gap-4 md:grid-cols-2">
+          <div>
+            <label class="label">Nome</label>
+            <input v-model="profileForm.firstName" type="text" class="input-field" placeholder="Mario" />
+          </div>
+          <div>
+            <label class="label">Cognome</label>
+            <input v-model="profileForm.lastName" type="text" class="input-field" placeholder="Rossi" />
+          </div>
+        </div>
+
+        <div class="mt-5 flex justify-end">
+          <button type="button" class="btn-primary" :disabled="savingProfile" @click="saveProfile">
+            {{ savingProfile ? 'Salvataggio...' : 'Salva anagrafica' }}
+          </button>
         </div>
       </section>
 

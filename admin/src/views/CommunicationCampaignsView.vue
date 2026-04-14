@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import axios from 'axios'
 import AlbumImagePicker from '../components/AlbumImagePicker.vue'
+import AdminModal from '../components/AdminModal.vue'
 import CommunicationSectionTabs from '../components/CommunicationSectionTabs.vue'
 import PageHeader from '../components/PageHeader.vue'
 import TiptapEditor from '../components/TiptapEditor.vue'
@@ -41,11 +42,15 @@ type AudienceOptionsResponse = {
 type PreviewContact = {
   id: string
   email: string
+  firstName?: string | null
+  lastName?: string | null
 }
 
 type SearchContact = {
   id: string
   email: string
+  firstName?: string | null
+  lastName?: string | null
   activeConsents: Array<{
     id: string
     code: string
@@ -148,6 +153,10 @@ const canSend = computed(() => (
   && form.value.htmlBody.trim().length > 0
   && (hasAudienceFilters.value || manualRecipients.value.length > 0)
 ))
+
+function getContactDisplayName(contact: { firstName?: string | null; lastName?: string | null }) {
+  return [contact.firstName, contact.lastName].filter(Boolean).join(' ').trim()
+}
 
 function resetMessages() {
   error.value = ''
@@ -685,7 +694,7 @@ onMounted(async () => {
                 v-model="manualSearchQuery"
                 type="text"
                 class="input-field"
-                placeholder="Cerca contatto per email"
+                placeholder="Cerca contatto per email, nome o cognome"
               />
 
               <div v-if="searchingContacts" class="text-sm text-text-secondary">Ricerca in corso...</div>
@@ -698,7 +707,8 @@ onMounted(async () => {
                   class="w-full rounded-2xl border border-ui-border px-4 py-4 text-left transition-colors hover:border-slate-300 hover:bg-slate-50"
                   @click="addManualRecipient(contact)"
                 >
-                  <span class="block text-sm font-semibold text-text-primary">{{ contact.email }}</span>
+                  <span v-if="getContactDisplayName(contact)" class="block text-sm font-semibold text-text-primary">{{ getContactDisplayName(contact) }}</span>
+                  <span class="block text-sm" :class="getContactDisplayName(contact) ? 'text-text-secondary' : 'font-semibold text-text-primary'">{{ contact.email }}</span>
                   <span class="mt-1 block text-xs text-text-secondary">
                     {{ contact.activeConsents.map((consent) => consent.title).join(' · ') }}
                   </span>
@@ -713,7 +723,8 @@ onMounted(async () => {
                 >
                   <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
-                      <p class="truncate text-sm font-semibold text-text-primary">{{ contact.email }}</p>
+                      <p v-if="getContactDisplayName(contact)" class="truncate text-sm font-semibold text-text-primary">{{ getContactDisplayName(contact) }}</p>
+                      <p class="truncate text-sm" :class="getContactDisplayName(contact) ? 'text-text-secondary' : 'font-semibold text-text-primary'">{{ contact.email }}</p>
                       <p class="mt-1 text-xs text-text-secondary">
                         {{ contact.activeConsents.map((consent) => consent.title).join(' · ') }}
                       </p>
@@ -832,12 +843,8 @@ onMounted(async () => {
       </div>
     </template>
 
-    <div
-      v-if="previewModalOpen"
-      class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/45 px-4 py-8"
-      @click.self="previewModalOpen = false"
-    >
-      <div class="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-[28px] bg-white shadow-2xl">
+    <AdminModal :open="previewModalOpen" panel-class="max-w-4xl" @close="previewModalOpen = false">
+      <div class="flex max-h-[90vh] w-full flex-col overflow-hidden rounded-[28px] bg-white shadow-2xl">
         <div class="flex items-start justify-between gap-4 border-b border-ui-border px-6 py-5">
           <div>
             <h2 class="text-xl font-semibold text-text-primary">Preview DEM</h2>
@@ -855,6 +862,6 @@ onMounted(async () => {
           </article>
         </div>
       </div>
-    </div>
+    </AdminModal>
   </div>
 </template>

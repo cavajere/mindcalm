@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import axios from 'axios'
+import AdminModal from '../components/AdminModal.vue'
 import PageHeader from '../components/PageHeader.vue'
 
 interface Tag {
@@ -210,9 +211,8 @@ onMounted(fetchTags)
       </table>
     </div>
 
-    <Teleport to="body">
-      <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/30" @click.self="showModal = false">
-        <div class="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+    <AdminModal :open="showModal" panel-class="max-w-lg" overlay-class="bg-black/30" @close="showModal = false">
+      <div class="w-full rounded-xl bg-white p-6 shadow-xl">
           <h2 class="mb-4 text-lg font-bold text-text-primary">{{ editingId ? 'Modifica tag' : 'Nuovo tag' }}</h2>
 
           <form @submit.prevent="save" class="space-y-4">
@@ -252,8 +252,7 @@ onMounted(fetchTags)
               <button type="button" @click="showModal = false" class="btn-secondary">Annulla</button>
             </div>
           </form>
-        </div>
       </div>
-    </Teleport>
+    </AdminModal>
   </div>
 </template>

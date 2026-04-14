@@ -16,6 +16,8 @@ const router = createRouter({
     { path: '/unsubscribe', component: () => import('../views/UnsubscribeView.vue'), meta: { hideChrome: true } },
     { path: '/license-expired', component: () => import('../views/LicenseExpiredView.vue'), meta: { hideChrome: true } },
     { path: '/', component: HomeView },
+    { path: '/termini-e-condizioni', component: () => import('../views/LegalDocumentView.vue'), props: { documentType: 'terms' } },
+    { path: '/privacy-policy', component: () => import('../views/LegalDocumentView.vue'), props: { documentType: 'privacy' } },
     { path: '/audio', component: () => import('../views/AudioView.vue'), meta: { requiresAuth: true } },
     { path: '/audio/:id', component: () => import('../views/AudioDetailView.vue'), meta: { requiresAuth: true } },
     { path: '/articles', component: () => import('../views/ArticlesView.vue') },
