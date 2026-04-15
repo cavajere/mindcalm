@@ -238,7 +238,6 @@ onMounted(async () => {
 
         <div class="relative grid gap-8 p-6 sm:p-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)] lg:p-10">
           <div class="min-w-0">
-            <span class="eyebrow">Contenuti pubblici</span>
             <h1 class="font-display mt-5 text-5xl font-semibold leading-none text-text-primary sm:text-6xl lg:text-[4.5rem]">
               Spazio per respirare, capire, ricominciare.
             </h1>
@@ -309,7 +308,7 @@ onMounted(async () => {
               </template>
 
               <template v-else>
-                <p class="mt-4 text-2xl font-semibold leading-tight">Contenuti pubblici in arrivo</p>
+                <p class="mt-4 text-2xl font-semibold leading-tight">Nuovi contenuti in arrivo</p>
                 <p class="mt-4 text-sm leading-7 opacity-80">
                   Quando verranno pubblicati post o eventi, li troverai qui in evidenza. Nel frattempo puoi accedere con il tuo account oppure attivare un invito.
                 </p>
@@ -331,27 +330,6 @@ onMounted(async () => {
               </p>
             </div>
           </div>
-        </div>
-      </section>
-
-      <section class="grid gap-4 md:grid-cols-3">
-        <div class="card p-6">
-          <p class="text-sm font-semibold text-text-primary">Post</p>
-          <p class="mt-3 text-sm leading-7 text-text-secondary">
-            Entri subito nell'archivio post e puoi cercare i contenuti con parole chiave e tag.
-          </p>
-        </div>
-        <div class="card p-6">
-          <p class="text-sm font-semibold text-text-primary">Eventi</p>
-          <p class="mt-3 text-sm leading-7 text-text-secondary">
-            Gli eventi pubblici hanno un accesso dedicato e una ricerca semplice per titolo, luogo o organizzatore.
-          </p>
-        </div>
-        <div class="card p-6">
-          <p class="text-sm font-semibold text-text-primary">Area riservata</p>
-          <p class="mt-3 text-sm leading-7 text-text-secondary">
-            L'accesso resta separato: gli audio guidati si sbloccano solo dopo il login.
-          </p>
         </div>
       </section>
 
