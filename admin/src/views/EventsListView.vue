@@ -40,6 +40,8 @@ async function deleteEvent(eventItem: any) {
   await axios.delete(`/api/admin/events/${eventItem.id}`)
   events.value = events.value.filter((item) => item.id !== eventItem.id)
 }
+
+onMounted(fetchEvents)
 </script>
 
 <template>
