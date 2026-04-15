@@ -289,8 +289,8 @@ onBeforeUnmount(() => {
           :href="publicUrl"
           target="_blank"
           :class="[
-            ‘flex items-center rounded-xl border border-white/10 bg-white/5 transition hover:border-white/20 hover:bg-white/10’,
-            sidebarCollapsed ? ‘justify-center px-2 py-2’ : ‘gap-2.5 px-3 py-2’,
+            'flex items-center rounded-xl border border-white/10 bg-white/5 transition hover:border-white/20 hover:bg-white/10',
+            sidebarCollapsed ? 'justify-center px-2 py-2' : 'gap-2.5 px-3 py-2',
           ]"
         >
           <svg class="h-4 w-4 shrink-0 text-sky-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
