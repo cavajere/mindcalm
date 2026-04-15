@@ -93,12 +93,12 @@ function syncExpandedGroupWithRoute() {
 
 function baseNavItemClasses(active: boolean, nested = false) {
   return [
-    'group flex items-center rounded-2xl text-sm font-medium transition-all',
+    'group flex items-center rounded-xl text-sm font-medium transition-all',
     sidebarCollapsed.value
-      ? 'justify-center px-4 py-3'
+      ? 'justify-center px-3 py-2'
       : nested
-        ? 'px-3 py-2.5'
-        : 'gap-3 px-4 py-3',
+        ? 'px-3 py-1.5'
+        : 'gap-2.5 px-3 py-2',
     active
       ? 'bg-white text-slate-950 shadow-sm'
       : 'text-slate-300 hover:bg-white/8 hover:text-white',
@@ -115,7 +115,7 @@ function navGroupClasses(item: NavGroupItem) {
 
 function childNavItemClasses(path: string) {
   return [
-    'flex items-center rounded-xl px-3 py-2 text-sm transition-all',
+    'flex items-center rounded-lg px-3 py-1.5 text-sm transition-all',
     isActivePath(path)
       ? 'bg-white/10 text-white'
       : 'text-slate-400 hover:bg-white/6 hover:text-slate-200',
@@ -124,8 +124,8 @@ function childNavItemClasses(path: string) {
 
 function navIconClasses(active: boolean, nested = false) {
   return [
-    'inline-flex shrink-0 items-center justify-center rounded-xl text-xs font-semibold',
-    nested && !sidebarCollapsed.value ? 'h-8 w-8' : 'h-9 w-9',
+    'inline-flex shrink-0 items-center justify-center rounded-lg text-xs font-semibold',
+    nested && !sidebarCollapsed.value ? 'h-6 w-6' : 'h-7 w-7',
     active ? 'bg-slate-950 text-white' : 'bg-white/8 text-slate-300 group-hover:bg-white/12',
   ]
 }
@@ -212,26 +212,23 @@ onBeforeUnmount(() => {
       :class="[
         'fixed inset-y-0 left-0 z-50 flex shrink-0 flex-col border-r border-slate-200 bg-slate-950 text-slate-100 shadow-2xl transition-all duration-300',
         'lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:shadow-none',
-        sidebarCollapsed ? 'w-[88px]' : 'w-72',
+        sidebarCollapsed ? 'w-[72px]' : 'w-64',
         mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
       ]"
     >
-      <div :class="['flex items-center border-b border-white/10', sidebarCollapsed ? 'justify-center px-3 py-5' : 'justify-between px-5 py-5']">
-        <div class="flex items-center gap-3 overflow-hidden">
-          <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary via-sky-400 to-secondary shadow-lg shadow-primary/20">
-            <svg class="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+      <div :class="['flex items-center border-b border-white/10', sidebarCollapsed ? 'justify-center px-2 py-3' : 'justify-between px-4 py-3']">
+        <div class="flex items-center gap-2.5 overflow-hidden">
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary via-sky-400 to-secondary shadow-lg shadow-primary/20">
+            <svg class="h-5 w-5 text-white" fill="currentColor" viewBox="0 0 20 20">
               <path d="M10 2a4 4 0 00-4 4v1a2 2 0 00-2 2v5a2 2 0 002 2h8a2 2 0 002-2V9a2 2 0 00-2-2V6a4 4 0 00-4-4z" />
             </svg>
           </div>
-          <div v-if="!sidebarCollapsed" class="min-w-0">
-            <p class="truncate text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">MindCalm</p>
-            <p class="truncate text-lg font-semibold text-white">Admin Portal</p>
-          </div>
+          <p v-if="!sidebarCollapsed" class="truncate text-sm font-semibold text-white">MindCalm Admin</p>
         </div>
       </div>
 
-      <nav class="sidebar-nav min-h-0 flex-1 overflow-y-auto px-3 pb-4">
-        <div class="space-y-1">
+      <nav class="sidebar-nav min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+        <div class="space-y-0.5">
           <template v-for="item in navItems" :key="hasChildren(item) ? item.key : item.path">
             <router-link
               v-if="!hasChildren(item)"
@@ -245,7 +242,7 @@ onBeforeUnmount(() => {
               <span v-if="!sidebarCollapsed" class="truncate">{{ item.label }}</span>
             </router-link>
 
-            <div v-else class="space-y-1">
+            <div v-else class="space-y-0.5">
               <button
                 type="button"
                 :title="sidebarCollapsed ? item.label : undefined"
@@ -271,7 +268,7 @@ onBeforeUnmount(() => {
 
               <div
                 v-if="!sidebarCollapsed && expandedGroupKey === item.key"
-                class="ml-7 space-y-1 border-l border-white/10 pl-3"
+                class="ml-5 space-y-0.5 border-l border-white/10 pl-3"
               >
                 <router-link
                   v-for="child in item.children"
@@ -287,22 +284,19 @@ onBeforeUnmount(() => {
         </div>
       </nav>
 
-      <div class="border-t border-white/10 p-3">
+      <div class="border-t border-white/10 p-2">
         <a
           :href="publicUrl"
           target="_blank"
           :class="[
-            'flex items-center rounded-2xl border border-white/10 bg-white/5 transition hover:border-white/20 hover:bg-white/10',
-            sidebarCollapsed ? 'justify-center px-3 py-3' : 'gap-3 px-4 py-3',
+            ‘flex items-center rounded-xl border border-white/10 bg-white/5 transition hover:border-white/20 hover:bg-white/10’,
+            sidebarCollapsed ? ‘justify-center px-2 py-2’ : ‘gap-2.5 px-3 py-2’,
           ]"
         >
-          <svg class="h-5 w-5 shrink-0 text-sky-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="h-4 w-4 shrink-0 text-sky-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
           </svg>
-          <div v-if="!sidebarCollapsed" class="min-w-0">
-            <p class="text-sm font-medium text-white">Sito pubblico</p>
-            <p class="text-xs text-slate-400">Apri l’esperienza utente</p>
-          </div>
+          <span v-if="!sidebarCollapsed" class="truncate text-sm font-medium text-white">Sito pubblico</span>
         </a>
       </div>
 
@@ -310,26 +304,26 @@ onBeforeUnmount(() => {
 
     <div class="min-w-0 flex-1">
       <header class="sticky top-0 z-30 border-b border-slate-200/80 bg-white/85 backdrop-blur-xl">
-        <div class="flex items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <div class="flex min-w-0 items-center gap-3">
+        <div class="flex items-center justify-between gap-3 px-4 py-2.5 sm:px-6 lg:px-8">
+          <div class="flex min-w-0 items-center gap-2.5">
             <button
               type="button"
-              class="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 text-slate-600 transition hover:bg-slate-50 lg:hidden"
+              class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:bg-slate-50 lg:hidden"
               @click="openMobileSidebar"
               aria-label="Apri menu"
             >
-              <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="h-4.5 w-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
             <button
               type="button"
-              class="hidden h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 text-slate-600 transition hover:bg-slate-50 lg:inline-flex"
+              class="hidden h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:bg-slate-50 lg:inline-flex"
               @click="toggleSidebar"
               :aria-label="sidebarCollapsed ? 'Espandi sidebar' : 'Collassa sidebar'"
             >
               <svg
-                class="h-5 w-5 transition-transform"
+                class="h-4.5 w-4.5 transition-transform"
                 :class="sidebarCollapsed ? 'rotate-180' : ''"
                 fill="none"
                 stroke="currentColor"
@@ -339,19 +333,19 @@ onBeforeUnmount(() => {
               </svg>
             </button>
             <div class="min-w-0">
-              <h1 class="truncate text-xl font-semibold text-slate-900">MindCalm</h1>
+              <h1 class="truncate text-base font-semibold text-slate-900">MindCalm</h1>
             </div>
           </div>
 
-          <div class="flex items-center gap-3">
+          <div class="flex items-center gap-2.5">
             <div class="relative" data-profile-menu>
               <button
                 type="button"
-                class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+                class="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
                 @click.stop="toggleProfileMenu"
                 aria-label="Apri menu profilo"
               >
-                <div class="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-primary to-secondary text-sm font-semibold text-white">
+                <div class="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary to-secondary text-xs font-semibold text-white">
                   {{ userInitials }}
                 </div>
                 <div class="hidden text-left sm:block">
@@ -365,30 +359,30 @@ onBeforeUnmount(() => {
 
               <div
                 v-if="profileMenuOpen"
-                class="absolute right-0 mt-3 w-64 rounded-3xl border border-slate-200 bg-white p-2 shadow-2xl shadow-slate-900/10"
+                class="absolute right-0 mt-2 w-60 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-2xl shadow-slate-900/10"
               >
-                <div class="rounded-2xl bg-slate-50 px-4 py-3">
+                <div class="rounded-xl bg-slate-50 px-3 py-2.5">
                   <p class="text-sm font-medium text-slate-900">{{ auth.user?.name }}</p>
                   <p class="text-xs text-slate-500">{{ auth.user?.email }}</p>
                 </div>
 
-                <div class="mt-2 space-y-1">
+                <div class="mt-1.5 space-y-0.5">
                   <router-link
                     to="/profile"
-                    class="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm text-slate-700 transition hover:bg-slate-50 hover:text-slate-900"
+                    class="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-50 hover:text-slate-900"
                     @click="closeProfileMenu"
                   >
-                    <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M5.121 17.804A11.956 11.956 0 0112 15.75c2.553 0 4.919.8 6.879 2.054M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                     Visualizza profilo
                   </router-link>
                   <button
                     type="button"
-                    class="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-red-600 transition hover:bg-red-50"
+                    class="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50"
                     @click="handleLogout"
                   >
-                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m-3-3h9m0 0l-3-3m3 3l-3 3" />
                     </svg>
                     Logout
