@@ -205,12 +205,13 @@ onBeforeUnmount(() => {
     </div>
   </div>
 
-  <div v-else-if="auth.isAdminMode" class="min-h-screen bg-background text-text-primary">
+  <div v-else-if="auth.isAdminMode" class="flex min-h-screen bg-background text-text-primary">
     <div v-if="mobileSidebarOpen" class="fixed inset-0 z-40 bg-text-primary/35 lg:hidden" @click="closeMobileSidebar" />
 
     <aside
       :class="[
-        'fixed inset-y-0 left-0 z-50 flex flex-col border-r border-slate-200 bg-slate-950 text-slate-100 shadow-2xl transition-all duration-300',
+        'fixed inset-y-0 left-0 z-50 flex shrink-0 flex-col border-r border-slate-200 bg-slate-950 text-slate-100 shadow-2xl transition-all duration-300',
+        'lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:shadow-none',
         sidebarCollapsed ? 'w-[88px]' : 'w-72',
         mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
       ]"
@@ -229,7 +230,7 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <nav class="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
+      <nav class="sidebar-nav min-h-0 flex-1 overflow-y-auto px-3 pb-4">
         <div class="space-y-1">
           <template v-for="item in navItems" :key="hasChildren(item) ? item.key : item.path">
             <router-link
@@ -307,7 +308,7 @@ onBeforeUnmount(() => {
 
     </aside>
 
-    <div :class="['min-h-screen transition-all duration-300', sidebarCollapsed ? 'lg:pl-[88px]' : 'lg:pl-72']">
+    <div class="min-w-0 flex-1">
       <header class="sticky top-0 z-30 border-b border-slate-200/80 bg-white/85 backdrop-blur-xl">
         <div class="flex items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <div class="flex min-w-0 items-center gap-3">
@@ -411,3 +412,12 @@ onBeforeUnmount(() => {
     <router-view />
   </div>
 </template>
+
+<style>
+.sidebar-nav {
+  scrollbar-width: none;
+}
+.sidebar-nav::-webkit-scrollbar {
+  display: none;
+}
+</style>
