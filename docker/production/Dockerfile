@@ -68,9 +68,10 @@ COPY --from=builder /app/admin/dist ./backend/dist/public/admin
 WORKDIR /app/backend
 RUN npx prisma generate --schema=./prisma/schema.prisma
 
-# Crea directory storage
-RUN mkdir -p /app/backend/storage/audio /app/backend/storage/hls /app/backend/storage/images && \
-    chown -R appuser:appgroup /app
+# Crea directory storage (default + /data per bind mounts)
+RUN mkdir -p /app/backend/storage/audio /app/backend/storage/hls /app/backend/storage/images \
+             /data/audio /data/hls /data/images /data/backups && \
+    chown -R appuser:appgroup /app /data
 
 COPY docker/production/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
