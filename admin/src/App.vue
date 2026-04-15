@@ -106,7 +106,7 @@ function baseNavItemClasses(active: boolean, nested = false) {
 }
 
 function navItemClasses(path: string) {
-  return baseNavItemClasses(isActivePath(path))
+  return baseNavItemClasses(isActivePath(path) && !expandedGroupKey.value)
 }
 
 function navGroupClasses(item: NavGroupItem) {
