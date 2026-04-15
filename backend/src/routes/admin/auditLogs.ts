@@ -5,7 +5,7 @@ import { validationResult } from 'express-validator'
 import { adminAuthMiddleware, requireAdmin } from '../../middleware/auth'
 import { prisma } from '../../lib/prisma'
 import { getSingleString } from '../../utils/request'
-import { auditLogFilterQuery } from '../../utils/validators'
+import { auditLogBulkDeleteValidation, auditLogFilterQuery } from '../../utils/validators'
 
 const router = createAsyncRouter()
 
@@ -70,7 +70,7 @@ router.get('/', auditLogFilterQuery, async (req: Request, res: Response) => {
     ]
   }
 
-  const [logs, total, failureCount] = await Promise.all([
+  const [logs, total, failureCount, overallTotal] = await Promise.all([
     prisma.auditLog.findMany({
       where,
       orderBy: { occurredAt: 'desc' },
@@ -84,6 +84,7 @@ router.get('/', auditLogFilterQuery, async (req: Request, res: Response) => {
         outcome: AuditOutcome.FAILURE,
       },
     }),
+    prisma.auditLog.count(),
   ])
 
   res.json({
@@ -115,6 +116,7 @@ router.get('/', auditLogFilterQuery, async (req: Request, res: Response) => {
       total,
       failures: failureCount,
       successes: total - failureCount,
+      overallTotal,
     },
     filters: {
       actions: Object.values(AuditAction),
@@ -123,6 +125,74 @@ router.get('/', auditLogFilterQuery, async (req: Request, res: Response) => {
       actorRoles: Object.values(UserRole),
     },
   })
+})
+
+router.post('/bulk-delete', auditLogBulkDeleteValidation, async (req: Request, res: Response) => {
+  const errors = validationResult(req)
+  if (!errors.isEmpty()) {
+    res.status(400).json({ error: 'Parametri non validi', details: errors.array() })
+    return
+  }
+
+  const rawIds: unknown[] = Array.isArray(req.body.ids) ? req.body.ids : []
+  const ids: string[] = Array.from(
+    new Set(rawIds.filter((value: unknown): value is string => typeof value === 'string')),
+  )
+  if (!ids.length) {
+    res.status(400).json({ error: 'Seleziona almeno un log da eliminare' })
+    return
+  }
+
+  const deleted = await prisma.auditLog.deleteMany({
+    where: {
+      id: { in: ids },
+    },
+  })
+
+  if (!deleted.count) {
+    res.status(404).json({ error: 'Log non trovati' })
+    return
+  }
+
+  res.json({
+    message: deleted.count === 1 ? 'Log eliminato' : `${deleted.count} log eliminati`,
+    deletedCount: deleted.count,
+  })
+})
+
+router.delete('/', async (_req: Request, res: Response) => {
+  const deleted = await prisma.auditLog.deleteMany()
+
+  res.json({
+    message: deleted.count
+      ? deleted.count === 1
+        ? 'Log eliminato'
+        : `${deleted.count} log eliminati`
+      : 'Nessun log da eliminare',
+    deletedCount: deleted.count,
+  })
+})
+
+router.delete('/:id', async (req: Request, res: Response) => {
+  const auditLogId = getSingleString(req.params.id)
+  if (!auditLogId) {
+    res.status(400).json({ error: 'ID log non valido' })
+    return
+  }
+
+  const existing = await prisma.auditLog.findUnique({
+    where: { id: auditLogId },
+    select: { id: true },
+  })
+
+  if (!existing) {
+    res.status(404).json({ error: 'Log non trovato' })
+    return
+  }
+
+  await prisma.auditLog.delete({ where: { id: auditLogId } })
+
+  res.json({ message: 'Log eliminato', deletedCount: 1 })
 })
 
 export default router

@@ -329,6 +329,11 @@ export const auditLogFilterQuery = [
   query('search').optional().trim().isLength({ max: 200 }).withMessage('search troppo lunga'),
 ]
 
+export const auditLogBulkDeleteValidation = [
+  body('ids').isArray({ min: 1, max: 1000 }).withMessage('Seleziona almeno un log valido'),
+  body('ids.*').isUUID().withMessage('ID log non valido'),
+]
+
 export const audioFilterQuery = [
   ...paginationQuery,
   query('category').optional().isUUID(),
