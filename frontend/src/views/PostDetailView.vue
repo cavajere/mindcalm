@@ -168,11 +168,11 @@ watch(
           </div>
 
           <ContentCover
+            v-if="post.coverImage"
             :src="post.coverImage"
             :alt="post.title"
             container-class="surface-card min-h-[280px] overflow-hidden"
             image-class="aspect-[4/3] h-full w-full object-cover"
-            placeholder-class="min-h-[280px]"
           />
         </div>
       </header>

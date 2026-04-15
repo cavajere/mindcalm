@@ -133,13 +133,14 @@ watch(search, () => {
         class="card group overflow-hidden"
       >
         <ContentCover
+          v-if="eventItem.coverImage"
           :src="eventItem.coverImage"
           :alt="eventItem.title"
           container-class="aspect-[4/3] overflow-hidden"
           image-class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
 
-        <div class="p-5">
+        <div class="p-5" :class="{ 'pt-6': !eventItem.coverImage }">
           <div class="flex items-start gap-4">
             <div class="surface-card-muted flex min-h-16 min-w-16 flex-col items-center justify-center text-primary">
               <span class="text-lg font-semibold leading-none">{{ formatCompactEventDate(eventItem.startsAt).split(' ')[0] }}</span>

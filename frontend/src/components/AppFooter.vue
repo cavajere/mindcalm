@@ -25,18 +25,18 @@ function isActivePath(path: string) {
         </p>
       </div>
 
-      <nav aria-label="Collegamenti legali" class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+      <nav aria-label="Collegamenti legali" class="flex flex-wrap items-center gap-x-4 gap-y-1 sm:justify-end">
         <router-link
           to="/termini-e-condizioni"
-          class="inline-flex items-center rounded-full px-4 py-2 text-sm font-medium transition-colors"
-          :class="isActivePath('/termini-e-condizioni') ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'surface-pill text-text-primary hover:border-primary/25 hover:text-primary'"
+          class="text-xs text-text-secondary transition-colors hover:text-text-primary"
+          :class="{ 'text-text-primary': isActivePath('/termini-e-condizioni') }"
         >
           Termini e condizioni
         </router-link>
         <router-link
           to="/privacy-policy"
-          class="inline-flex items-center rounded-full px-4 py-2 text-sm font-medium transition-colors"
-          :class="isActivePath('/privacy-policy') ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'surface-pill text-text-primary hover:border-primary/25 hover:text-primary'"
+          class="text-xs text-text-secondary transition-colors hover:text-text-primary"
+          :class="{ 'text-text-primary': isActivePath('/privacy-policy') }"
         >
           Privacy policy
         </router-link>

@@ -191,13 +191,14 @@ watch(search, () => {
         class="card group overflow-hidden"
       >
         <ContentCover
+          v-if="post.coverImage"
           :src="post.coverImage"
           :alt="post.title"
           container-class="aspect-[4/3] overflow-hidden"
           image-class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
 
-        <div class="p-5">
+        <div class="p-5" :class="{ 'pt-6': !post.coverImage }">
           <div class="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-text-secondary">
             <span>{{ formatPostDate(post.publishedAt) }}</span>
             <span>·</span>

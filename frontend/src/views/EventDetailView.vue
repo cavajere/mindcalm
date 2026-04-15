@@ -177,11 +177,11 @@ watch(
           </div>
 
           <ContentCover
+            v-if="eventItem.coverImage"
             :src="eventItem.coverImage"
             :alt="eventItem.title"
             container-class="surface-card min-h-[280px] overflow-hidden"
             image-class="aspect-[4/3] h-full w-full object-cover"
-            placeholder-class="min-h-[280px]"
           />
         </div>
       </header>
