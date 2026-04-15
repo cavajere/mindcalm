@@ -3,11 +3,14 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 import PageHeader from '../components/PageHeader.vue'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
 
 const router = useRouter()
 const users = ref<any[]>([])
 const loading = ref(true)
 const pagination = ref({ page: 1, limit: 20, total: 0, totalPages: 0 })
+const confirmDeleteOpen = ref(false)
+const userToDelete = ref<any>(null)
 
 async function fetchUsers() {
   loading.value = true
@@ -20,9 +23,16 @@ async function fetchUsers() {
   }
 }
 
-async function deleteUser(user: any) {
-  if (!confirm(`Eliminare l'utente "${user.name}"?`)) return
-  await axios.delete(`/api/admin/users/${user.id}`)
+function confirmDelete(user: any) {
+  userToDelete.value = user
+  confirmDeleteOpen.value = true
+}
+
+async function deleteUser() {
+  if (!userToDelete.value) return
+  await axios.delete(`/api/admin/users/${userToDelete.value.id}`)
+  confirmDeleteOpen.value = false
+  userToDelete.value = null
   await fetchUsers()
 }
 
@@ -190,7 +200,7 @@ onMounted(fetchUsers)
                   </svg>
                 </button>
                 <button
-                  @click="deleteUser(user)"
+                  @click="confirmDelete(user)"
                   class="icon-action-button icon-action-button-danger"
                   title="Elimina"
                   aria-label="Elimina"
@@ -205,5 +215,16 @@ onMounted(fetchUsers)
         </tbody>
       </table>
     </div>
+
+    <ConfirmDialog
+      :open="confirmDeleteOpen"
+      title="Elimina utente"
+      :message="`Vuoi eliminare l'utente \u00AB${userToDelete?.name}\u00BB? Questa azione non può essere annullata.`"
+      confirm-label="Elimina"
+      cancel-label="Annulla"
+      variant="danger"
+      @confirm="deleteUser"
+      @cancel="confirmDeleteOpen = false; userToDelete = null"
+    />
   </div>
 </template>
