@@ -32,7 +32,7 @@ router.get('/', async (req: Request, res: Response) => {
       : undefined,
     include: {
       aliases: { orderBy: { alias: 'asc' } },
-      _count: { select: { audioTags: true, thoughtTags: true } },
+      _count: { select: { audioTags: true, postTags: true } },
     },
     orderBy: [
       { sortOrder: 'asc' },
@@ -49,7 +49,7 @@ router.get('/', async (req: Request, res: Response) => {
     sortOrder: tag.sortOrder,
     aliases: tag.aliases.map(alias => alias.alias),
     audioCount: tag._count.audioTags,
-    thoughtCount: tag._count.thoughtTags,
+    postCount: tag._count.postTags,
     createdAt: tag.createdAt,
     updatedAt: tag.updatedAt,
   })))
@@ -94,7 +94,7 @@ router.post('/', tagValidation, async (req: Request, res: Response) => {
     },
     include: {
       aliases: { orderBy: { alias: 'asc' } },
-      _count: { select: { audioTags: true, thoughtTags: true } },
+      _count: { select: { audioTags: true, postTags: true } },
     },
   })
 
@@ -121,7 +121,7 @@ router.post('/', tagValidation, async (req: Request, res: Response) => {
     sortOrder: tag.sortOrder,
     aliases: tag.aliases.map(alias => alias.alias),
     audioCount: tag._count.audioTags,
-    thoughtCount: tag._count.thoughtTags,
+    postCount: tag._count.postTags,
     createdAt: tag.createdAt,
     updatedAt: tag.updatedAt,
   })
@@ -184,7 +184,7 @@ router.put('/:id', tagValidation, async (req: Request, res: Response) => {
     },
     include: {
       aliases: { orderBy: { alias: 'asc' } },
-      _count: { select: { audioTags: true, thoughtTags: true } },
+      _count: { select: { audioTags: true, postTags: true } },
     },
   })
 
@@ -212,7 +212,7 @@ router.put('/:id', tagValidation, async (req: Request, res: Response) => {
     sortOrder: tag.sortOrder,
     aliases: tag.aliases.map(alias => alias.alias),
     audioCount: tag._count.audioTags,
-    thoughtCount: tag._count.thoughtTags,
+    postCount: tag._count.postTags,
     createdAt: tag.createdAt,
     updatedAt: tag.updatedAt,
   })

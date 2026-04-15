@@ -160,7 +160,7 @@ function removeTarget(target: CleanupTarget) {
 async function main() {
   const options = parseCliOptions(process.argv.slice(2))
 
-  const [audios, thoughts, albumImages] = await Promise.all([
+  const [audios, posts, albumImages] = await Promise.all([
     prisma.audio.findMany({
       select: {
         id: true,
@@ -168,7 +168,7 @@ async function main() {
         coverImage: true,
       },
     }),
-    prisma.thought.findMany({
+    prisma.post.findMany({
       select: {
         coverImage: true,
       },
@@ -184,7 +184,7 @@ async function main() {
   const referencedImageFiles = new Set(
     [
       ...audios.map(audio => audio.coverImage),
-      ...thoughts.map(thought => thought.coverImage),
+      ...posts.map(post => post.coverImage),
       ...albumImages.map(image => image.filePath),
     ]
       .filter((value): value is string => Boolean(value))

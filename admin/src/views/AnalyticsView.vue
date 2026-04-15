@@ -15,19 +15,19 @@ const filters = ref({
   dateTo: '',
   categoryId: '',
   audioId: '',
-  thoughtId: '',
+  postId: '',
   userId: '',
 })
 
 const filterOptions = ref<{
   categories: Array<{ id: string; name: string }>
   audio: Array<{ id: string; title: string; category: { id: string; name: string } }>
-  thoughts: Array<{ id: string; title: string; author: string }>
+  posts: Array<{ id: string; title: string; author: string }>
   users: Array<{ id: string; name: string; email: string; role: 'ADMIN' | 'STANDARD' }>
 }>({
   categories: [],
   audio: [],
-  thoughts: [],
+  posts: [],
   users: [],
 })
 
@@ -36,7 +36,7 @@ const overview = ref<{
     audioViews: number
     audioPlays: number
     audioCompletions: number
-    thoughtViews: number
+    postViews: number
     errorEvents: number
     activeUsers: number
   }
@@ -73,7 +73,7 @@ const overview = ref<{
     dropOffCount: number
     dropOffRate: number
   }>
-  topThoughts: Array<{
+  topPosts: Array<{
     id: string
     title: string
     author: string
@@ -88,14 +88,14 @@ const overview = ref<{
     audioViews: number
     audioPlays: number
     audioCompletions: number
-    thoughtViews: number
+    postViews: number
   }>
   dailyActivity: Array<{
     date: string
     audioViews: number
     audioPlays: number
     audioCompletions: number
-    thoughtViews: number
+    postViews: number
     errorEvents: number
   }>
   recentEvents: Array<{
@@ -104,7 +104,7 @@ const overview = ref<{
       | 'AUDIO_VIEW'
       | 'AUDIO_PLAY'
       | 'AUDIO_COMPLETE'
-      | 'THOUGHT_VIEW'
+      | 'POST_VIEW'
       | 'APP_ERROR'
       | 'API_ERROR'
       | 'AUDIO_ERROR'
@@ -113,7 +113,7 @@ const overview = ref<{
     metadata: Record<string, unknown> | null
     user: { id: string; name: string; email: string } | null
     audio: { id: string; title: string; categoryName: string } | null
-    thought: { id: string; title: string; author: string } | null
+    post: { id: string; title: string; author: string } | null
   }>
 } | null>(null)
 
@@ -127,7 +127,7 @@ const maxDailyEvents = computed(() =>
   Math.max(
     1,
     ...(overview.value?.dailyActivity.map((day) =>
-      day.audioViews + day.audioPlays + day.audioCompletions + day.thoughtViews + day.errorEvents,
+      day.audioViews + day.audioPlays + day.audioCompletions + day.postViews + day.errorEvents,
     ) || [1]),
   ),
 )
@@ -179,9 +179,9 @@ async function fetchOverview() {
 
     if (filters.value.dateFrom) params.set('dateFrom', filters.value.dateFrom)
     if (filters.value.dateTo) params.set('dateTo', filters.value.dateTo)
-    if (filters.value.categoryId && !filters.value.thoughtId) params.set('categoryId', filters.value.categoryId)
+    if (filters.value.categoryId && !filters.value.postId) params.set('categoryId', filters.value.categoryId)
     if (filters.value.audioId) params.set('audioId', filters.value.audioId)
-    if (filters.value.thoughtId) params.set('thoughtId', filters.value.thoughtId)
+    if (filters.value.postId) params.set('postId', filters.value.postId)
     if (filters.value.userId) params.set('userId', filters.value.userId)
 
     const { data } = await axios.get(`/api/admin/analytics/overview?${params.toString()}`)
@@ -200,7 +200,7 @@ function resetFilters() {
     dateTo: getTodayInputValue(),
     categoryId: '',
     audioId: '',
-    thoughtId: '',
+    postId: '',
     userId: '',
   }
 }
@@ -225,7 +225,7 @@ function eventLabel(eventType: string) {
   if (eventType === 'API_ERROR') return 'Errore API'
   if (eventType === 'AUDIO_ERROR') return 'Errore audio'
   if (eventType === 'SERVER_ERROR') return 'Errore server'
-  return 'Lettura pensiero'
+  return 'Lettura post'
 }
 
 function formatEventDetails(event: NonNullable<typeof overview.value>['recentEvents'][number]) {
@@ -254,7 +254,7 @@ watch(periodPreset, () => {
 })
 
 watch(() => filters.value.categoryId, () => {
-  if (filters.value.thoughtId) return
+  if (filters.value.postId) return
   if (filters.value.audioId) {
     const selectedAudio = filterOptions.value.audio.find((item) => item.id === filters.value.audioId)
     if (selectedAudio && selectedAudio.category.id !== filters.value.categoryId) {
@@ -263,8 +263,8 @@ watch(() => filters.value.categoryId, () => {
   }
 })
 
-watch(() => filters.value.thoughtId, (thoughtId) => {
-  if (thoughtId) {
+watch(() => filters.value.postId, (postId) => {
+  if (postId) {
     filters.value.categoryId = ''
     filters.value.audioId = ''
   }
@@ -272,7 +272,7 @@ watch(() => filters.value.thoughtId, (thoughtId) => {
 
 watch(() => filters.value.audioId, (audioId) => {
   if (audioId) {
-    filters.value.thoughtId = ''
+    filters.value.postId = ''
   }
 })
 
@@ -314,7 +314,7 @@ onMounted(async () => {
 
         <div>
           <label class="label">Categoria</label>
-          <select v-model="filters.categoryId" class="input-field" :disabled="!!filters.thoughtId || loadingFilters" @change="fetchOverview">
+          <select v-model="filters.categoryId" class="input-field" :disabled="!!filters.postId || loadingFilters" @change="fetchOverview">
             <option value="">Tutte le categorie</option>
             <option v-for="category in filterOptions.categories" :key="category.id" :value="category.id">
               {{ category.name }}
@@ -324,7 +324,7 @@ onMounted(async () => {
 
         <div>
           <label class="label">Audio</label>
-          <select v-model="filters.audioId" class="input-field" :disabled="!!filters.thoughtId || loadingFilters" @change="fetchOverview">
+          <select v-model="filters.audioId" class="input-field" :disabled="!!filters.postId || loadingFilters" @change="fetchOverview">
             <option value="">Tutti gli audio</option>
             <option v-for="audio in filteredAudio" :key="audio.id" :value="audio.id">
               {{ audio.title }}
@@ -333,10 +333,10 @@ onMounted(async () => {
         </div>
 
         <div>
-          <label class="label">Pensiero</label>
-          <select v-model="filters.thoughtId" class="input-field" :disabled="!!filters.categoryId || !!filters.audioId || loadingFilters" @change="fetchOverview">
-            <option value="">Tutti i pensieri</option>
-            <option v-for="article in filterOptions.thoughts" :key="article.id" :value="article.id">
+          <label class="label">Post</label>
+          <select v-model="filters.postId" class="input-field" :disabled="!!filters.categoryId || !!filters.audioId || loadingFilters" @change="fetchOverview">
+            <option value="">Tutti i post</option>
+            <option v-for="article in filterOptions.posts" :key="article.id" :value="article.id">
               {{ article.title }}
             </option>
           </select>
@@ -381,8 +381,8 @@ onMounted(async () => {
           <p class="text-3xl font-bold text-text-primary">{{ overview.totals.audioCompletions }}</p>
         </div>
         <div class="card">
-          <p class="text-sm text-text-secondary mb-1">Pensieri letti</p>
-          <p class="text-3xl font-bold text-text-primary">{{ overview.totals.thoughtViews }}</p>
+          <p class="text-sm text-text-secondary mb-1">Post letti</p>
+          <p class="text-3xl font-bold text-text-primary">{{ overview.totals.postViews }}</p>
         </div>
         <div class="card">
           <p class="text-sm text-text-secondary mb-1">Errori app</p>
@@ -411,8 +411,8 @@ onMounted(async () => {
             <div class="w-full max-w-10 h-36 flex items-end">
               <div
                 class="w-full rounded-t-lg bg-gradient-to-t from-primary to-secondary/60 min-h-1"
-                :style="{ height: `${Math.max(4, ((day.audioViews + day.audioPlays + day.audioCompletions + day.thoughtViews + day.errorEvents) / maxDailyEvents) * 100)}%` }"
-                :title="`${formatDay(day.date)} · ${(day.audioViews + day.audioPlays + day.audioCompletions + day.thoughtViews + day.errorEvents)} eventi`"
+                :style="{ height: `${Math.max(4, ((day.audioViews + day.audioPlays + day.audioCompletions + day.postViews + day.errorEvents) / maxDailyEvents) * 100)}%` }"
+                :title="`${formatDay(day.date)} · ${(day.audioViews + day.audioPlays + day.audioCompletions + day.postViews + day.errorEvents)} eventi`"
               />
             </div>
             <div class="text-[11px] text-text-secondary text-center">
@@ -450,12 +450,12 @@ onMounted(async () => {
 
         <div class="card">
           <div class="flex items-center justify-between mb-4">
-            <h2 class="font-semibold text-text-primary">Pensieri più letti</h2>
-            <span class="text-xs text-text-secondary">{{ overview.topThoughts.length }}</span>
+            <h2 class="font-semibold text-text-primary">Post più letti</h2>
+            <span class="text-xs text-text-secondary">{{ overview.topPosts.length }}</span>
           </div>
 
-          <div v-if="overview.topThoughts.length" class="space-y-3">
-            <div v-for="article in overview.topThoughts" :key="article.id" class="border border-gray-100 rounded-xl px-4 py-3 flex items-start justify-between gap-4">
+          <div v-if="overview.topPosts.length" class="space-y-3">
+            <div v-for="article in overview.topPosts" :key="article.id" class="border border-gray-100 rounded-xl px-4 py-3 flex items-start justify-between gap-4">
               <div>
                 <p class="text-sm font-medium text-text-primary">{{ article.title }}</p>
                 <p class="text-xs text-text-secondary mt-1">{{ article.author }}</p>
@@ -466,7 +466,7 @@ onMounted(async () => {
             </div>
           </div>
 
-          <p v-else class="text-sm text-text-secondary">Nessun pensiero letto nel periodo selezionato.</p>
+          <p v-else class="text-sm text-text-secondary">Nessun post letto nel periodo selezionato.</p>
         </div>
       </div>
 
@@ -547,7 +547,7 @@ onMounted(async () => {
                 <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Eventi</th>
                 <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Play</th>
                 <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Complete</th>
-                <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Pensieri</th>
+                <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Post</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-50">
@@ -560,7 +560,7 @@ onMounted(async () => {
                 <td class="px-4 py-3 text-sm text-text-primary">{{ user.totalEvents }}</td>
                 <td class="px-4 py-3 text-sm text-text-primary">{{ user.audioPlays }}</td>
                 <td class="px-4 py-3 text-sm text-text-primary">{{ user.audioCompletions }}</td>
-                <td class="px-4 py-3 text-sm text-text-primary">{{ user.thoughtViews }}</td>
+                <td class="px-4 py-3 text-sm text-text-primary">{{ user.postViews }}</td>
               </tr>
             </tbody>
           </table>
@@ -595,9 +595,9 @@ onMounted(async () => {
                     <p class="font-medium text-text-primary">{{ event.audio.title }}</p>
                     <p class="text-xs text-text-secondary mt-1">{{ event.audio.categoryName }}</p>
                   </div>
-                  <div v-else-if="event.thought">
-                    <p class="font-medium text-text-primary">{{ event.thought.title }}</p>
-                    <p class="text-xs text-text-secondary mt-1">{{ event.thought.author }}</p>
+                  <div v-else-if="event.post">
+                    <p class="font-medium text-text-primary">{{ event.post.title }}</p>
+                    <p class="text-xs text-text-secondary mt-1">{{ event.post.author }}</p>
                   </div>
                   <div v-else class="text-text-secondary">
                     Sistema

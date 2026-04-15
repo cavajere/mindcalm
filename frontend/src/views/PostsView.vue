@@ -5,7 +5,7 @@ import axios from 'axios'
 import ContentCover from '../components/ContentCover.vue'
 import TagFilter, { type FilterTag } from '../components/TagFilter.vue'
 
-interface Thought {
+interface Post {
   id: string
   title: string
   slug: string
@@ -16,7 +16,7 @@ interface Thought {
   tags: FilterTag[]
 }
 
-const thoughts = ref<Thought[]>([])
+const posts = ref<Post[]>([])
 const loading = ref(true)
 const pagination = ref({ page: 1, limit: 12, total: 0, totalPages: 0 })
 const search = ref('')
@@ -40,7 +40,7 @@ const activeFiltersLabel = computed(() => {
   return parts.join(' · ')
 })
 
-function formatArticleDate(value: string) {
+function formatPostDate(value: string) {
   return new Date(value).toLocaleDateString('it-IT', {
     day: 'numeric',
     month: 'long',
@@ -62,7 +62,7 @@ function parseTagsFromRoute() {
     .filter(Boolean)
 }
 
-async function fetchArticles() {
+async function fetchPosts() {
   loading.value = true
 
   try {
@@ -74,8 +74,8 @@ async function fetchArticles() {
     if (search.value) query.set('search', search.value)
     if (selectedTags.value.length) query.set('tags', selectedTags.value.join(','))
 
-    const { data } = await axios.get(`/api/thoughts?${query}`)
-    thoughts.value = data.data
+    const { data } = await axios.get(`/api/posts?${query}`)
+    posts.value = data.data
     pagination.value = { ...pagination.value, ...data.pagination }
   } finally {
     loading.value = false
@@ -84,14 +84,14 @@ async function fetchArticles() {
 
 function changePage(page: number) {
   pagination.value.page = page
-  fetchArticles()
+  fetchPosts()
 }
 
 onMounted(async () => {
-  const { data } = await axios.get('/api/tags?contentType=thought')
+  const { data } = await axios.get('/api/tags?contentType=post')
   tags.value = data
   parseTagsFromRoute()
-  await fetchArticles()
+  await fetchPosts()
 })
 
 watch(() => route.query.tags, () => {
@@ -100,7 +100,7 @@ watch(() => route.query.tags, () => {
 
 watch(selectedTags, () => {
   pagination.value.page = 1
-  fetchArticles()
+  fetchPosts()
 })
 
 let searchTimeout: number
@@ -108,7 +108,7 @@ watch(search, () => {
   clearTimeout(searchTimeout)
   searchTimeout = window.setTimeout(() => {
     pagination.value.page = 1
-    fetchArticles()
+    fetchPosts()
   }, 350)
 })
 </script>
@@ -120,9 +120,9 @@ watch(search, () => {
 
       <div class="relative grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:p-10">
         <div>
-          <span class="eyebrow">Pensieri pubblici</span>
+          <span class="eyebrow">Post pubblici</span>
           <h1 class="font-display mt-4 text-4xl font-semibold leading-none text-text-primary sm:text-5xl">
-            Pensieri.
+            Post.
           </h1>
           <p class="mt-4 max-w-3xl text-base leading-8 text-text-secondary sm:text-lg">
             Cerca per parole chiave e trova rapidamente pillole di mindfulness, spunti e letture utili.
@@ -132,7 +132,7 @@ watch(search, () => {
         <div class="grid gap-3 sm:grid-cols-2 lg:min-w-[320px]">
           <div class="surface-card-muted p-4">
             <p class="text-2xl font-semibold text-text-primary">{{ pagination.total }}</p>
-            <p class="mt-1 text-sm text-text-secondary">pensieri pubblicati</p>
+            <p class="mt-1 text-sm text-text-secondary">post pubblicati</p>
           </div>
           <div class="surface-card-muted p-4">
             <p class="text-sm font-semibold text-text-primary">{{ activeFiltersLabel }}</p>
@@ -145,7 +145,7 @@ watch(search, () => {
     <section class="card p-5 sm:p-6">
       <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start">
         <div>
-          <label class="mb-2 block text-sm font-semibold text-text-primary">Cerca nei pensieri</label>
+          <label class="mb-2 block text-sm font-semibold text-text-primary">Cerca nei post</label>
           <div class="relative">
             <svg class="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -183,38 +183,38 @@ watch(search, () => {
       </div>
     </div>
 
-    <div v-else-if="thoughts.length" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <div v-else-if="posts.length" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
       <router-link
-        v-for="article in thoughts"
-        :key="article.id"
-        :to="`/thoughts/${article.slug}`"
+        v-for="post in posts"
+        :key="post.id"
+        :to="`/posts/${post.slug}`"
         class="card group overflow-hidden"
       >
         <ContentCover
-          :src="article.coverImage"
-          :alt="article.title"
+          :src="post.coverImage"
+          :alt="post.title"
           container-class="aspect-[4/3] overflow-hidden"
           image-class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
 
         <div class="p-5">
           <div class="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-text-secondary">
-            <span>{{ formatArticleDate(article.publishedAt) }}</span>
+            <span>{{ formatPostDate(post.publishedAt) }}</span>
             <span>·</span>
-            <span>{{ article.author }}</span>
+            <span>{{ post.author }}</span>
           </div>
 
           <h2 class="mt-3 text-xl font-semibold leading-tight text-text-primary">
-            {{ article.title }}
+            {{ post.title }}
           </h2>
 
           <p class="mt-3 text-sm leading-7 text-text-secondary">
-            {{ article.excerpt || 'Una lettura pubblica pensata per portare ordine, consapevolezza e strumenti pratici nella quotidianita.' }}
+            {{ post.excerpt || 'Una lettura pubblica pensata per portare ordine, consapevolezza e strumenti pratici nella quotidianita.' }}
           </p>
 
-          <div v-if="article.tags.length" class="mt-5 flex flex-wrap gap-2">
+          <div v-if="post.tags.length" class="mt-5 flex flex-wrap gap-2">
             <span
-              v-for="tag in article.tags.slice(0, 3)"
+              v-for="tag in post.tags.slice(0, 3)"
               :key="tag.id"
               class="rounded-full border border-primary/10 bg-primary/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-primary"
             >
@@ -228,7 +228,7 @@ watch(search, () => {
     <div v-else class="section-panel p-8 text-center sm:p-10">
       <div class="mx-auto max-w-2xl">
         <span class="eyebrow">Archivio vuoto</span>
-        <h2 class="mt-5 text-2xl font-semibold text-text-primary sm:text-3xl">Nessun pensiero corrisponde alla ricerca attuale.</h2>
+        <h2 class="mt-5 text-2xl font-semibold text-text-primary sm:text-3xl">Nessun post corrisponde alla ricerca attuale.</h2>
         <p class="mt-4 text-base leading-8 text-text-secondary">
           Prova a rimuovere qualche filtro o torna piu tardi: i nuovi contenuti pubblici compariranno qui in automatico.
         </p>

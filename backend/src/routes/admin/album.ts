@@ -26,7 +26,7 @@ const albumImageInclude = {
       status: true,
     },
   },
-  thoughtCoverFor: {
+  postCoverFor: {
     select: {
       id: true,
       title: true,

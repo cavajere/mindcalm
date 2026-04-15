@@ -27,10 +27,10 @@ const auditActions = [
   'ALBUM_IMAGE_CREATED',
   'ALBUM_IMAGE_UPDATED',
   'ALBUM_IMAGE_DELETED',
-  'THOUGHT_CREATED',
-  'THOUGHT_UPDATED',
-  'THOUGHT_DELETED',
-  'THOUGHT_STATUS_CHANGED',
+  'POST_CREATED',
+  'POST_UPDATED',
+  'POST_DELETED',
+  'POST_STATUS_CHANGED',
   'EVENT_CREATED',
   'EVENT_UPDATED',
   'EVENT_DELETED',
@@ -59,7 +59,7 @@ const auditActions = [
   'CAMPAIGN_SENT',
 ]
 
-const auditEntityTypes = ['AUTH', 'USER', 'INVITE_CODE', 'REGISTRATION', 'TERMS_POLICY', 'AUDIO', 'ALBUM_IMAGE', 'THOUGHT', 'EVENT', 'CATEGORY', 'TAG', 'SETTINGS', 'SUBSCRIPTION_POLICY', 'CONSENT_FORMULA', 'CONTACT', 'CONSENT', 'CAMPAIGN']
+const auditEntityTypes = ['AUTH', 'USER', 'INVITE_CODE', 'REGISTRATION', 'TERMS_POLICY', 'AUDIO', 'ALBUM_IMAGE', 'POST', 'EVENT', 'CATEGORY', 'TAG', 'SETTINGS', 'SUBSCRIPTION_POLICY', 'CONSENT_FORMULA', 'CONTACT', 'CONSENT', 'CAMPAIGN']
 const phonePattern = /^\+?[0-9\s().-]{7,20}$/
 const inviteCodePattern = /^[A-NP-Z1-9]{7}$/
 const appUrlValidationOptions = {
@@ -142,7 +142,7 @@ export const changePasswordValidation = [
 
 export const notificationPreferencesValidation = [
   body('notifyOnAudio').isBoolean().withMessage('notifyOnAudio non valido'),
-  body('notifyOnThoughts').isBoolean().withMessage('notifyOnThoughts non valido'),
+  body('notifyOnPosts').isBoolean().withMessage('notifyOnPosts non valido'),
   body('frequency').isIn(['NONE', 'IMMEDIATE', 'WEEKLY', 'MONTHLY']).withMessage('Frequenza non valida'),
 ]
 
@@ -166,7 +166,7 @@ export const audioValidation = [
   body('level').optional().isIn(['BEGINNER', 'INTERMEDIATE', 'ADVANCED']).withMessage('Livello non valido'),
 ]
 
-export const thoughtValidation = [
+export const postValidation = [
   body('title').trim().notEmpty().withMessage('Titolo obbligatorio'),
   body('body').trim().notEmpty().withMessage('Contenuto obbligatorio'),
   body('author').trim().notEmpty().withMessage('Autore obbligatorio'),
@@ -220,7 +220,7 @@ export const userCreateValidation = [
   body('sendInvite').optional().isBoolean().withMessage('sendInvite non valido'),
   body('inviteBaseUrl').optional({ values: 'falsy' }).isURL(appUrlValidationOptions).withMessage('URL invito non valido'),
   body('notifyOnAudio').optional().isBoolean().withMessage('notifyOnAudio non valido'),
-  body('notifyOnThoughts').optional().isBoolean().withMessage('notifyOnThoughts non valido'),
+  body('notifyOnPosts').optional().isBoolean().withMessage('notifyOnPosts non valido'),
   body('frequency').optional().isIn(['NONE', 'IMMEDIATE', 'WEEKLY', 'MONTHLY']).withMessage('Frequenza non valida'),
 ]
 
@@ -253,7 +253,7 @@ export const userUpdateValidation = [
   body('isActive').optional().isBoolean().withMessage('isActive non valido'),
   body('licenseExpiresAt').optional({ values: 'falsy' }).isISO8601().withMessage('Data scadenza licenza non valida'),
   body('notifyOnAudio').optional().isBoolean().withMessage('notifyOnAudio non valido'),
-  body('notifyOnThoughts').optional().isBoolean().withMessage('notifyOnThoughts non valido'),
+  body('notifyOnPosts').optional().isBoolean().withMessage('notifyOnPosts non valido'),
   body('frequency').optional().isIn(['NONE', 'IMMEDIATE', 'WEEKLY', 'MONTHLY']).withMessage('Frequenza non valida'),
 ]
 
@@ -287,7 +287,7 @@ export const analyticsEventValidation = [
       'AUDIO_VIEW',
       'AUDIO_PLAY',
       'AUDIO_COMPLETE',
-      'THOUGHT_VIEW',
+      'POST_VIEW',
       'APP_ERROR',
       'API_ERROR',
       'AUDIO_ERROR',
@@ -295,7 +295,7 @@ export const analyticsEventValidation = [
     ])
     .withMessage('Tipo evento non valido'),
   body('audioId').optional({ values: 'falsy' }).isUUID().withMessage('audioId non valido'),
-  body('thoughtId').optional({ values: 'falsy' }).isUUID().withMessage('thoughtId non valido'),
+  body('postId').optional({ values: 'falsy' }).isUUID().withMessage('postId non valido'),
   body('metadata')
     .optional({ values: 'falsy' })
     .custom((value) => typeof value === 'object' && value !== null && !Array.isArray(value))
@@ -308,7 +308,7 @@ export const analyticsOverviewQuery = [
   query('dateTo').optional().isISO8601().withMessage('dateTo non valida'),
   query('categoryId').optional().isUUID().withMessage('categoryId non valido'),
   query('audioId').optional().isUUID().withMessage('audioId non valido'),
-  query('thoughtId').optional().isUUID().withMessage('thoughtId non valido'),
+  query('postId').optional().isUUID().withMessage('postId non valido'),
   query('userId').optional().isUUID().withMessage('userId non valido'),
 ]
 
@@ -340,7 +340,7 @@ export const audioFilterQuery = [
   query('sort').optional().isIn(['recent', 'relevance']).withMessage('sort non valido'),
 ]
 
-export const thoughtFilterQuery = [
+export const postFilterQuery = [
   ...paginationQuery,
   query('search').optional().trim().isLength({ max: 200 }).withMessage('search troppo lunga'),
   query('tags').optional().trim().isLength({ max: 500 }).withMessage('tags troppo lunghi'),
@@ -350,7 +350,7 @@ export const thoughtFilterQuery = [
 ]
 
 export const tagFilterQuery = [
-  query('contentType').optional().isIn(['audio', 'thought', 'all']).withMessage('contentType non valido'),
+  query('contentType').optional().isIn(['audio', 'post', 'all']).withMessage('contentType non valido'),
   query('activeOnly').optional().isBoolean().withMessage('activeOnly non valido'),
   query('search').optional().trim().isLength({ max: 100 }).withMessage('search troppo lunga'),
 ]

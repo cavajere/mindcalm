@@ -23,7 +23,7 @@ type NotificationPipelineJob = {
   intro: string
   itemCount: number
   items: Array<{
-    type: 'audio' | 'thought'
+    type: 'audio' | 'post'
     title: string
     publishedAt: string | null
   }>

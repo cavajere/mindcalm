@@ -123,12 +123,12 @@ async function save() {
     }
 
     if (isEdit.value) {
-      await axios.put(`/api/admin/thoughts/${route.params.id}`, fd, config)
+      await axios.put(`/api/admin/posts/${route.params.id}`, fd, config)
     } else {
-      await axios.post('/api/admin/thoughts', fd, config)
+      await axios.post('/api/admin/posts', fd, config)
     }
 
-    router.push('/thoughts')
+    router.push('/posts')
   } catch (e: any) {
     error.value = e.response?.data?.error || 'Errore nel salvataggio'
   } finally {
@@ -144,28 +144,28 @@ onMounted(async () => {
   if (isEdit.value) {
     loading.value = true
     try {
-      const { data: article } = await axios.get(`/api/admin/thoughts/${route.params.id}`)
+      const { data: post } = await axios.get(`/api/admin/posts/${route.params.id}`)
       form.value = {
-        title: article.title,
-        author: article.author,
-        excerpt: article.excerpt || '',
-        body: article.body,
-        status: article.status,
-        visibility: article.visibility,
-        tagIds: (article.tags || []).map((tag: any) => tag.id),
+        title: post.title,
+        author: post.author,
+        excerpt: post.excerpt || '',
+        body: post.body,
+        status: post.status,
+        visibility: post.visibility,
+        tagIds: (post.tags || []).map((tag: any) => tag.id),
       }
-      existingAlbumCover.value = article.coverAlbumImage || null
-      existingCover.value = article.coverAlbumImage
+      existingAlbumCover.value = post.coverAlbumImage || null
+      existingCover.value = post.coverAlbumImage
         ? null
-        : article.coverImage
+        : post.coverImage
           ? {
-              url: article.coverImage,
-              originalName: article.coverImageOriginalName || '',
-              displayName: article.coverImageDisplayName || '',
+              url: post.coverImage,
+              originalName: post.coverImageOriginalName || '',
+              displayName: post.coverImageDisplayName || '',
             }
           : null
       selectedAlbumImage.value = null
-      coverImageDisplayName.value = article.coverAlbumImage ? '' : (article.coverImageDisplayName || '')
+      coverImageDisplayName.value = post.coverAlbumImage ? '' : (post.coverImageDisplayName || '')
       removeExistingCover.value = false
     } finally {
       loading.value = false
@@ -177,11 +177,11 @@ onMounted(async () => {
 <template>
   <div class="mx-auto w-full max-w-3xl">
     <PageHeader
-      :title="isEdit ? 'Modifica pensiero' : 'Nuovo pensiero'"
-      :description="isEdit ? 'Aggiorna contenuto, metadata e stato editoriale.' : 'Crea un nuovo pensiero con contenuto, autore e metadata.'"
+      :title="isEdit ? 'Modifica post' : 'Nuovo post'"
+      :description="isEdit ? 'Aggiorna contenuto, metadata e stato editoriale.' : 'Crea un nuovo post con contenuto, autore e metadata.'"
     >
       <template #actions>
-        <button type="button" @click="router.push('/thoughts')" class="btn-secondary">Annulla</button>
+        <button type="button" @click="router.push('/posts')" class="btn-secondary">Annulla</button>
       </template>
     </PageHeader>
 
@@ -292,7 +292,7 @@ onMounted(async () => {
             </svg>
             {{ saving ? (uploadProgress > 0 && uploadProgress < 100 ? `Upload ${uploadProgress}%` : 'Salvataggio...') : 'Salva' }}
           </button>
-          <button type="button" @click="router.push('/thoughts')" class="btn-secondary" :disabled="saving">Annulla</button>
+          <button type="button" @click="router.push('/posts')" class="btn-secondary" :disabled="saving">Annulla</button>
         </div>
       </div>
     </form>

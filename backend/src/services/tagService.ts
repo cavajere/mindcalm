@@ -37,8 +37,8 @@ export function mapAudioTags(audioTags: Array<{ tag: TagSummary }>): TagSummary[
     .sort((a, b) => a.label.localeCompare(b.label, 'it'))
 }
 
-export function mapThoughtTags(thoughtTags: Array<{ tag: TagSummary }>): TagSummary[] {
-  return thoughtTags
+export function mapPostTags(postTags: Array<{ tag: TagSummary }>): TagSummary[] {
+  return postTags
     .map(entry => entry.tag)
     .sort((a, b) => a.label.localeCompare(b.label, 'it'))
 }

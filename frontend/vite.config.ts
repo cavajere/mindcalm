@@ -42,9 +42,9 @@ export default defineConfig({
             options: { cacheName: 'audio-api', expiration: { maxAgeSeconds: 3600 } },
           },
           {
-            urlPattern: /\/api\/v1\/thoughts(\?.*)?$/,
+            urlPattern: /\/api\/v1\/posts(\?.*)?$/,
             handler: 'StaleWhileRevalidate',
-            options: { cacheName: 'thoughts-api', expiration: { maxAgeSeconds: 3600 } },
+            options: { cacheName: 'posts-api', expiration: { maxAgeSeconds: 3600 } },
           },
           {
             urlPattern: /\/api\/v1\/audio\/[^/]+$/,
@@ -55,10 +55,10 @@ export default defineConfig({
             },
           },
           {
-            urlPattern: /\/api\/v1\/thoughts\/[^/]+$/,
+            urlPattern: /\/api\/v1\/posts\/[^/]+$/,
             handler: 'StaleWhileRevalidate',
             options: {
-              cacheName: 'thought-details-api',
+              cacheName: 'post-details-api',
               expiration: { maxEntries: 50, maxAgeSeconds: 86400 },
             },
           },

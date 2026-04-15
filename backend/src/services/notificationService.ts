@@ -24,7 +24,7 @@ let notificationPipelineStarted = false
 
 export interface UserNotificationPreferencesInput {
   notifyOnAudio: boolean
-  notifyOnThoughts: boolean
+  notifyOnPosts: boolean
   frequency: NotificationFrequency
 }
 
@@ -148,7 +148,7 @@ async function buildImmediateNotificationItem(input: ContentPublicationOutboxInp
     })
   }
 
-  const thought = await prisma.thought.findUnique({
+  const post = await prisma.post.findUnique({
     where: {
       id: input.contentId,
     },
@@ -158,12 +158,12 @@ async function buildImmediateNotificationItem(input: ContentPublicationOutboxInp
     },
   })
 
-  if (!thought || thought.status !== 'PUBLISHED') {
-    throw new Error('Pensiero pubblicato non trovato per la generazione del link notifica')
+  if (!post || post.status !== 'PUBLISHED') {
+    throw new Error('Post pubblicato non trovato per la generazione del link notifica')
   }
 
-  return toArticleItem({
-    slug: thought.slug,
+  return toPostItem({
+    slug: post.slug,
     title: input.title,
     publishedAt: input.publishedAt,
   })
@@ -266,12 +266,12 @@ function toAudioItem(item: { id: string; title: string; publishedAt: Date | null
   }
 }
 
-function toArticleItem(item: { slug: string; title: string; publishedAt: Date | null }): ContentNotificationItem {
+function toPostItem(item: { slug: string; title: string; publishedAt: Date | null }): ContentNotificationItem {
   return {
-    type: 'thought',
+    type: 'post',
     title: item.title,
     publishedAt: item.publishedAt,
-    url: buildArticleContentUrl(item.slug),
+    url: buildPostContentUrl(item.slug),
   }
 }
 
@@ -288,8 +288,8 @@ function buildAudioContentUrl(audioId: string) {
   return buildAppUrl(config.appUrls.public, `/audio/${audioId}`)
 }
 
-function buildArticleContentUrl(slug: string) {
-  return buildAppUrl(config.appUrls.public, `/thoughts/${slug}`)
+function buildPostContentUrl(slug: string) {
+  return buildAppUrl(config.appUrls.public, `/posts/${slug}`)
 }
 
 function buildEventContentUrl(slug: string) {
@@ -323,13 +323,13 @@ function buildImmediateNotificationDedupeKey(input: {
 function toContentPublicationType(type: ContentNotificationItem['type']) {
   if (type === 'audio') return ContentPublicationType.AUDIO
   if (type === 'event') return ContentPublicationType.EVENT
-  return ContentPublicationType.THOUGHT
+  return ContentPublicationType.POST
 }
 
 function toNotificationItemType(type: ContentPublicationType): ContentNotificationItem['type'] {
   if (type === ContentPublicationType.AUDIO) return 'audio'
   if (type === ContentPublicationType.EVENT) return 'event'
-  return 'thought'
+  return 'post'
 }
 
 function buildContentPublicationOutboxDedupeKey(input: ContentPublicationOutboxInput) {
@@ -351,7 +351,7 @@ function parseContentItems(items: Prisma.JsonValue): ContentNotificationItem[] {
     }
 
     const candidate = item as Record<string, unknown>
-    const type = candidate.type === 'audio' || candidate.type === 'thought' || candidate.type === 'event' ? candidate.type : null
+    const type = candidate.type === 'audio' || candidate.type === 'post' || candidate.type === 'event' ? candidate.type : null
     const title = typeof candidate.title === 'string' ? candidate.title : null
     const publishedAt = typeof candidate.publishedAt === 'string'
       ? new Date(candidate.publishedAt)
@@ -924,7 +924,7 @@ export async function getUserNotificationPreferences(userId: string) {
       userId,
       frequency: NotificationFrequency.NONE,
       notifyOnAudio: true,
-      notifyOnThoughts: true,
+      notifyOnPosts: true,
     },
   })
 }
@@ -934,13 +934,13 @@ export async function updateUserNotificationPreferences(userId: string, input: U
     where: { userId },
     update: {
       notifyOnAudio: input.notifyOnAudio,
-      notifyOnThoughts: input.notifyOnThoughts,
+      notifyOnPosts: input.notifyOnPosts,
       frequency: input.frequency,
     },
     create: {
       userId,
       notifyOnAudio: input.notifyOnAudio,
-      notifyOnThoughts: input.notifyOnThoughts,
+      notifyOnPosts: input.notifyOnPosts,
       frequency: input.frequency,
     },
   })
@@ -1002,7 +1002,7 @@ export async function getNotificationDispatchStats() {
         },
         OR: [
           { notifyOnAudio: true },
-          { notifyOnThoughts: true },
+          { notifyOnPosts: true },
         ],
       },
     }),
@@ -1129,7 +1129,7 @@ export async function enqueueImmediateContentNotifications(input: ContentPublica
         notificationPreference: {
           is: {
             frequency: NotificationFrequency.IMMEDIATE,
-            ...(input.type === 'audio' ? { notifyOnAudio: true } : { notifyOnThoughts: true }),
+            ...(input.type === 'audio' ? { notifyOnAudio: true } : { notifyOnPosts: true }),
           },
         },
       },
@@ -1269,7 +1269,7 @@ export async function enqueueDueNotifications(now = new Date()) {
       continue
     }
 
-    if (!preference.notifyOnAudio && !preference.notifyOnThoughts) {
+    if (!preference.notifyOnAudio && !preference.notifyOnPosts) {
       continue
     }
 
@@ -1299,7 +1299,7 @@ export async function enqueueDueNotifications(now = new Date()) {
       continue
     }
 
-    const [audio, thoughts, events] = await Promise.all([
+    const [audio, posts, events] = await Promise.all([
       preference.notifyOnAudio
         ? prisma.audio.findMany({
             where: {
@@ -1316,8 +1316,8 @@ export async function enqueueDueNotifications(now = new Date()) {
             },
           })
         : Promise.resolve([]),
-      preference.notifyOnThoughts
-        ? prisma.thought.findMany({
+      preference.notifyOnPosts
+        ? prisma.post.findMany({
             where: {
               status: 'PUBLISHED',
               publishedAt: asUtcDateRange(windowStartedAt, now),
@@ -1332,7 +1332,7 @@ export async function enqueueDueNotifications(now = new Date()) {
             },
           })
         : Promise.resolve([]),
-      preference.notifyOnThoughts
+      preference.notifyOnPosts
         ? prisma.event.findMany({
             where: {
               status: 'PUBLISHED',
@@ -1350,7 +1350,7 @@ export async function enqueueDueNotifications(now = new Date()) {
         : Promise.resolve([]),
     ])
 
-    const items = [...audio.map(toAudioItem), ...thoughts.map(toArticleItem), ...events.map(toEventItem)].sort((left, right) => {
+    const items = [...audio.map(toAudioItem), ...posts.map(toPostItem), ...events.map(toEventItem)].sort((left, right) => {
       const leftTime = left.publishedAt?.getTime() ?? 0
       const rightTime = right.publishedAt?.getTime() ?? 0
       return rightTime - leftTime

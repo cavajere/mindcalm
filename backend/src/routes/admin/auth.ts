@@ -336,7 +336,7 @@ router.put('/notification-preferences', appAuthMiddleware, notificationPreferenc
 
   const prefs = await updateUserNotificationPreferences(req.adminUser!.id, {
     notifyOnAudio: getBoolean(req.body.notifyOnAudio) ?? true,
-    notifyOnThoughts: getBoolean(req.body.notifyOnThoughts) ?? true,
+    notifyOnPosts: getBoolean(req.body.notifyOnPosts) ?? true,
     frequency: getSingleString(req.body.frequency) as 'NONE' | 'IMMEDIATE' | 'WEEKLY' | 'MONTHLY',
   })
 

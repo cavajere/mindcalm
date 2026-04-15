@@ -6,7 +6,7 @@ import PageHeader from '../components/PageHeader.vue'
 type StorageStatus = 'DRAFT' | 'PUBLISHED' | null
 
 type StorageLinkedEntity = {
-  type: 'AUDIO' | 'ARTICLE'
+  type: 'AUDIO' | 'POST'
   entityId: string
   label: string
   path: string
@@ -17,7 +17,7 @@ type StorageLargestItem = {
   area: 'audio' | 'images' | 'hls'
   areaLabel: string
   kind: 'FILE' | 'DIRECTORY'
-  sourceType: 'AUDIO_FILE' | 'AUDIO_COVER' | 'THOUGHT_COVER' | 'ALBUM_IMAGE' | 'HLS_PACKAGE' | 'UNTRACKED'
+  sourceType: 'AUDIO_FILE' | 'AUDIO_COVER' | 'POST_COVER' | 'ALBUM_IMAGE' | 'HLS_PACKAGE' | 'UNTRACKED'
   sourceLabel: string
   name: string
   relativePath: string
@@ -359,7 +359,7 @@ onMounted(() => {
                       :to="entity.path"
                       class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-200"
                     >
-                      <span>{{ entity.type === 'AUDIO' ? 'Audio' : 'Pensiero' }}: {{ entity.label }}</span>
+                      <span>{{ entity.type === 'AUDIO' ? 'Audio' : 'Post' }}: {{ entity.label }}</span>
                       <span :class="statusClasses(entity.status)" class="rounded-full px-2 py-0.5 text-[11px] font-semibold">
                         {{ statusLabel(entity.status) }}
                       </span>

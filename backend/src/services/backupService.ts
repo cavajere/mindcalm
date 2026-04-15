@@ -16,11 +16,11 @@ const BACKUP_TABLES = [
   '"analytics_events"',
   '"pending_registrations"',
   '"invite_codes"',
-  '"thought_tags"',
+  '"post_tags"',
   '"audio_tags"',
   '"tag_aliases"',
   '"audio"',
-  '"thoughts"',
+  '"posts"',
   '"tags"',
   '"categories"',
   '"smtp_settings"',
@@ -51,8 +51,8 @@ type BackupPayload = {
     tags: Prisma.TagUncheckedCreateInput[]
     tagAliases: Prisma.TagAliasUncheckedCreateInput[]
     albumImages: Prisma.AlbumImageUncheckedCreateInput[]
-    thoughts: Prisma.ThoughtUncheckedCreateInput[]
-    thoughtTags: Prisma.ThoughtTagUncheckedCreateInput[]
+    posts: Prisma.PostUncheckedCreateInput[]
+    postTags: Prisma.PostTagUncheckedCreateInput[]
     audios: Prisma.AudioUncheckedCreateInput[]
     audioTags: Prisma.AudioTagUncheckedCreateInput[]
     inviteCodes: Prisma.InviteCodeUncheckedCreateInput[]
@@ -315,8 +315,8 @@ function buildBackupCounts(payload: BackupPayload): Record<string, number> {
     tags: payload.data.tags.length,
     tagAliases: payload.data.tagAliases.length,
     albumImages: payload.data.albumImages.length,
-    thoughts: payload.data.thoughts.length,
-    thoughtTags: payload.data.thoughtTags.length,
+    posts: payload.data.posts.length,
+    postTags: payload.data.postTags.length,
     audios: payload.data.audios.length,
     audioTags: payload.data.audioTags.length,
     inviteCodes: payload.data.inviteCodes.length,
@@ -346,7 +346,57 @@ function deserializeBackupPayload(buffer: Buffer): BackupPayload {
     throw new Error('File backup non valido o non supportato')
   }
 
-  return parsed as BackupPayload
+  const rawData = parsed.data as Record<string, unknown>
+  const legacyPosts = Array.isArray(rawData.posts)
+    ? rawData.posts
+    : Array.isArray(rawData.thoughts)
+      ? rawData.thoughts
+      : []
+  const legacyPostTags = Array.isArray(rawData.postTags)
+    ? rawData.postTags
+    : Array.isArray(rawData.thoughtTags)
+      ? rawData.thoughtTags
+      : []
+  const legacyAnalyticsEvents = Array.isArray(rawData.analyticsEvents) ? rawData.analyticsEvents : []
+  const legacyAuditLogs = Array.isArray(rawData.auditLogs) ? rawData.auditLogs : []
+
+  return {
+    ...(parsed as BackupPayload),
+    data: {
+      ...(parsed.data as BackupPayload['data']),
+      posts: legacyPosts as Prisma.PostUncheckedCreateInput[],
+      postTags: legacyPostTags.map((entry) => {
+        if (!entry || typeof entry !== 'object') return entry
+        const normalized = { ...(entry as Record<string, unknown>) }
+        if ('thoughtId' in normalized && !('postId' in normalized)) {
+          normalized.postId = normalized.thoughtId
+        }
+        delete normalized.thoughtId
+        return normalized
+      }) as Prisma.PostTagUncheckedCreateInput[],
+      analyticsEvents: legacyAnalyticsEvents.map((entry) => {
+        if (!entry || typeof entry !== 'object') return entry
+        const normalized = { ...(entry as Record<string, unknown>) }
+        if ('thoughtId' in normalized && !('postId' in normalized)) {
+          normalized.postId = normalized.thoughtId
+        }
+        delete normalized.thoughtId
+        if (normalized.contentType === 'THOUGHT') normalized.contentType = 'POST'
+        if (normalized.eventType === 'THOUGHT_VIEW') normalized.eventType = 'POST_VIEW'
+        return normalized
+      }) as Prisma.AnalyticsEventUncheckedCreateInput[],
+      auditLogs: legacyAuditLogs.map((entry) => {
+        if (!entry || typeof entry !== 'object') return entry
+        const normalized = { ...(entry as Record<string, unknown>) }
+        if (normalized.action === 'THOUGHT_CREATED') normalized.action = 'POST_CREATED'
+        if (normalized.action === 'THOUGHT_UPDATED') normalized.action = 'POST_UPDATED'
+        if (normalized.action === 'THOUGHT_DELETED') normalized.action = 'POST_DELETED'
+        if (normalized.action === 'THOUGHT_STATUS_CHANGED') normalized.action = 'POST_STATUS_CHANGED'
+        if (normalized.entityType === 'THOUGHT') normalized.entityType = 'POST'
+        return normalized
+      }) as Prisma.AuditLogUncheckedCreateInput[],
+    },
+  }
 }
 
 function convertDateFields<T extends Record<string, unknown>>(records: T[], fields: string[]) {
@@ -445,9 +495,9 @@ async function restoreDatabase(payload: BackupPayload) {
       })
     }
 
-    if (payload.data.thoughts.length) {
-      await tx.thought.createMany({
-        data: convertDateFields(payload.data.thoughts, ['publishedAt', 'createdAt', 'updatedAt']) as Prisma.ThoughtUncheckedCreateInput[],
+    if (payload.data.posts.length) {
+      await tx.post.createMany({
+        data: convertDateFields(payload.data.posts, ['publishedAt', 'createdAt', 'updatedAt']) as Prisma.PostUncheckedCreateInput[],
       })
     }
 
@@ -463,9 +513,9 @@ async function restoreDatabase(payload: BackupPayload) {
       })
     }
 
-    if (payload.data.thoughtTags.length) {
-      await tx.thoughtTag.createMany({
-        data: payload.data.thoughtTags,
+    if (payload.data.postTags.length) {
+      await tx.postTag.createMany({
+        data: payload.data.postTags,
       })
     }
 
@@ -528,8 +578,8 @@ async function createBackupPayload(): Promise<BackupPayload> {
     tags,
     tagAliases,
     albumImages,
-    thoughts,
-    thoughtTags,
+    posts,
+    postTags,
     audios,
     audioTags,
     inviteCodes,
@@ -545,8 +595,8 @@ async function createBackupPayload(): Promise<BackupPayload> {
     prisma.tag.findMany({ orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] }),
     prisma.tagAlias.findMany({ orderBy: [{ tagId: 'asc' }, { alias: 'asc' }] }),
     prisma.albumImage.findMany({ orderBy: { createdAt: 'asc' } }),
-    prisma.thought.findMany({ orderBy: { createdAt: 'asc' } }),
-    prisma.thoughtTag.findMany({ orderBy: [{ thoughtId: 'asc' }, { tagId: 'asc' }] }),
+    prisma.post.findMany({ orderBy: { createdAt: 'asc' } }),
+    prisma.postTag.findMany({ orderBy: [{ postId: 'asc' }, { tagId: 'asc' }] }),
     prisma.audio.findMany({ orderBy: { createdAt: 'asc' } }),
     prisma.audioTag.findMany({ orderBy: [{ audioId: 'asc' }, { tagId: 'asc' }] }),
     prisma.inviteCode.findMany({ orderBy: { createdAt: 'asc' } }),
@@ -569,8 +619,8 @@ async function createBackupPayload(): Promise<BackupPayload> {
       tags: tags as Prisma.TagUncheckedCreateInput[],
       tagAliases: tagAliases as Prisma.TagAliasUncheckedCreateInput[],
       albumImages: albumImages as Prisma.AlbumImageUncheckedCreateInput[],
-      thoughts: thoughts as Prisma.ThoughtUncheckedCreateInput[],
-      thoughtTags: thoughtTags as Prisma.ThoughtTagUncheckedCreateInput[],
+      posts: posts as Prisma.PostUncheckedCreateInput[],
+      postTags: postTags as Prisma.PostTagUncheckedCreateInput[],
       audios: audios as Prisma.AudioUncheckedCreateInput[],
       audioTags: audioTags as Prisma.AudioTagUncheckedCreateInput[],
       inviteCodes: inviteCodes as Prisma.InviteCodeUncheckedCreateInput[],

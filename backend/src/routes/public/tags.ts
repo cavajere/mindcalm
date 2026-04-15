@@ -27,7 +27,7 @@ router.get('/', tagFilterQuery, async (req: Request, res: Response) => {
     visibility: { in: getVisibleContentVisibilities(req) },
   }
 
-  if (!req.adminUser && contentType !== 'thought') {
+  if (!req.adminUser && contentType !== 'post') {
     res.json([])
     return
   }
@@ -47,12 +47,12 @@ router.get('/', tagFilterQuery, async (req: Request, res: Response) => {
         : {},
       contentType === 'audio'
         ? { audioTags: { some: { audio: { status: 'PUBLISHED' } } } }
-        : contentType === 'thought'
-          ? { thoughtTags: { some: { thought: articleVisibilityFilter } } }
+        : contentType === 'post'
+          ? { postTags: { some: { post: articleVisibilityFilter } } }
           : {
               OR: [
                 { audioTags: { some: { audio: { status: 'PUBLISHED' } } } },
-                { thoughtTags: { some: { thought: articleVisibilityFilter } } },
+                { postTags: { some: { post: articleVisibilityFilter } } },
               ],
             },
     ],
@@ -61,7 +61,7 @@ router.get('/', tagFilterQuery, async (req: Request, res: Response) => {
   const tags = await prisma.tag.findMany({
     where,
     include: {
-      _count: { select: { audioTags: true, thoughtTags: true } },
+      _count: { select: { audioTags: true, postTags: true } },
     },
     orderBy: [
       { sortOrder: 'asc' },
@@ -75,7 +75,7 @@ router.get('/', tagFilterQuery, async (req: Request, res: Response) => {
     slug: tag.slug,
     description: tag.description,
     audioCount: req.adminUser ? tag._count.audioTags : 0,
-    thoughtCount: tag._count.thoughtTags,
+    postCount: tag._count.postTags,
   })))
 })
 

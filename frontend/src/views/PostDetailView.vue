@@ -4,9 +4,9 @@ import { useRoute } from 'vue-router'
 import axios from 'axios'
 import RichTextRenderer from '../components/RichTextRenderer.vue'
 import ContentCover from '../components/ContentCover.vue'
-import { trackThoughtView } from '../services/analyticsService'
+import { trackPostView } from '../services/analyticsService'
 
-interface Thought {
+interface Post {
   id: string
   slug: string
   title: string
@@ -19,13 +19,13 @@ interface Thought {
 }
 
 const route = useRoute()
-const article = ref<Thought | null>(null)
+const post = ref<Post | null>(null)
 const loading = ref(true)
 
 const formattedDate = computed(() => {
-  if (!article.value) return ''
+  if (!post.value) return ''
 
-  return new Date(article.value.publishedAt).toLocaleDateString('it-IT', {
+  return new Date(post.value.publishedAt).toLocaleDateString('it-IT', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
@@ -33,18 +33,18 @@ const formattedDate = computed(() => {
 })
 
 const readingTime = computed(() => {
-  if (!article.value) return 0
+  if (!post.value) return 0
 
-  const plainText = article.value.body.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  const plainText = post.value.body.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
   const wordCount = plainText ? plainText.split(' ').length : 0
 
   return Math.max(1, Math.ceil(wordCount / 220))
 })
 
 const authorInitials = computed(() => {
-  if (!article.value?.author) return 'MC'
+  if (!post.value?.author) return 'MC'
 
-  return article.value.author
+  return post.value.author
     .split(' ')
     .filter(Boolean)
     .slice(0, 2)
@@ -52,16 +52,16 @@ const authorInitials = computed(() => {
     .join('')
 })
 
-async function loadArticle(slug: string) {
+async function loadPost(slug: string) {
   loading.value = true
-  article.value = null
+  post.value = null
 
   try {
-    const { data } = await axios.get(`/api/thoughts/${slug}`)
-    article.value = data
-    await trackThoughtView(data.id)
+    const { data } = await axios.get(`/api/posts/${slug}`)
+    post.value = data
+    await trackPostView(data.id)
   } catch {
-    article.value = null
+    post.value = null
   } finally {
     loading.value = false
   }
@@ -71,7 +71,7 @@ watch(
   () => route.params.slug,
   (slug) => {
     if (typeof slug === 'string' && slug) {
-      loadArticle(slug)
+      loadPost(slug)
     }
   },
   { immediate: true },
@@ -114,16 +114,16 @@ watch(
       </div>
     </div>
 
-    <article v-else-if="article" class="mx-auto max-w-5xl">
+    <article v-else-if="post" class="mx-auto max-w-5xl">
       <div class="mb-5">
         <router-link
-          to="/thoughts"
+          to="/posts"
           class="btn-ghost inline-flex items-center gap-2 px-4 py-2 text-sm"
         >
           <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 19l-7-7 7-7" />
           </svg>
-          Tutti i pensieri
+          Tutti i post
         </router-link>
       </div>
 
@@ -133,17 +133,17 @@ watch(
         <div class="relative grid gap-8 p-6 sm:p-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] lg:p-10">
           <div class="min-w-0">
             <div class="mb-5 flex flex-wrap items-center gap-2">
-              <span class="badge surface-pill text-primary">Pensiero</span>
+              <span class="badge surface-pill text-primary">Post</span>
               <span class="badge surface-pill text-text-secondary">{{ formattedDate }}</span>
               <span class="badge surface-pill text-text-secondary">{{ readingTime }} min di lettura</span>
             </div>
 
             <h1 class="max-w-3xl text-3xl font-bold tracking-tight text-text-primary sm:text-4xl lg:text-5xl">
-              {{ article.title }}
+              {{ post.title }}
             </h1>
 
-            <p v-if="article.excerpt" class="mt-5 max-w-2xl text-base leading-8 text-text-secondary sm:text-lg">
-              {{ article.excerpt }}
+            <p v-if="post.excerpt" class="mt-5 max-w-2xl text-base leading-8 text-text-secondary sm:text-lg">
+              {{ post.excerpt }}
             </p>
 
             <div class="mt-8 flex flex-wrap items-center gap-4">
@@ -151,14 +151,14 @@ watch(
                 {{ authorInitials }}
               </div>
               <div>
-                <p class="text-sm font-semibold text-text-primary">{{ article.author }}</p>
-                <p class="text-sm text-text-secondary">Pensiero pubblicato il {{ formattedDate }}</p>
+                <p class="text-sm font-semibold text-text-primary">{{ post.author }}</p>
+                <p class="text-sm text-text-secondary">Post pubblicato il {{ formattedDate }}</p>
               </div>
             </div>
 
-            <div v-if="article.tags.length" class="mt-6 flex flex-wrap gap-2">
+            <div v-if="post.tags.length" class="mt-6 flex flex-wrap gap-2">
               <span
-                v-for="tag in article.tags"
+                v-for="tag in post.tags"
                 :key="tag.id"
                 class="surface-pill px-3 py-1 text-xs font-medium text-text-secondary"
               >
@@ -168,8 +168,8 @@ watch(
           </div>
 
           <ContentCover
-            :src="article.coverImage"
-            :alt="article.title"
+            :src="post.coverImage"
+            :alt="post.title"
             container-class="surface-card min-h-[280px] overflow-hidden"
             image-class="aspect-[4/3] h-full w-full object-cover"
             placeholder-class="min-h-[280px]"
@@ -180,7 +180,7 @@ watch(
       <div class="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
         <div class="min-w-0">
           <div class="surface-card p-6 sm:p-8 lg:p-10">
-            <RichTextRenderer :html="article.body" />
+            <RichTextRenderer :html="post.body" />
           </div>
         </div>
 
@@ -190,7 +190,7 @@ watch(
             <div class="mt-5 space-y-4">
               <div>
                 <p class="text-xs uppercase tracking-[0.18em] text-text-secondary">Autore</p>
-                <p class="mt-1 text-sm font-medium text-text-primary">{{ article.author }}</p>
+                <p class="mt-1 text-sm font-medium text-text-primary">{{ post.author }}</p>
               </div>
               <div>
                 <p class="text-xs uppercase tracking-[0.18em] text-text-secondary">Pubblicazione</p>
@@ -206,10 +206,10 @@ watch(
           <div class="rounded-[28px] border border-primary/10 bg-primary/5 p-6">
             <p class="text-sm font-semibold text-text-primary">Continua la lettura</p>
             <p class="mt-2 text-sm leading-7 text-text-secondary">
-              Se vuoi approfondire altri temi, torna all’archivio e scegli un nuovo pensiero.
+              Se vuoi approfondire altri temi, torna all’archivio e scegli un nuovo post.
             </p>
-            <router-link to="/thoughts" class="mt-5 inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-primary-dark">
-              Vai ai pensieri
+            <router-link to="/posts" class="mt-5 inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-primary-dark">
+              Vai ai post
               <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 5l7 7-7 7" />
               </svg>
@@ -226,12 +226,12 @@ watch(
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9.172 9.172a4 4 0 115.656 5.656M9 13h.01M15 11h.01M12 6h.01M12 18h.01M6 12h.01M18 12h.01" />
           </svg>
         </div>
-        <h2 class="mt-5 text-2xl font-semibold text-text-primary">Pensiero non disponibile</h2>
+        <h2 class="mt-5 text-2xl font-semibold text-text-primary">Post non disponibile</h2>
         <p class="mt-3 text-base leading-7 text-text-secondary">
           Il contenuto potrebbe essere stato rimosso oppure il link non è corretto.
         </p>
-        <router-link to="/thoughts" class="btn-primary mt-6 inline-flex items-center gap-2">
-          Torna ai pensieri
+        <router-link to="/posts" class="btn-primary mt-6 inline-flex items-center gap-2">
+          Torna ai post
         </router-link>
       </div>
     </div>

@@ -6,8 +6,8 @@ import { config } from '../config'
 
 type StorageAreaKey = 'audio' | 'images' | 'hls'
 type StorageEntryKind = 'FILE' | 'DIRECTORY'
-type StorageSourceType = 'AUDIO_FILE' | 'AUDIO_COVER' | 'THOUGHT_COVER' | 'ALBUM_IMAGE' | 'HLS_PACKAGE' | 'UNTRACKED'
-type LinkedEntityType = 'AUDIO' | 'THOUGHT'
+type StorageSourceType = 'AUDIO_FILE' | 'AUDIO_COVER' | 'POST_COVER' | 'ALBUM_IMAGE' | 'HLS_PACKAGE' | 'UNTRACKED'
+type LinkedEntityType = 'AUDIO' | 'POST'
 
 type StorageLinkedEntity = {
   type: LinkedEntityType
@@ -286,7 +286,7 @@ async function collectAreaFilesystemEntries(area: StorageAreaKey, rootPath: stri
 async function buildReferenceIndex() {
   const references = new Map<string, ReferenceEntry>()
 
-  const [audios, thoughts, albumImages] = await Promise.all([
+  const [audios, posts, albumImages] = await Promise.all([
     prisma.audio.findMany({
       select: {
         id: true,
@@ -300,7 +300,7 @@ async function buildReferenceIndex() {
         hlsManifestPath: true,
       },
     }),
-    prisma.thought.findMany({
+    prisma.post.findMany({
       select: {
         id: true,
         title: true,
@@ -323,7 +323,7 @@ async function buildReferenceIndex() {
             status: true,
           },
         },
-        thoughtCoverFor: {
+        postCoverFor: {
           select: {
             id: true,
             title: true,
@@ -378,22 +378,22 @@ async function buildReferenceIndex() {
     }
   })
 
-  thoughts.forEach((thought) => {
-    if (!thought.coverImage) return
+  posts.forEach((post) => {
+    if (!post.coverImage) return
 
     upsertReference(references, {
       area: 'images',
       kind: 'FILE',
-      sourceType: 'THOUGHT_COVER',
-      sourceLabel: 'Copertina pensiero',
-      name: thought.coverImageDisplayName || thought.coverImageOriginalName || path.basename(thought.coverImage),
-      relativePath: normalizeStorageRelativePath(thought.coverImage),
+      sourceType: 'POST_COVER',
+      sourceLabel: 'Copertina post',
+      name: post.coverImageDisplayName || post.coverImageOriginalName || path.basename(post.coverImage),
+      relativePath: normalizeStorageRelativePath(post.coverImage),
       relatedEntities: [{
-        type: 'THOUGHT',
-        entityId: thought.id,
-        label: thought.title,
-        path: `/thoughts/${thought.id}/edit`,
-        status: thought.status,
+        type: 'POST',
+        entityId: post.id,
+        label: post.title,
+        path: `/posts/${post.id}/edit`,
+        status: post.status,
       }],
     })
   })
@@ -407,12 +407,12 @@ async function buildReferenceIndex() {
         path: `/audio/${audio.id}/edit`,
         status: audio.status,
       })),
-      ...image.thoughtCoverFor.map((thought) => ({
-        type: 'THOUGHT' as const,
-        entityId: thought.id,
-        label: thought.title,
-        path: `/thoughts/${thought.id}/edit`,
-        status: thought.status,
+      ...image.postCoverFor.map((post) => ({
+        type: 'POST' as const,
+        entityId: post.id,
+        label: post.title,
+        path: `/posts/${post.id}/edit`,
+        status: post.status,
       })),
     ]
 

@@ -1,5 +1,5 @@
 export type AlbumImageDependency = {
-  type: 'AUDIO' | 'ARTICLE'
+  type: 'AUDIO' | 'POST'
   entityId: string
   label: string
   path: string

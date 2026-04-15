@@ -2,9 +2,9 @@ const ACTIVE_USER_STORAGE_KEY = 'mindcalm-active-user'
 
 const SHARED_PROTECTED_CACHE_NAMES = [
   'audio-api',
-  'thoughts-api',
+  'posts-api',
   'audio-details-api',
-  'thought-details-api',
+  'post-details-api',
   'categories-api',
   'cover-images',
   'sessions-api',

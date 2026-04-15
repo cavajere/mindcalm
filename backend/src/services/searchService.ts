@@ -17,7 +17,7 @@ export type RankedAudioSearchParams = RankedSearchParams & {
   duration?: 'short' | 'medium' | 'long'
 }
 
-export type RankedThoughtSearchParams = RankedSearchParams & {
+export type RankedPostSearchParams = RankedSearchParams & {
   author?: string
   visibilities: ContentVisibility[]
 }
@@ -77,7 +77,7 @@ function buildAudioTagFilter(tagSlugs: string[], matchMode: MatchMode) {
   `
 }
 
-function buildThoughtTagFilter(tagSlugs: string[], matchMode: MatchMode) {
+function buildPostTagFilter(tagSlugs: string[], matchMode: MatchMode) {
   if (!tagSlugs.length) {
     return Prisma.empty
   }
@@ -86,9 +86,9 @@ function buildThoughtTagFilter(tagSlugs: string[], matchMode: MatchMode) {
     return Prisma.sql`
       AND (
         SELECT COUNT(DISTINCT t."slug")
-        FROM "thought_tags" at
+        FROM "post_tags" at
         JOIN "tags" t ON t."id" = at."tagId"
-        WHERE at."thoughtId" = ar."id"
+        WHERE at."postId" = ar."id"
           AND t."isActive" = true
           AND t."slug" IN (${Prisma.join(tagSlugs)})
       ) = ${tagSlugs.length}
@@ -98,9 +98,9 @@ function buildThoughtTagFilter(tagSlugs: string[], matchMode: MatchMode) {
   return Prisma.sql`
     AND EXISTS (
       SELECT 1
-      FROM "thought_tags" at
+      FROM "post_tags" at
       JOIN "tags" t ON t."id" = at."tagId"
-      WHERE at."thoughtId" = ar."id"
+      WHERE at."postId" = ar."id"
         AND t."isActive" = true
         AND t."slug" IN (${Prisma.join(tagSlugs)})
     )
@@ -192,10 +192,10 @@ export async function getRankedPublishedAudioIds(params: RankedAudioSearchParams
   }
 }
 
-export async function getRankedPublishedThoughtIds(params: RankedThoughtSearchParams) {
+export async function getRankedPublishedPostIds(params: RankedPostSearchParams) {
   const offset = (params.page - 1) * params.limit
   const normalizedSearch = params.search.trim().toLowerCase()
-  const tagFilter = buildThoughtTagFilter(params.tagSlugs, params.matchMode)
+  const tagFilter = buildPostTagFilter(params.tagSlugs, params.matchMode)
 
   const baseQuery = Prisma.sql`
     WITH search_query AS (
@@ -214,15 +214,15 @@ export async function getRankedPublishedThoughtIds(params: RankedThoughtSearchPa
         setweight(to_tsvector('simple', unaccent(COALESCE(ar."bodyText", ''))), 'D') AS document,
         lower(immutable_unaccent(COALESCE(ar."title", ''))) AS normalized_title,
         lower(immutable_unaccent(COALESCE(tags."labels", ''))) AS normalized_labels
-      FROM "thoughts" ar
+      FROM "posts" ar
       LEFT JOIN LATERAL (
         SELECT
           string_agg(DISTINCT t."label", ' ') AS "labels",
           string_agg(DISTINCT ta."alias", ' ') AS "aliases"
-        FROM "thought_tags" at
+        FROM "post_tags" at
         JOIN "tags" t ON t."id" = at."tagId" AND t."isActive" = true
         LEFT JOIN "tag_aliases" ta ON ta."tagId" = t."id"
-        WHERE at."thoughtId" = ar."id"
+        WHERE at."postId" = ar."id"
       ) tags ON true
       WHERE ar."status" = 'PUBLISHED'
         AND ar."visibility" IN (${Prisma.join(params.visibilities)})

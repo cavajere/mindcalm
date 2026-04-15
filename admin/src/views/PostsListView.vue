@@ -7,7 +7,7 @@ import StatusBadge from '../components/StatusBadge.vue'
 import { getPublicAppUrl } from '../utils/appUrls'
 
 const router = useRouter()
-const thoughts = ref<any[]>([])
+const posts = ref<any[]>([])
 const loading = ref(true)
 
 function visibilityLabel(visibility: string) {
@@ -20,42 +20,42 @@ function visibilityClasses(visibility: string) {
     : 'bg-slate-100 text-slate-700'
 }
 
-async function fetchArticles() {
+async function fetchPosts() {
   loading.value = true
   try {
-    const { data } = await axios.get('/api/admin/thoughts?limit=50')
-    thoughts.value = data.data
+    const { data } = await axios.get('/api/admin/posts?limit=50')
+    posts.value = data.data
   } finally {
     loading.value = false
   }
 }
 
-async function toggleStatus(article: any) {
-  const newStatus = article.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED'
-  await axios.patch(`/api/admin/thoughts/${article.id}/status`, {
+async function toggleStatus(post: any) {
+  const newStatus = post.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED'
+  await axios.patch(`/api/admin/posts/${post.id}/status`, {
     status: newStatus,
     publicBaseUrl: getPublicAppUrl(),
   })
-  article.status = newStatus
+  post.status = newStatus
 }
 
-async function deleteArticle(article: any) {
-  if (!confirm(`Eliminare il pensiero "${article.title}"?`)) return
-  await axios.delete(`/api/admin/thoughts/${article.id}`)
-  thoughts.value = thoughts.value.filter(a => a.id !== article.id)
+async function deletePost(post: any) {
+  if (!confirm(`Eliminare il post "${post.title}"?`)) return
+  await axios.delete(`/api/admin/posts/${post.id}`)
+  posts.value = posts.value.filter((entry) => entry.id !== post.id)
 }
 
-onMounted(fetchArticles)
+onMounted(fetchPosts)
 </script>
 
 <template>
   <div>
     <PageHeader
-      title="Pensieri"
-      description="Gestisci pensieri, stato editoriale e routing pubblico."
+      title="Post"
+      description="Gestisci post, stato editoriale e routing pubblico."
     >
       <template #actions>
-        <router-link to="/thoughts/new" class="btn-primary">+ Nuovo pensiero</router-link>
+        <router-link to="/posts/new" class="btn-primary">+ Nuovo post</router-link>
       </template>
     </PageHeader>
 
@@ -72,7 +72,7 @@ onMounted(fetchArticles)
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-50">
-          <tr v-for="a in thoughts" :key="a.id" class="hover:bg-gray-50/50">
+          <tr v-for="a in posts" :key="a.id" class="hover:bg-gray-50/50">
             <td class="px-4 py-3 text-sm font-medium text-text-primary">{{ a.title }}</td>
             <td class="px-4 py-3 text-sm text-text-secondary">{{ a.author }}</td>
             <td class="px-4 py-3 text-sm text-text-secondary font-mono">{{ a.slug }}</td>
@@ -87,7 +87,7 @@ onMounted(fetchArticles)
             <td class="table-actions-cell">
               <div class="table-actions-group">
                 <button
-                  @click="router.push(`/thoughts/${a.id}/edit`)"
+                  @click="router.push(`/posts/${a.id}/edit`)"
                   class="icon-action-button icon-action-button-neutral"
                   title="Modifica"
                   aria-label="Modifica"
@@ -97,7 +97,7 @@ onMounted(fetchArticles)
                   </svg>
                 </button>
                 <button
-                  @click="deleteArticle(a)"
+                  @click="deletePost(a)"
                   class="icon-action-button icon-action-button-danger"
                   title="Elimina"
                   aria-label="Elimina"
@@ -109,8 +109,8 @@ onMounted(fetchArticles)
               </div>
             </td>
           </tr>
-          <tr v-if="!thoughts.length && !loading">
-            <td colspan="6" class="px-4 py-8 text-center text-text-secondary">Nessun pensiero</td>
+          <tr v-if="!posts.length && !loading">
+            <td colspan="6" class="px-4 py-8 text-center text-text-secondary">Nessun post</td>
           </tr>
         </tbody>
       </table>

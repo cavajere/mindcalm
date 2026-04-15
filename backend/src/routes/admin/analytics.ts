@@ -53,7 +53,7 @@ function toPercent(numerator: number, denominator: number) {
 }
 
 router.get('/filters', async (_req: Request, res: Response) => {
-  const [categories, audio, thoughts, users] = await Promise.all([
+  const [categories, audio, posts, users] = await Promise.all([
     prisma.category.findMany({
       orderBy: { name: 'asc' },
       select: { id: true, name: true },
@@ -72,7 +72,7 @@ router.get('/filters', async (_req: Request, res: Response) => {
         },
       },
     }),
-    prisma.thought.findMany({
+    prisma.post.findMany({
       where: { status: Status.PUBLISHED },
       orderBy: { title: 'asc' },
       select: {
@@ -96,7 +96,7 @@ router.get('/filters', async (_req: Request, res: Response) => {
   res.json({
     categories,
     audio,
-    thoughts,
+    posts,
     users,
   })
 })
@@ -116,7 +116,7 @@ router.get('/overview', analyticsOverviewQuery, async (req: Request, res: Respon
 
   const categoryId = getSingleString(req.query.categoryId)
   const audioId = getSingleString(req.query.audioId)
-  const thoughtId = getSingleString(req.query.thoughtId)
+  const postId = getSingleString(req.query.postId)
   const userId = getSingleString(req.query.userId)
 
   const whereClauses: Prisma.AnalyticsEventWhereInput[] = [{
@@ -128,8 +128,8 @@ router.get('/overview', analyticsOverviewQuery, async (req: Request, res: Respon
 
   if (userId) whereClauses.push({ userId })
   if (audioId) whereClauses.push({ audioId })
-  if (thoughtId) whereClauses.push({ thoughtId })
-  if (categoryId && !thoughtId) {
+  if (postId) whereClauses.push({ postId })
+  if (categoryId && !postId) {
     whereClauses.push({
       audio: {
         categoryId,
@@ -146,11 +146,11 @@ router.get('/overview', analyticsOverviewQuery, async (req: Request, res: Respon
     audioViews,
     audioPlays,
     audioCompletions,
-    thoughtViews,
+    postViews,
     errorEvents,
     activeUsers,
     audioMetricRows,
-    thoughtMetricRows,
+    postMetricRows,
     userMetricRows,
     rawEvents,
     recentEvents,
@@ -158,7 +158,7 @@ router.get('/overview', analyticsOverviewQuery, async (req: Request, res: Respon
     prisma.analyticsEvent.count({ where: { ...baseWhere, eventType: AnalyticsEventType.AUDIO_VIEW } }),
     prisma.analyticsEvent.count({ where: { ...baseWhere, eventType: AnalyticsEventType.AUDIO_PLAY } }),
     prisma.analyticsEvent.count({ where: { ...baseWhere, eventType: AnalyticsEventType.AUDIO_COMPLETE } }),
-    prisma.analyticsEvent.count({ where: { ...baseWhere, eventType: AnalyticsEventType.THOUGHT_VIEW } }),
+    prisma.analyticsEvent.count({ where: { ...baseWhere, eventType: AnalyticsEventType.POST_VIEW } }),
     prisma.analyticsEvent.count({
       where: {
         ...baseWhere,
@@ -196,14 +196,14 @@ router.get('/overview', analyticsOverviewQuery, async (req: Request, res: Respon
       _count: { audioId: true },
     }),
     prisma.analyticsEvent.groupBy({
-      by: ['thoughtId'],
+      by: ['postId'],
       where: {
         ...baseWhere,
-        eventType: AnalyticsEventType.THOUGHT_VIEW,
-        thoughtId: { not: null },
+        eventType: AnalyticsEventType.POST_VIEW,
+        postId: { not: null },
       },
-      _count: { thoughtId: true },
-      orderBy: { _count: { thoughtId: 'desc' } },
+      _count: { postId: true },
+      orderBy: { _count: { postId: 'desc' } },
     }),
     prisma.analyticsEvent.groupBy({
       by: ['userId', 'eventType'],
@@ -245,7 +245,7 @@ router.get('/overview', analyticsOverviewQuery, async (req: Request, res: Respon
             },
           },
         },
-        thought: {
+        post: {
           select: {
             id: true,
             title: true,
@@ -261,8 +261,8 @@ router.get('/overview', analyticsOverviewQuery, async (req: Request, res: Respon
       .map((row) => row.audioId)
       .filter((id): id is string => Boolean(id)),
   ))
-  const thoughtIds = thoughtMetricRows
-    .map((row) => row.thoughtId)
+  const postIds = postMetricRows
+    .map((row) => row.postId)
     .filter((id): id is string => Boolean(id))
   const userIds = Array.from(new Set(
     userMetricRows
@@ -270,7 +270,7 @@ router.get('/overview', analyticsOverviewQuery, async (req: Request, res: Respon
       .filter((id): id is string => Boolean(id)),
   ))
 
-  const [audioDetails, thoughtDetails, userDetails] = await Promise.all([
+  const [audioDetails, postDetails, userDetails] = await Promise.all([
     audioIds.length
       ? prisma.audio.findMany({
           where: { id: { in: audioIds } },
@@ -285,9 +285,9 @@ router.get('/overview', analyticsOverviewQuery, async (req: Request, res: Respon
           },
         })
       : Promise.resolve([]),
-    thoughtIds.length
-      ? prisma.thought.findMany({
-          where: { id: { in: thoughtIds } },
+    postIds.length
+      ? prisma.post.findMany({
+          where: { id: { in: postIds } },
           select: {
             id: true,
             title: true,
@@ -309,7 +309,7 @@ router.get('/overview', analyticsOverviewQuery, async (req: Request, res: Respon
   ])
 
   const audioMeta = new Map(audioDetails.map((audioItem) => [audioItem.id, audioItem]))
-  const thoughtMeta = new Map(thoughtDetails.map((thought) => [thought.id, thought]))
+  const postMeta = new Map(postDetails.map((post) => [post.id, post]))
   const userMeta = new Map(userDetails.map((user) => [user.id, user]))
 
   const audioCountMap = new Map<string, {
@@ -363,21 +363,21 @@ router.get('/overview', analyticsOverviewQuery, async (req: Request, res: Respon
     .sort((a, b) => b.dropOffCount - a.dropOffCount || b.dropOffRate - a.dropOffRate || b.playCount - a.playCount)
     .slice(0, 5)
 
-  const topThoughts = thoughtMetricRows
+  const topPosts = postMetricRows
     .map((row) => {
-      if (!row.thoughtId) return null
+      if (!row.postId) return null
 
-      const meta = thoughtMeta.get(row.thoughtId)
+      const meta = postMeta.get(row.postId)
       if (!meta) return null
 
       return {
-        id: row.thoughtId,
+        id: row.postId,
         title: meta.title,
         author: meta.author,
-        viewCount: row._count.thoughtId,
+        viewCount: row._count.postId,
       }
     })
-    .filter((thought): thought is NonNullable<typeof thought> => thought !== null)
+    .filter((post): post is NonNullable<typeof post> => post !== null)
     .slice(0, 5)
 
   const userCountMap = new Map<string, {
@@ -385,7 +385,7 @@ router.get('/overview', analyticsOverviewQuery, async (req: Request, res: Respon
     audioViews: number
     audioPlays: number
     audioCompletions: number
-    thoughtViews: number
+    postViews: number
   }>()
 
   userMetricRows.forEach((row) => {
@@ -396,7 +396,7 @@ router.get('/overview', analyticsOverviewQuery, async (req: Request, res: Respon
       audioViews: 0,
       audioPlays: 0,
       audioCompletions: 0,
-      thoughtViews: 0,
+      postViews: 0,
     }
 
     current.totalEvents += row._count.userId
@@ -404,7 +404,7 @@ router.get('/overview', analyticsOverviewQuery, async (req: Request, res: Respon
     if (row.eventType === AnalyticsEventType.AUDIO_VIEW) current.audioViews = row._count.userId
     if (row.eventType === AnalyticsEventType.AUDIO_PLAY) current.audioPlays = row._count.userId
     if (row.eventType === AnalyticsEventType.AUDIO_COMPLETE) current.audioCompletions = row._count.userId
-    if (row.eventType === AnalyticsEventType.THOUGHT_VIEW) current.thoughtViews = row._count.userId
+    if (row.eventType === AnalyticsEventType.POST_VIEW) current.postViews = row._count.userId
 
     userCountMap.set(row.userId, current)
   })
@@ -423,7 +423,7 @@ router.get('/overview', analyticsOverviewQuery, async (req: Request, res: Respon
         audioViews: counts.audioViews,
         audioPlays: counts.audioPlays,
         audioCompletions: counts.audioCompletions,
-        thoughtViews: counts.thoughtViews,
+        postViews: counts.postViews,
       }
     })
     .filter((user): user is NonNullable<typeof user> => user !== null)
@@ -435,7 +435,7 @@ router.get('/overview', analyticsOverviewQuery, async (req: Request, res: Respon
     audioViews: number
     audioPlays: number
     audioCompletions: number
-    thoughtViews: number
+    postViews: number
     errorEvents: number
   }>()
 
@@ -448,7 +448,7 @@ router.get('/overview', analyticsOverviewQuery, async (req: Request, res: Respon
       audioViews: 0,
       audioPlays: 0,
       audioCompletions: 0,
-      thoughtViews: 0,
+      postViews: 0,
       errorEvents: 0,
     })
   }
@@ -461,7 +461,7 @@ router.get('/overview', analyticsOverviewQuery, async (req: Request, res: Respon
     if (event.eventType === AnalyticsEventType.AUDIO_VIEW) day.audioViews += 1
     if (event.eventType === AnalyticsEventType.AUDIO_PLAY) day.audioPlays += 1
     if (event.eventType === AnalyticsEventType.AUDIO_COMPLETE) day.audioCompletions += 1
-    if (event.eventType === AnalyticsEventType.THOUGHT_VIEW) day.thoughtViews += 1
+    if (event.eventType === AnalyticsEventType.POST_VIEW) day.postViews += 1
     if (
       event.eventType === AnalyticsEventType.APP_ERROR
       || event.eventType === AnalyticsEventType.API_ERROR
@@ -479,21 +479,21 @@ router.get('/overview', analyticsOverviewQuery, async (req: Request, res: Respon
     appliedFilters: {
       categoryId: categoryId || null,
       audioId: audioId || null,
-      thoughtId: thoughtId || null,
+      postId: postId || null,
       userId: userId || null,
     },
     totals: {
       audioViews,
       audioPlays,
       audioCompletions,
-      thoughtViews,
+      postViews,
       errorEvents,
       activeUsers: activeUsers.length,
     },
     topAudio,
     audioPerformance,
     topDropoffAudio,
-    topThoughts,
+    topPosts,
     topUsers,
     dailyActivity: Array.from(dayMap.values()),
     recentEvents: recentEvents.map((event) => ({
@@ -509,11 +509,11 @@ router.get('/overview', analyticsOverviewQuery, async (req: Request, res: Respon
             categoryName: event.audio.category.name,
           }
         : null,
-      thought: event.thought
+      post: event.post
         ? {
-            id: event.thought.id,
-            title: event.thought.title,
-            author: event.thought.author,
+            id: event.post.id,
+            title: event.post.title,
+            author: event.post.author,
           }
         : null,
     })),

@@ -3,30 +3,30 @@ import { onMounted, ref } from 'vue'
 import axios from 'axios'
 import PageHeader from '../components/PageHeader.vue'
 
-const stats = ref({ audio: { published: 0, draft: 0 }, thoughts: { published: 0, draft: 0 }, categories: 0 })
+const stats = ref({ audio: { published: 0, draft: 0 }, posts: { published: 0, draft: 0 }, categories: 0 })
 const recentAudio = ref<any[]>([])
-const recentArticles = ref<any[]>([])
+const recentPosts = ref<any[]>([])
 
 onMounted(async () => {
   try {
-    const [audioRes, articlesRes, categoriesRes] = await Promise.all([
+    const [audioRes, postsRes, categoriesRes] = await Promise.all([
       axios.get('/api/admin/audio?limit=5'),
-      axios.get('/api/admin/thoughts?limit=5'),
+      axios.get('/api/admin/posts?limit=5'),
       axios.get('/api/admin/categories'),
     ])
 
     recentAudio.value = audioRes.data.data
-    recentArticles.value = articlesRes.data.data
+    recentPosts.value = postsRes.data.data
 
     const allAudio = audioRes.data.pagination.total
     const pubAudioRes = await axios.get('/api/admin/audio?status=PUBLISHED&limit=1')
     stats.value.audio.published = pubAudioRes.data.pagination.total
     stats.value.audio.draft = allAudio - stats.value.audio.published
 
-    const allArticles = articlesRes.data.pagination.total
-    const pubArticlesRes = await axios.get('/api/admin/thoughts?status=PUBLISHED&limit=1')
-    stats.value.thoughts.published = pubArticlesRes.data.pagination.total
-    stats.value.thoughts.draft = allArticles - stats.value.thoughts.published
+    const allPosts = postsRes.data.pagination.total
+    const publishedPostsRes = await axios.get('/api/admin/posts?status=PUBLISHED&limit=1')
+    stats.value.posts.published = publishedPostsRes.data.pagination.total
+    stats.value.posts.draft = allPosts - stats.value.posts.published
 
     stats.value.categories = categoriesRes.data.length
   } catch {}
@@ -48,9 +48,9 @@ onMounted(async () => {
         <p class="text-xs text-text-secondary mt-1">{{ stats.audio.published }} pubblicati, {{ stats.audio.draft }} bozze</p>
       </div>
       <div class="card">
-        <p class="text-sm text-text-secondary mb-1">Pensieri</p>
-        <p class="text-3xl font-bold text-text-primary">{{ stats.thoughts.published + stats.thoughts.draft }}</p>
-        <p class="text-xs text-text-secondary mt-1">{{ stats.thoughts.published }} pubblicati, {{ stats.thoughts.draft }} bozze</p>
+        <p class="text-sm text-text-secondary mb-1">Post</p>
+        <p class="text-3xl font-bold text-text-primary">{{ stats.posts.published + stats.posts.draft }}</p>
+        <p class="text-xs text-text-secondary mt-1">{{ stats.posts.published }} pubblicati, {{ stats.posts.draft }} bozze</p>
       </div>
       <div class="card">
         <p class="text-sm text-text-secondary mb-1">Categorie</p>
@@ -79,14 +79,14 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- Recent thoughts -->
+      <!-- Recent posts -->
       <div class="card">
         <div class="flex items-center justify-between mb-4">
-          <h2 class="font-semibold text-text-primary">Ultimi pensieri</h2>
-          <router-link to="/thoughts" class="text-sm text-primary hover:underline">Vedi tutti</router-link>
+          <h2 class="font-semibold text-text-primary">Ultimi post</h2>
+          <router-link to="/posts" class="text-sm text-primary hover:underline">Vedi tutti</router-link>
         </div>
         <div class="space-y-3">
-          <div v-for="a in recentArticles" :key="a.id" class="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+          <div v-for="a in recentPosts" :key="a.id" class="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
             <div>
               <p class="text-sm font-medium text-text-primary">{{ a.title }}</p>
               <p class="text-xs text-text-secondary">{{ a.author }}</p>
@@ -95,7 +95,7 @@ onMounted(async () => {
               {{ a.status === 'PUBLISHED' ? 'Pubblicato' : 'Bozza' }}
             </span>
           </div>
-          <p v-if="!recentArticles.length" class="text-sm text-text-secondary">Nessun pensiero</p>
+          <p v-if="!recentPosts.length" class="text-sm text-text-secondary">Nessun post</p>
         </div>
       </div>
     </div>

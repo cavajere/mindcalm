@@ -4,12 +4,12 @@ import { AuditAction, AuditEntityType, ContentVisibility, Prisma, Status } from 
 import { validationResult } from 'express-validator'
 import { adminAuthMiddleware, requireAdmin } from '../../middleware/auth'
 import { uploadImage } from '../../middleware/upload'
-import { thoughtValidation, statusValidation, paginationQuery } from '../../utils/validators'
+import { postValidation, statusValidation, paginationQuery } from '../../utils/validators'
 import { extractPlainText, sanitizeBody } from '../../utils/sanitize'
 import { getBoolean, getSingleString } from '../../utils/request'
 import { prisma } from '../../lib/prisma'
 import { getAuditActorFromRequest, logAuditEventSafe } from '../../services/auditLogService'
-import { MAX_TAGS_PER_CONTENT, createTagSlug, ensureTagsExist, mapThoughtTags, parseTagIds } from '../../services/tagService'
+import { MAX_TAGS_PER_CONTENT, createTagSlug, ensureTagsExist, mapPostTags, parseTagIds } from '../../services/tagService'
 import { buildUploadMetadata, renameStoredUpload } from '../../services/uploadMetadataService'
 import { deleteDirectCoverImage, resolveCoverImageSource } from '../../services/albumImageService'
 import { queuePublishedContentOutboxEntry } from '../../services/notificationService'
@@ -38,10 +38,10 @@ async function getAlbumImageOrNull(albumImageId: string) {
   })
 }
 
-async function queueThoughtPublicationOutbox(
+async function queuePostPublicationOutbox(
   tx: Prisma.TransactionClient,
   publicBaseUrl: string,
-  thought: {
+  post: {
   id: string
   slug: string
   title: string
@@ -49,20 +49,20 @@ async function queueThoughtPublicationOutbox(
   publishedAt: Date | null
 },
 ) {
-  if (thought.status !== 'PUBLISHED' || !thought.publishedAt) {
+  if (post.status !== 'PUBLISHED' || !post.publishedAt) {
     return
   }
 
   await queuePublishedContentOutboxEntry(tx, {
-    contentId: thought.id,
-    type: 'thought',
-    title: thought.title,
-    publishedAt: thought.publishedAt,
-    contentUrl: buildAppUrl(publicBaseUrl, `/thoughts/${thought.slug}`),
+    contentId: post.id,
+    type: 'post',
+    title: post.title,
+    publishedAt: post.publishedAt,
+    contentUrl: buildAppUrl(publicBaseUrl, `/posts/${post.slug}`),
   })
 }
 
-function serializeAdminThought(thought: {
+function serializeAdminPost(post: {
   id: string
   title: string
   slug: string
@@ -87,47 +87,47 @@ function serializeAdminThought(thought: {
     mimeType: string
     size: number
   } | null
-  thoughtTags: Array<{ tag: { id: string; label: string; slug: string } }>
+  postTags: Array<{ tag: { id: string; label: string; slug: string } }>
 }) {
   const cover = resolveCoverImageSource({
-    coverImage: thought.coverImage,
-    coverImageOriginalName: thought.coverImageOriginalName,
-    coverImageDisplayName: thought.coverImageDisplayName,
-    coverAlbumImage: thought.coverAlbumImage,
+    coverImage: post.coverImage,
+    coverImageOriginalName: post.coverImageOriginalName,
+    coverImageDisplayName: post.coverImageDisplayName,
+    coverAlbumImage: post.coverAlbumImage,
   })
 
   return {
-    id: thought.id,
-    title: thought.title,
-    slug: thought.slug,
-    body: thought.body,
-    excerpt: thought.excerpt,
-    author: thought.author,
-    visibility: thought.visibility,
-    status: thought.status,
-    publishedAt: thought.publishedAt,
-    createdAt: thought.createdAt,
-    updatedAt: thought.updatedAt,
+    id: post.id,
+    title: post.title,
+    slug: post.slug,
+    body: post.body,
+    excerpt: post.excerpt,
+    author: post.author,
+    visibility: post.visibility,
+    status: post.status,
+    publishedAt: post.publishedAt,
+    createdAt: post.createdAt,
+    updatedAt: post.updatedAt,
     ...cover,
-    tags: mapThoughtTags(thought.thoughtTags),
+    tags: mapPostTags(post.postTags),
   }
 }
 
-// GET /api/admin/thoughts
+// GET /api/admin/posts
 router.get('/', paginationQuery, async (req: Request, res: Response) => {
   const page = parseInt(req.query.page as string) || 1
   const limit = parseInt(req.query.limit as string) || 20
   const skip = (page - 1) * limit
 
-  const where: Prisma.ThoughtWhereInput = {}
+  const where: Prisma.PostWhereInput = {}
   if (req.query.status) where.status = req.query.status as any
 
-  const [thoughts, total] = await Promise.all([
-    prisma.thought.findMany({
+  const [posts, total] = await Promise.all([
+    prisma.post.findMany({
       where,
       include: {
         coverAlbumImage: { select: albumImageSelect },
-        thoughtTags: {
+        postTags: {
           include: { tag: { select: { id: true, label: true, slug: true } } },
         },
       },
@@ -135,44 +135,44 @@ router.get('/', paginationQuery, async (req: Request, res: Response) => {
       skip,
       take: limit,
     }),
-    prisma.thought.count({ where }),
+    prisma.post.count({ where }),
   ])
 
   res.json({
-    data: thoughts.map(serializeAdminThought),
+    data: posts.map(serializeAdminPost),
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   })
 })
 
 router.get('/:id', async (req: Request, res: Response) => {
-  const thoughtId = getSingleString(req.params.id)
-  if (!thoughtId) {
-    res.status(400).json({ error: 'ID pensiero non valido' })
+  const postId = getSingleString(req.params.id)
+  if (!postId) {
+    res.status(400).json({ error: 'ID post non valido' })
     return
   }
 
-  const thought = await prisma.thought.findUnique({
-    where: { id: thoughtId },
+  const post = await prisma.post.findUnique({
+    where: { id: postId },
     include: {
       coverAlbumImage: { select: albumImageSelect },
-      thoughtTags: {
+      postTags: {
         include: { tag: { select: { id: true, label: true, slug: true } } },
       },
     },
   })
 
-  if (!thought) {
-    res.status(404).json({ error: 'Pensiero non trovato' })
+  if (!post) {
+    res.status(404).json({ error: 'Post non trovato' })
     return
   }
 
-  res.json(serializeAdminThought(thought))
+  res.json(serializeAdminPost(post))
 })
 
-// POST /api/admin/thoughts
+// POST /api/admin/posts
 router.post('/',
   uploadImage.single('coverImage'),
-  thoughtValidation,
+  postValidation,
   async (req: Request, res: Response) => {
     const publicBaseUrl = derivePublicAppBaseUrl({
       override: getSingleString(req.body.publicBaseUrl),
@@ -230,16 +230,16 @@ router.post('/',
     }
 
     // Verifica unicità slug
-    const existingSlug = await prisma.thought.findUnique({ where: { slug } })
+    const existingSlug = await prisma.post.findUnique({ where: { slug } })
     if (existingSlug) {
-      res.status(409).json({ error: 'Un pensiero con un titolo simile esiste già' })
+      res.status(409).json({ error: 'Un post con un titolo simile esiste già' })
       return
     }
 
     const sanitizedBody = sanitizeBody(body!)
 
-    const thought = await prisma.$transaction(async (tx) => {
-      const created = await tx.thought.create({
+    const post = await prisma.$transaction(async (tx) => {
+      const created = await tx.post.create({
         data: {
           title: title!,
           slug,
@@ -254,7 +254,7 @@ router.post('/',
           coverAlbumImageId: selectedAlbumImage?.id ?? null,
           status: status === 'PUBLISHED' ? 'PUBLISHED' : 'DRAFT',
           publishedAt: status === 'PUBLISHED' ? new Date() : null,
-          thoughtTags: {
+          postTags: {
             create: tagIds.map(tagId => ({
               tag: { connect: { id: tagId } },
             })),
@@ -262,39 +262,39 @@ router.post('/',
         },
         include: {
           coverAlbumImage: { select: albumImageSelect },
-          thoughtTags: {
+          postTags: {
             include: { tag: { select: { id: true, label: true, slug: true } } },
           },
         },
       })
 
-      await queueThoughtPublicationOutbox(tx, publicBaseUrl, created)
+      await queuePostPublicationOutbox(tx, publicBaseUrl, created)
 
       return created
     })
 
     await logAuditEventSafe({
       req,
-      action: AuditAction.THOUGHT_CREATED,
-      entityType: AuditEntityType.THOUGHT,
-      entityId: thought.id,
-      entityLabel: thought.title,
+      action: AuditAction.POST_CREATED,
+      entityType: AuditEntityType.POST,
+      entityId: post.id,
+      entityLabel: post.title,
       ...getAuditActorFromRequest(req),
       metadata: {
-        slug: thought.slug,
-        author: thought.author,
-        status: thought.status,
-        visibility: thought.visibility,
-        hasCoverImage: Boolean(thought.coverImage || thought.coverAlbumImageId),
+        slug: post.slug,
+        author: post.author,
+        status: post.status,
+        visibility: post.visibility,
+        hasCoverImage: Boolean(post.coverImage || post.coverAlbumImageId),
         tagIds,
       },
     })
 
-    res.status(201).json(serializeAdminThought(thought))
+    res.status(201).json(serializeAdminPost(post))
   }
 )
 
-// PUT /api/admin/thoughts/:id
+// PUT /api/admin/posts/:id
 router.put('/:id',
   uploadImage.single('coverImage'),
   async (req: Request, res: Response) => {
@@ -306,15 +306,15 @@ router.put('/:id',
       fallback: config.appUrls.public,
     })
 
-    const thoughtId = getSingleString(req.params.id)
-    if (!thoughtId) {
-      res.status(400).json({ error: 'ID pensiero non valido' })
+    const postId = getSingleString(req.params.id)
+    if (!postId) {
+      res.status(400).json({ error: 'ID post non valido' })
       return
     }
 
-    const existing = await prisma.thought.findUnique({ where: { id: thoughtId } })
+    const existing = await prisma.post.findUnique({ where: { id: postId } })
     if (!existing) {
-      res.status(404).json({ error: 'Pensiero non trovato' })
+      res.status(404).json({ error: 'Post non trovato' })
       return
     }
 
@@ -331,7 +331,7 @@ router.put('/:id',
       ? (getSingleString(req.body.coverAlbumImageId)?.trim() || null)
       : undefined
     const tagIds = parseTagIds(req.body.tagIds)
-    const data: Prisma.ThoughtUpdateInput = {}
+    const data: Prisma.PostUpdateInput = {}
     const changedFields: string[] = []
 
     if (req.file && requestedCoverAlbumImageId) {
@@ -364,15 +364,15 @@ router.put('/:id',
 
     if (title) {
       const nextSlug = createTagSlug(title)
-      const conflictingSlug = await prisma.thought.findFirst({
+      const conflictingSlug = await prisma.post.findFirst({
         where: {
-          id: { not: thoughtId },
+          id: { not: postId },
           slug: nextSlug,
         },
         select: { id: true },
       })
       if (conflictingSlug) {
-        res.status(409).json({ error: 'Un pensiero con un titolo simile esiste gia' })
+        res.status(409).json({ error: 'Un post con un titolo simile esiste gia' })
         return
       }
       data.title = title
@@ -452,7 +452,7 @@ router.put('/:id',
       }
     }
 
-    data.thoughtTags = {
+    data.postTags = {
       deleteMany: {},
       create: tagIds.map(tagId => ({
         tag: { connect: { id: tagId } },
@@ -460,20 +460,20 @@ router.put('/:id',
     }
     changedFields.push('tags')
 
-    const thought = await prisma.$transaction(async (tx) => {
-      const updated = await tx.thought.update({
-        where: { id: thoughtId },
+    const post = await prisma.$transaction(async (tx) => {
+      const updated = await tx.post.update({
+        where: { id: postId },
         data,
         include: {
           coverAlbumImage: { select: albumImageSelect },
-          thoughtTags: {
+          postTags: {
             include: { tag: { select: { id: true, label: true, slug: true } } },
           },
         },
       })
 
       if (existing.status !== 'PUBLISHED' && updated.status === 'PUBLISHED') {
-        await queueThoughtPublicationOutbox(tx, publicBaseUrl, updated)
+        await queuePostPublicationOutbox(tx, publicBaseUrl, updated)
       }
 
       return updated
@@ -481,60 +481,60 @@ router.put('/:id',
 
     await logAuditEventSafe({
       req,
-      action: AuditAction.THOUGHT_UPDATED,
-      entityType: AuditEntityType.THOUGHT,
-      entityId: thought.id,
-      entityLabel: thought.title,
+      action: AuditAction.POST_UPDATED,
+      entityType: AuditEntityType.POST,
+      entityId: post.id,
+      entityLabel: post.title,
       ...getAuditActorFromRequest(req),
       metadata: {
         changedFields,
         previousStatus: existing.status,
-        nextStatus: thought.status,
+        nextStatus: post.status,
         previousVisibility: existing.visibility,
-        nextVisibility: thought.visibility,
+        nextVisibility: post.visibility,
         tagIds,
       },
     })
 
-    res.json(serializeAdminThought(thought))
+    res.json(serializeAdminPost(post))
   }
 )
 
-// DELETE /api/admin/thoughts/:id
+// DELETE /api/admin/posts/:id
 router.delete('/:id', async (req: Request, res: Response) => {
-  const thoughtId = getSingleString(req.params.id)
-  if (!thoughtId) {
-    res.status(400).json({ error: 'ID pensiero non valido' })
+  const postId = getSingleString(req.params.id)
+  if (!postId) {
+    res.status(400).json({ error: 'ID post non valido' })
     return
   }
 
-  const thought = await prisma.thought.findUnique({ where: { id: thoughtId } })
-  if (!thought) {
-    res.status(404).json({ error: 'Pensiero non trovato' })
+  const post = await prisma.post.findUnique({ where: { id: postId } })
+  if (!post) {
+    res.status(404).json({ error: 'Post non trovato' })
     return
   }
 
-  deleteDirectCoverImage(thought.coverImage)
+  deleteDirectCoverImage(post.coverImage)
 
-  await prisma.thought.delete({ where: { id: thoughtId } })
+  await prisma.post.delete({ where: { id: postId } })
 
   await logAuditEventSafe({
     req,
-    action: AuditAction.THOUGHT_DELETED,
-    entityType: AuditEntityType.THOUGHT,
-    entityId: thought.id,
-    entityLabel: thought.title,
+    action: AuditAction.POST_DELETED,
+    entityType: AuditEntityType.POST,
+    entityId: post.id,
+    entityLabel: post.title,
     ...getAuditActorFromRequest(req),
     metadata: {
-      slug: thought.slug,
-      status: thought.status,
+      slug: post.slug,
+      status: post.status,
     },
   })
 
-  res.json({ message: 'Pensiero eliminato' })
+  res.json({ message: 'Post eliminato' })
 })
 
-// PATCH /api/admin/thoughts/:id/status
+// PATCH /api/admin/posts/:id/status
 router.patch('/:id/status', statusValidation, async (req: Request, res: Response) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
@@ -542,15 +542,15 @@ router.patch('/:id/status', statusValidation, async (req: Request, res: Response
     return
   }
 
-  const thoughtId = getSingleString(req.params.id)
+  const postId = getSingleString(req.params.id)
   const status = getSingleString(req.body.status)
-  if (!thoughtId || !status) {
+  if (!postId || !status) {
     res.status(400).json({ error: 'Dati non validi' })
     return
   }
 
-  const existing = await prisma.thought.findUnique({
-    where: { id: thoughtId },
+  const existing = await prisma.post.findUnique({
+    where: { id: postId },
     select: {
       id: true,
       title: true,
@@ -560,11 +560,11 @@ router.patch('/:id/status', statusValidation, async (req: Request, res: Response
   })
 
   if (!existing) {
-    res.status(404).json({ error: 'Pensiero non trovato' })
+    res.status(404).json({ error: 'Post non trovato' })
     return
   }
 
-  const thought = await prisma.$transaction(async (tx) => {
+  const post = await prisma.$transaction(async (tx) => {
     const publicBaseUrl = derivePublicAppBaseUrl({
       override: getSingleString(req.body.publicBaseUrl),
       requestOrigin: req.get('origin'),
@@ -573,8 +573,8 @@ router.patch('/:id/status', statusValidation, async (req: Request, res: Response
       fallback: config.appUrls.public,
     })
 
-    const updated = await tx.thought.update({
-      where: { id: thoughtId },
+    const updated = await tx.post.update({
+      where: { id: postId },
       data: {
         status: status as Status,
         publishedAt: status === 'PUBLISHED' ? new Date() : null,
@@ -582,7 +582,7 @@ router.patch('/:id/status', statusValidation, async (req: Request, res: Response
     })
 
     if (existing.status !== 'PUBLISHED' && updated.status === 'PUBLISHED') {
-      await queueThoughtPublicationOutbox(tx, publicBaseUrl, updated)
+      await queuePostPublicationOutbox(tx, publicBaseUrl, updated)
     }
 
     return updated
@@ -590,17 +590,17 @@ router.patch('/:id/status', statusValidation, async (req: Request, res: Response
 
   await logAuditEventSafe({
     req,
-    action: AuditAction.THOUGHT_STATUS_CHANGED,
-    entityType: AuditEntityType.THOUGHT,
-    entityId: thought.id,
-    entityLabel: thought.title,
+    action: AuditAction.POST_STATUS_CHANGED,
+    entityType: AuditEntityType.POST,
+    entityId: post.id,
+    entityLabel: post.title,
     ...getAuditActorFromRequest(req),
     metadata: {
-      nextStatus: thought.status,
+      nextStatus: post.status,
     },
   })
 
-  res.json(thought)
+  res.json(post)
 })
 
 export default router

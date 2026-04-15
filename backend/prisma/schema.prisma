@@ -345,7 +345,7 @@ model UserNotificationPreference {
   userId                     String                @id
   user                       User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   notifyOnAudio              Boolean               @default(true)
-  notifyOnThoughts           Boolean               @default(true)
+  notifyOnPosts           Boolean               @default(true)
   frequency                  NotificationFrequency @default(NONE)
   lastImmediateContentAt     DateTime?
   lastWeeklyDigestSentAt     DateTime?
@@ -576,7 +576,7 @@ model Audio {
   @@map("audio")
 }
 
-model Thought {
+model Post {
   id          String    @id @default(uuid())
   title       String
   slug        String    @unique
@@ -589,18 +589,18 @@ model Thought {
   coverImageOriginalName String?
   coverImageDisplayName  String?
   coverAlbumImageId String?
-  coverAlbumImage AlbumImage? @relation("ThoughtCoverAlbumImage", fields: [coverAlbumImageId], references: [id], onDelete: SetNull)
+  coverAlbumImage AlbumImage? @relation("PostCoverAlbumImage", fields: [coverAlbumImageId], references: [id], onDelete: SetNull)
   status      Status    @default(DRAFT)
   publishedAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   analyticsEvents AnalyticsEvent[]
-  thoughtTags ThoughtTag[]
+  postTags PostTag[]
 
   @@index([coverAlbumImageId])
   @@index([status, visibility])
   @@index([slug])
-  @@map("thoughts")
+  @@map("posts")
 }
 
 model AlbumImage {
@@ -616,7 +616,7 @@ model AlbumImage {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   audioCoverFor Audio[] @relation("AudioCoverAlbumImage")
-  thoughtCoverFor Thought[] @relation("ThoughtCoverAlbumImage")
+  postCoverFor Post[] @relation("PostCoverAlbumImage")
   eventCoverFor Event[] @relation("EventCoverAlbumImage")
 
   @@index([createdAt])
@@ -634,7 +634,7 @@ model Tag {
   updatedAt   DateTime     @updatedAt
   aliases     TagAlias[]
   audioTags   AudioTag[]
-  thoughtTags ThoughtTag[]
+  postTags PostTag[]
 
   @@index([isActive, sortOrder])
   @@index([label])
@@ -665,15 +665,15 @@ model AudioTag {
   @@map("audio_tags")
 }
 
-model ThoughtTag {
-  thoughtId String
+model PostTag {
+  postId String
   tagId     String
-  thought   Thought @relation(fields: [thoughtId], references: [id], onDelete: Cascade)
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
   tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
-  @@id([thoughtId, tagId])
-  @@index([tagId, thoughtId])
-  @@map("thought_tags")
+  @@id([postId, tagId])
+  @@index([tagId, postId])
+  @@map("post_tags")
 }
 
 model AnalyticsEvent {
@@ -684,15 +684,15 @@ model AnalyticsEvent {
   eventType   AnalyticsEventType
   audioId     String?
   audio       Audio?               @relation(fields: [audioId], references: [id])
-  thoughtId   String?
-  thought     Thought?             @relation(fields: [thoughtId], references: [id])
+  postId   String?
+  post     Post?             @relation(fields: [postId], references: [id])
   metadata    Json?
   occurredAt  DateTime             @default(now())
 
   @@index([occurredAt])
   @@index([eventType, occurredAt])
   @@index([audioId, occurredAt])
-  @@index([thoughtId, occurredAt])
+  @@index([postId, occurredAt])
   @@index([userId, occurredAt])
   @@map("analytics_events")
 }
@@ -831,10 +831,10 @@ enum AuditAction {
   ALBUM_IMAGE_CREATED
   ALBUM_IMAGE_UPDATED
   ALBUM_IMAGE_DELETED
-  THOUGHT_CREATED
-  THOUGHT_UPDATED
-  THOUGHT_DELETED
-  THOUGHT_STATUS_CHANGED
+  POST_CREATED
+  POST_UPDATED
+  POST_DELETED
+  POST_STATUS_CHANGED
   EVENT_CREATED
   EVENT_UPDATED
   EVENT_DELETED
@@ -871,7 +871,7 @@ enum AuditEntityType {
   TERMS_POLICY
   AUDIO
   ALBUM_IMAGE
-  THOUGHT
+  POST
   EVENT
   CATEGORY
   TAG
@@ -951,7 +951,7 @@ enum AuditOutcome {
 
 enum AnalyticsContentType {
   AUDIO
-  THOUGHT
+  POST
   SYSTEM
 }
 
@@ -959,7 +959,7 @@ enum AnalyticsEventType {
   AUDIO_VIEW
   AUDIO_PLAY
   AUDIO_COMPLETE
-  THOUGHT_VIEW
+  POST_VIEW
   APP_ERROR
   API_ERROR
   AUDIO_ERROR
@@ -982,7 +982,7 @@ enum NotificationDispatchStatus {
 
 enum ContentPublicationType {
   AUDIO
-  THOUGHT
+  POST
   EVENT
 }
 

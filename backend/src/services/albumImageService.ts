@@ -5,7 +5,7 @@ import { Status } from '@prisma/client'
 import { deleteFile } from './fileService'
 
 type AlbumImageDependency = {
-  type: 'AUDIO' | 'THOUGHT'
+  type: 'AUDIO' | 'POST'
   entityId: string
   label: string
   path: string
@@ -39,7 +39,7 @@ type AlbumImageWithDependencies = AlbumImageReference & {
   createdAt: Date
   updatedAt: Date
   audioCoverFor?: Array<{ id: string; title: string; status: Status }>
-  thoughtCoverFor?: Array<{ id: string; title: string; status: Status }>
+  postCoverFor?: Array<{ id: string; title: string; status: Status }>
 }
 
 type CoverImageSource = {
@@ -80,15 +80,15 @@ export function getAlbumImageDependencies(image: AlbumImageWithDependencies): Al
     path: `/audio/${audio.id}/edit`,
     status: audio.status,
   }))
-  const thoughtDependencies = (image.thoughtCoverFor ?? []).map((thought) => ({
-    type: 'THOUGHT' as const,
-    entityId: thought.id,
-    label: `Pensiero: ${thought.title} (${thought.status === 'PUBLISHED' ? 'Pubblicato' : 'Bozza'})`,
-    path: `/thoughts/${thought.id}/edit`,
-    status: thought.status,
+  const postDependencies = (image.postCoverFor ?? []).map((post) => ({
+    type: 'POST' as const,
+    entityId: post.id,
+    label: `Post: ${post.title} (${post.status === 'PUBLISHED' ? 'Pubblicato' : 'Bozza'})`,
+    path: `/posts/${post.id}/edit`,
+    status: post.status,
   }))
 
-  return [...audioDependencies, ...thoughtDependencies]
+  return [...audioDependencies, ...postDependencies]
     .sort((left, right) => left.label.localeCompare(right.label, 'it'))
 }
 

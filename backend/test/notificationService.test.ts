@@ -80,7 +80,7 @@ vi.mock('../src/lib/prisma', () => ({
     audio: {
       findMany: prismaAudioFindMany,
     },
-    thought: {
+    post: {
       findMany: prismaArticleFindMany,
     },
     contentPublicationOutbox: {
@@ -270,7 +270,7 @@ describe('notificationService', () => {
         notificationPreference: {
           userId: 'user-1',
           notifyOnAudio: true,
-          notifyOnThoughts: true,
+          notifyOnPosts: true,
           frequency: NotificationFrequency.WEEKLY,
           lastImmediateContentAt: null,
           lastWeeklyDigestSentAt: null,

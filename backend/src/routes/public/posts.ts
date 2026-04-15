@@ -5,9 +5,9 @@ import { validationResult } from 'express-validator'
 import { getSingleString, getStringList } from '../../utils/request'
 import { prisma } from '../../lib/prisma'
 import { optionalAppAuthMiddleware } from '../../middleware/auth'
-import { thoughtFilterQuery } from '../../utils/validators'
-import { getRankedPublishedThoughtIds } from '../../services/searchService'
-import { mapThoughtTags } from '../../services/tagService'
+import { postFilterQuery } from '../../utils/validators'
+import { getRankedPublishedPostIds } from '../../services/searchService'
+import { mapPostTags } from '../../services/tagService'
 import { resolveCoverImageSource } from '../../services/albumImageService'
 import { getVisibleContentVisibilities } from '../../utils/contentVisibility'
 
@@ -15,7 +15,7 @@ const router = createAsyncRouter()
 
 router.use(optionalAppAuthMiddleware)
 
-function mapThoughtListItem(thought: {
+function mapPostListItem(post: {
   id: string
   title: string
   slug: string
@@ -35,29 +35,29 @@ function mapThoughtListItem(thought: {
     size: number
   } | null
   publishedAt: Date | null
-  thoughtTags: Array<{ tag: { id: string; label: string; slug: string } }>
+  postTags: Array<{ tag: { id: string; label: string; slug: string } }>
 }) {
   const cover = resolveCoverImageSource({
-    coverImage: thought.coverImage,
-    coverImageOriginalName: thought.coverImageOriginalName,
-    coverImageDisplayName: thought.coverImageDisplayName,
-    coverAlbumImage: thought.coverAlbumImage,
+    coverImage: post.coverImage,
+    coverImageOriginalName: post.coverImageOriginalName,
+    coverImageDisplayName: post.coverImageDisplayName,
+    coverAlbumImage: post.coverAlbumImage,
   })
 
   return {
-    id: thought.id,
-    title: thought.title,
-    slug: thought.slug,
-    excerpt: thought.excerpt,
-    author: thought.author,
+    id: post.id,
+    title: post.title,
+    slug: post.slug,
+    excerpt: post.excerpt,
+    author: post.author,
     ...cover,
-    publishedAt: thought.publishedAt,
-    tags: mapThoughtTags(thought.thoughtTags),
+    publishedAt: post.publishedAt,
+    tags: mapPostTags(post.postTags),
   }
 }
 
-// GET /api/thoughts — elenco pensieri pubblicati
-router.get('/', thoughtFilterQuery, async (req: Request, res: Response) => {
+// GET /api/posts — elenco post pubblicati
+router.get('/', postFilterQuery, async (req: Request, res: Response) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
     res.status(400).json({ error: 'Parametri non validi', details: errors.array() })
@@ -92,13 +92,13 @@ router.get('/', thoughtFilterQuery, async (req: Request, res: Response) => {
         size: true,
       },
     },
-    thoughtTags: {
+    postTags: {
       include: { tag: { select: { id: true, label: true, slug: true } } },
     },
-  } satisfies Prisma.ThoughtInclude
+  } satisfies Prisma.PostInclude
 
   if (search) {
-    const { ids, total } = await getRankedPublishedThoughtIds({
+    const { ids, total } = await getRankedPublishedPostIds({
       page,
       limit,
       search,
@@ -116,7 +116,7 @@ router.get('/', thoughtFilterQuery, async (req: Request, res: Response) => {
       return
     }
 
-    const thoughts = await prisma.thought.findMany({
+    const posts = await prisma.post.findMany({
       where: {
         id: { in: ids },
         status: 'PUBLISHED',
@@ -133,15 +133,15 @@ router.get('/', thoughtFilterQuery, async (req: Request, res: Response) => {
         coverImageDisplayName: true,
         coverAlbumImage: include.coverAlbumImage,
         publishedAt: true,
-        thoughtTags: include.thoughtTags,
+        postTags: include.postTags,
       },
     })
 
-    const byId = new Map(thoughts.map(thought => [thought.id, thought]))
+    const byId = new Map(posts.map(post => [post.id, post]))
     const data = ids
       .map(id => byId.get(id))
-      .filter((thought): thought is NonNullable<typeof thought> => Boolean(thought))
-      .map(mapThoughtListItem)
+      .filter((post): post is NonNullable<typeof post> => Boolean(post))
+      .map(mapPostListItem)
 
     res.json({
       data,
@@ -150,7 +150,7 @@ router.get('/', thoughtFilterQuery, async (req: Request, res: Response) => {
     return
   }
 
-  const where: Prisma.ThoughtWhereInput = {
+  const where: Prisma.PostWhereInput = {
     status: 'PUBLISHED',
     visibility: { in: visibleVisibilities },
   }
@@ -160,10 +160,10 @@ router.get('/', thoughtFilterQuery, async (req: Request, res: Response) => {
   if (tagSlugs.length) {
     if (matchMode === 'all') {
       where.AND = tagSlugs.map(slug => ({
-        thoughtTags: { some: { tag: { slug, isActive: true } } },
+        postTags: { some: { tag: { slug, isActive: true } } },
       }))
     } else {
-      where.thoughtTags = {
+      where.postTags = {
         some: {
           tag: {
             slug: { in: tagSlugs },
@@ -174,8 +174,8 @@ router.get('/', thoughtFilterQuery, async (req: Request, res: Response) => {
     }
   }
 
-  const [thoughts, total] = await Promise.all([
-    prisma.thought.findMany({
+  const [posts, total] = await Promise.all([
+    prisma.post.findMany({
       where,
       select: {
         id: true,
@@ -188,30 +188,30 @@ router.get('/', thoughtFilterQuery, async (req: Request, res: Response) => {
         coverImageDisplayName: true,
         coverAlbumImage: include.coverAlbumImage,
         publishedAt: true,
-        thoughtTags: include.thoughtTags,
+        postTags: include.postTags,
       },
       orderBy: { publishedAt: 'desc' },
       skip,
       take: limit,
     }),
-    prisma.thought.count({ where }),
+    prisma.post.count({ where }),
   ])
 
   res.json({
-    data: thoughts.map(mapThoughtListItem),
+    data: posts.map(mapPostListItem),
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   })
 })
 
-// GET /api/thoughts/:slug — dettaglio pensiero
+// GET /api/posts/:slug — dettaglio post
 router.get('/:slug', async (req: Request, res: Response) => {
   const slug = getSingleString(req.params.slug)
   if (!slug) {
-    res.status(400).json({ error: 'Slug pensiero non valido' })
+    res.status(400).json({ error: 'Slug post non valido' })
     return
   }
 
-  const thought = await prisma.thought.findFirst({
+  const post = await prisma.post.findFirst({
     where: {
       slug,
       status: 'PUBLISHED',
@@ -230,34 +230,34 @@ router.get('/:slug', async (req: Request, res: Response) => {
           size: true,
         },
       },
-      thoughtTags: {
+      postTags: {
         include: { tag: { select: { id: true, label: true, slug: true } } },
       },
     },
   })
 
-  if (!thought) {
-    res.status(404).json({ error: 'Pensiero non trovato' })
+  if (!post) {
+    res.status(404).json({ error: 'Post non trovato' })
     return
   }
 
   const cover = resolveCoverImageSource({
-    coverImage: thought.coverImage,
-    coverImageOriginalName: thought.coverImageOriginalName,
-    coverImageDisplayName: thought.coverImageDisplayName,
-    coverAlbumImage: thought.coverAlbumImage,
+    coverImage: post.coverImage,
+    coverImageOriginalName: post.coverImageOriginalName,
+    coverImageDisplayName: post.coverImageDisplayName,
+    coverAlbumImage: post.coverAlbumImage,
   })
 
   res.json({
-    id: thought.id,
-    slug: thought.slug,
-    title: thought.title,
-    body: thought.body,
-    excerpt: thought.excerpt,
-    author: thought.author,
+    id: post.id,
+    slug: post.slug,
+    title: post.title,
+    body: post.body,
+    excerpt: post.excerpt,
+    author: post.author,
     ...cover,
-    publishedAt: thought.publishedAt,
-    tags: mapThoughtTags(thought.thoughtTags),
+    publishedAt: post.publishedAt,
+    tags: mapPostTags(post.postTags),
   })
 })
 
