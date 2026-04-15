@@ -30,26 +30,28 @@ onBeforeUnmount(() => window.removeEventListener('scroll', handleScroll))
 </script>
 
 <template>
-  <AppHeader v-if="!route.meta.hideChrome" />
+  <div class="flex min-h-screen flex-col" :class="{ 'pb-24': player.currentAudio }">
+    <AppHeader v-if="!route.meta.hideChrome" />
 
-  <!-- Offline banner -->
-  <div
-    v-if="!route.meta.hideChrome && !ui.isOnline"
-    class="border-b border-accent/20 bg-accent/12 px-4 py-2 text-center text-sm text-text-primary"
-  >
-    Sei offline — per ascoltare gli audio serve una connessione attiva
+    <!-- Offline banner -->
+    <div
+      v-if="!route.meta.hideChrome && !ui.isOnline"
+      class="border-b border-accent/20 bg-accent/12 px-4 py-2 text-center text-sm text-text-primary"
+    >
+      Sei offline — per ascoltare gli audio serve una connessione attiva
+    </div>
+
+    <!-- Main content -->
+    <main class="relative flex-1">
+      <router-view v-slot="{ Component, route: viewRoute }">
+        <transition name="fade" mode="out-in">
+          <component :is="Component" :key="viewRoute.fullPath" />
+        </transition>
+      </router-view>
+    </main>
+
+    <AppFooter v-if="!route.meta.hideChrome" />
   </div>
-
-  <!-- Main content -->
-  <main :class="{ 'pb-24': player.currentAudio }">
-    <router-view v-slot="{ Component, route }">
-      <transition name="fade" mode="out-in">
-        <component :is="Component" :key="route.fullPath" />
-      </transition>
-    </router-view>
-  </main>
-
-  <AppFooter v-if="!route.meta.hideChrome" :class="{ 'pb-24': player.currentAudio }" />
 
   <!-- Scroll to top -->
   <transition name="scroll-top">
@@ -75,9 +77,13 @@ onBeforeUnmount(() => window.removeEventListener('scroll', handleScroll))
 </template>
 
 <style>
-.fade-enter-active,
+.fade-enter-active {
+  transition: opacity 0.15s ease;
+}
 .fade-leave-active {
-  transition: opacity 0.2s ease;
+  transition: opacity 0.1s ease;
+  position: absolute;
+  inset: 0;
 }
 .fade-enter-from,
 .fade-leave-to {
