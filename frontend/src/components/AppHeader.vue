@@ -22,7 +22,7 @@ const isPublicVisitor = computed(() => !auth.isAuthenticated)
 
 const navigationItems = computed(() => {
   if (isPublicVisitor.value) {
-    const items = []
+    const items = [{ label: 'Home', to: '/', description: 'Pagina principale' }]
 
     if (hasPosts.value) {
       items.push({ label: 'Post', to: '/posts', description: 'Contenuti pubblici' })
@@ -194,7 +194,7 @@ onBeforeUnmount(() => {
 
         <div
           v-if="navigationItems.length"
-          class="surface-pill hidden items-center gap-1 p-1.5 lg:flex"
+          class="surface-pill hidden items-center gap-1 p-1.5 md:flex"
           aria-label="Navigazione principale"
         >
           <router-link
@@ -382,11 +382,11 @@ onBeforeUnmount(() => {
           <template v-if="auth.isAuthenticated">
             <button
               type="button"
-              class="flex w-full items-center justify-center gap-2 rounded-[22px] border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-300 transition-colors hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-60"
+              class="surface-pill flex w-full items-center justify-center gap-2 rounded-[22px] px-4 py-3 text-sm font-medium text-text-secondary transition-colors hover:bg-muted hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-60"
               :disabled="isLoggingOut"
               @click="handleLogout"
             >
-              <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H9m4 4v1a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h5a2 2 0 012 2v1" />
               </svg>
               {{ isLoggingOut ? 'Uscita...' : 'Esci' }}

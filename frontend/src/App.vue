@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUiStore } from './stores/uiStore'
 import { useAudio } from './composables/useAudio'
@@ -13,6 +14,19 @@ const player = usePlayerStore()
 const route = useRoute()
 
 useAudio()
+
+const showScrollTop = ref(false)
+
+function handleScroll() {
+  showScrollTop.value = window.scrollY > 400
+}
+
+function scrollToTop() {
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+onMounted(() => window.addEventListener('scroll', handleScroll, { passive: true }))
+onBeforeUnmount(() => window.removeEventListener('scroll', handleScroll))
 </script>
 
 <template>
@@ -37,6 +51,22 @@ useAudio()
 
   <AppFooter v-if="!route.meta.hideChrome" :class="{ 'pb-24': player.currentAudio }" />
 
+  <!-- Scroll to top -->
+  <transition name="scroll-top">
+    <button
+      v-if="showScrollTop && !route.meta.hideChrome"
+      type="button"
+      class="fixed z-30 flex h-10 w-10 items-center justify-center rounded-full border border-ui-border bg-surface/95 text-text-secondary shadow-lg backdrop-blur-sm transition-colors hover:bg-muted hover:text-text-primary"
+      :class="player.currentAudio ? 'bottom-28 right-4' : 'bottom-6 right-4'"
+      aria-label="Torna in cima"
+      @click="scrollToTop"
+    >
+      <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
+      </svg>
+    </button>
+  </transition>
+
   <!-- Global audio player -->
   <AudioPlayer v-if="!route.meta.hideChrome" />
 
@@ -52,5 +82,14 @@ useAudio()
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+.scroll-top-enter-active,
+.scroll-top-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.scroll-top-enter-from,
+.scroll-top-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
 }
 </style>
