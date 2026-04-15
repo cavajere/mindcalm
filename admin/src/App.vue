@@ -93,7 +93,7 @@ function syncExpandedGroupWithRoute() {
 
 function baseNavItemClasses(active: boolean, nested = false) {
   return [
-    'group flex items-center rounded-xl text-sm font-medium transition-all',
+    'group flex w-full items-center rounded-xl text-sm font-medium transition-all',
     sidebarCollapsed.value
       ? 'justify-center px-3 py-2'
       : nested
