@@ -94,6 +94,7 @@ function getNotificationSummary(user: any) {
   const channels = [
     preferences.notifyOnAudio ? 'Audio' : null,
     preferences.notifyOnPosts ? 'Post' : null,
+    preferences.notifyOnEvents ? 'Eventi' : null,
   ].filter((value): value is string => Boolean(value))
 
   return {

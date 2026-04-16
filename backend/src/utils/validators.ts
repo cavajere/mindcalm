@@ -35,6 +35,10 @@ const auditActions = [
   'EVENT_UPDATED',
   'EVENT_DELETED',
   'EVENT_STATUS_CHANGED',
+  'EVENT_BOOKING_CREATED',
+  'EVENT_BOOKING_CANCELLED',
+  'EVENT_BOOKING_RESTORED',
+  'EVENT_BOOKING_RECONCILED',
   'CATEGORY_CREATED',
   'CATEGORY_UPDATED',
   'CATEGORY_DELETED',
@@ -143,6 +147,7 @@ export const changePasswordValidation = [
 export const notificationPreferencesValidation = [
   body('notifyOnAudio').isBoolean().withMessage('notifyOnAudio non valido'),
   body('notifyOnPosts').isBoolean().withMessage('notifyOnPosts non valido'),
+  body('notifyOnEvents').isBoolean().withMessage('notifyOnEvents non valido'),
   body('frequency').isIn(['NONE', 'IMMEDIATE', 'WEEKLY', 'MONTHLY']).withMessage('Frequenza non valida'),
 ]
 
@@ -184,6 +189,15 @@ export const eventValidation = [
   body('endsAt').optional({ values: 'falsy' }).isISO8601().withMessage('Data fine non valida'),
   body('excerpt').optional().trim().isLength({ max: 300 }).withMessage('Excerpt max 300 caratteri'),
   body('visibility').optional().isIn(['PUBLIC', 'REGISTERED']).withMessage('Visibilità non valida'),
+  body('bookingEnabled').optional().isBoolean().withMessage('bookingEnabled non valido'),
+  body('bookingCapacity').optional({ values: 'falsy' }).isInt({ min: 1, max: 10000 }).withMessage('Capienza prenotazioni non valida'),
+  body('bookingOpensAt').optional({ values: 'falsy' }).isISO8601().withMessage('Data apertura prenotazioni non valida'),
+  body('bookingClosesAt').optional({ values: 'falsy' }).isISO8601().withMessage('Data chiusura prenotazioni non valida'),
+  body('participationMode').optional().isIn(['FREE', 'PAID']).withMessage('Modalità partecipazione non valida'),
+  body('participationPrice')
+    .optional({ values: 'falsy' })
+    .matches(/^\d+([.,]\d{1,2})?$/)
+    .withMessage('Costo partecipazione non valido'),
 ]
 
 export const tagValidation = [
@@ -221,6 +235,7 @@ export const userCreateValidation = [
   body('inviteBaseUrl').optional({ values: 'falsy' }).isURL(appUrlValidationOptions).withMessage('URL invito non valido'),
   body('notifyOnAudio').optional().isBoolean().withMessage('notifyOnAudio non valido'),
   body('notifyOnPosts').optional().isBoolean().withMessage('notifyOnPosts non valido'),
+  body('notifyOnEvents').optional().isBoolean().withMessage('notifyOnEvents non valido'),
   body('frequency').optional().isIn(['NONE', 'IMMEDIATE', 'WEEKLY', 'MONTHLY']).withMessage('Frequenza non valida'),
 ]
 
@@ -254,7 +269,28 @@ export const userUpdateValidation = [
   body('licenseExpiresAt').optional({ values: 'falsy' }).isISO8601().withMessage('Data scadenza licenza non valida'),
   body('notifyOnAudio').optional().isBoolean().withMessage('notifyOnAudio non valido'),
   body('notifyOnPosts').optional().isBoolean().withMessage('notifyOnPosts non valido'),
+  body('notifyOnEvents').optional().isBoolean().withMessage('notifyOnEvents non valido'),
   body('frequency').optional().isIn(['NONE', 'IMMEDIATE', 'WEEKLY', 'MONTHLY']).withMessage('Frequenza non valida'),
+]
+
+export const publicEventBookingAccessValidation = [
+  query('token').trim().notEmpty().withMessage('Token prenotazione obbligatorio'),
+]
+
+export const publicEventBookingCreateValidation = [
+  body('token').trim().notEmpty().withMessage('Token prenotazione obbligatorio'),
+  body('bookerFirstName').trim().notEmpty().withMessage('Nome prenotante obbligatorio'),
+  body('bookerLastName').trim().notEmpty().withMessage('Cognome prenotante obbligatorio'),
+  body('bookerPhone')
+    .trim()
+    .notEmpty()
+    .withMessage('Telefono prenotante obbligatorio')
+    .bail()
+    .custom(isValidPhoneNumber)
+    .withMessage('Numero di telefono non valido'),
+  body('participants').optional().isArray({ max: 4 }).withMessage('Partecipanti aggiuntivi non validi'),
+  body('participants.*.firstName').optional().trim().notEmpty().withMessage('Nome partecipante obbligatorio'),
+  body('participants.*.lastName').optional().trim().notEmpty().withMessage('Cognome partecipante obbligatorio'),
 ]
 
 export const inviteCodeCreateValidation = [

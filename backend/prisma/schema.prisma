@@ -36,6 +36,7 @@ model User {
   notificationDispatchJobs NotificationDispatchJob[]
   campaigns              Campaign[]
   termsAcceptances       UserTermsAcceptance[]
+  eventBookingInvitations EventBookingInvitation[] @relation("EventBookingInvitationUser")
 
   @@index([role])
   @@map("admin_users")
@@ -345,7 +346,8 @@ model UserNotificationPreference {
   userId                     String                @id
   user                       User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   notifyOnAudio              Boolean               @default(true)
-  notifyOnPosts           Boolean               @default(true)
+  notifyOnPosts              Boolean               @default(true)
+  notifyOnEvents             Boolean               @default(true)
   frequency                  NotificationFrequency @default(NONE)
   lastImmediateContentAt     DateTime?
   lastWeeklyDigestSentAt     DateTime?
@@ -445,6 +447,13 @@ model Event {
   venue       String?
   startsAt    DateTime
   endsAt      DateTime?
+  bookingEnabled Boolean @default(false)
+  bookingCapacity Int?
+  bookingReservedSeats Int @default(0)
+  bookingOpensAt DateTime?
+  bookingClosesAt DateTime?
+  participationMode EventParticipationMode @default(FREE)
+  participationPriceCents Int?
   visibility  ContentVisibility @default(REGISTERED)
   coverImage  String?
   coverImageOriginalName String?
@@ -455,12 +464,75 @@ model Event {
   publishedAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+  bookingInvitations EventBookingInvitation[]
+  bookings    EventBooking[]
 
   @@index([coverAlbumImageId])
+  @@index([bookingEnabled])
   @@index([status, visibility])
   @@index([slug])
   @@index([startsAt])
   @@map("events")
+}
+
+model EventBookingInvitation {
+  id            String   @id @default(uuid())
+  eventId        String
+  event          Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId         String?
+  user           User?    @relation("EventBookingInvitationUser", fields: [userId], references: [id], onDelete: SetNull)
+  recipientEmail String
+  recipientName  String?
+  tokenHash      String   @unique
+  expiresAt      DateTime
+  lastSentAt     DateTime?
+  usedAt         DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  booking        EventBooking?
+
+  @@unique([eventId, recipientEmail])
+  @@index([eventId, recipientEmail])
+  @@index([eventId, expiresAt])
+  @@index([userId])
+  @@index([revokedAt, expiresAt])
+  @@map("event_booking_invitations")
+}
+
+model EventBooking {
+  id              String             @id @default(uuid())
+  eventId          String
+  event            Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  invitationId     String             @unique
+  invitation       EventBookingInvitation @relation(fields: [invitationId], references: [id], onDelete: Restrict)
+  status           EventBookingStatus @default(CONFIRMED)
+  bookerFirstName  String
+  bookerLastName   String
+  bookerPhone      String
+  seatsReserved    Int
+  cancelledAt      DateTime?
+  cancelReason     String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  participants     EventBookingParticipant[]
+
+  @@index([eventId, status, createdAt])
+  @@map("event_bookings")
+}
+
+model EventBookingParticipant {
+  id         String   @id @default(uuid())
+  bookingId   String
+  booking     EventBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  firstName   String
+  lastName    String
+  phone       String?
+  isBooker    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([bookingId, isBooker])
+  @@map("event_booking_participants")
 }
 
 model InviteCode {
@@ -839,6 +911,10 @@ enum AuditAction {
   EVENT_UPDATED
   EVENT_DELETED
   EVENT_STATUS_CHANGED
+  EVENT_BOOKING_CREATED
+  EVENT_BOOKING_CANCELLED
+  EVENT_BOOKING_RESTORED
+  EVENT_BOOKING_RECONCILED
   CATEGORY_CREATED
   CATEGORY_UPDATED
   CATEGORY_DELETED
@@ -990,4 +1066,14 @@ enum PublicationOutboxStatus {
   PENDING
   PROCESSING
   PROCESSED
+}
+
+enum EventBookingStatus {
+  CONFIRMED
+  CANCELLED
+}
+
+enum EventParticipationMode {
+  FREE
+  PAID
 }

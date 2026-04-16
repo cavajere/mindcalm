@@ -176,6 +176,11 @@ function toContentTypeLabel(type: ContentNotificationItem['type']) {
   return 'Post'
 }
 
+function toContentActionLabel(type: ContentNotificationItem['type']) {
+  if (type === 'event') return 'Apri evento'
+  return 'Apri contenuto'
+}
+
 function renderContentItems(items: ContentNotificationItem[]) {
   return (
     `<div style="margin:24px 0 20px;">` +
@@ -185,7 +190,7 @@ function renderContentItems(items: ContentNotificationItem[]) {
       `<div style="margin-top:6px;color:${EMAIL_COLORS.textPrimary};font-size:17px;line-height:1.5;font-weight:600;">${escapeHtml(item.title)}</div>` +
       `<div style="margin-top:4px;color:${EMAIL_COLORS.textSecondary};font-size:13px;line-height:1.6;">Pubblicato il ${escapeHtml(formatDate(item.publishedAt))}</div>` +
       (item.url
-        ? `<div style="margin-top:10px;"><a href="${escapeHtml(item.url)}" style="color:${EMAIL_COLORS.primary};font-size:14px;font-weight:700;text-decoration:underline;">Apri contenuto</a></div>`
+        ? `<div style="margin-top:10px;"><a href="${escapeHtml(item.url)}" style="color:${EMAIL_COLORS.primary};font-size:14px;font-weight:700;text-decoration:underline;">${escapeHtml(toContentActionLabel(item.type))}</a></div>`
         : '') +
       `</div>`
     )).join('') +

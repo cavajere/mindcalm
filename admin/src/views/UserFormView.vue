@@ -24,6 +24,7 @@ const form = ref({
   role: 'STANDARD',
   notifyOnAudio: true,
   notifyOnPosts: true,
+  notifyOnEvents: true,
   frequency: 'NONE',
   licenseExpiresAt: '',
   password: '',
@@ -90,6 +91,7 @@ async function fetchUser() {
   form.value.role = data.role
   form.value.notifyOnAudio = data.notificationPreferences?.notifyOnAudio ?? true
   form.value.notifyOnPosts = data.notificationPreferences?.notifyOnPosts ?? true
+  form.value.notifyOnEvents = data.notificationPreferences?.notifyOnEvents ?? true
   form.value.frequency = data.notificationPreferences?.frequency ?? 'NONE'
   form.value.licenseExpiresAt = formatDateForInput(data.licenseExpiresAt)
   form.value.isActive = data.isActive
@@ -123,6 +125,7 @@ async function handleSubmit() {
       role: form.value.role,
       notifyOnAudio: form.value.notifyOnAudio,
       notifyOnPosts: form.value.notifyOnPosts,
+      notifyOnEvents: form.value.notifyOnEvents,
       frequency: form.value.frequency,
       licenseExpiresAt: getLicenseExpiresAtPayload(),
       isActive: form.value.isActive,
@@ -268,7 +271,7 @@ onMounted(fetchUser)
         <div>
           <label class="label">Notifiche email nuovi contenuti</label>
           <p class="text-xs text-text-secondary mt-1">
-            L’amministratore può preimpostare le preferenze per Audio, Post e frequenza di invio.
+            L’amministratore può preimpostare le preferenze per Audio, Post, Eventi e frequenza di invio.
           </p>
         </div>
 
@@ -281,6 +284,11 @@ onMounted(fetchUser)
           <label class="flex items-center gap-3 text-sm text-text-primary">
             <input v-model="form.notifyOnPosts" type="checkbox" class="rounded border-gray-300 text-primary focus:ring-primary/30" />
             Aggiornami sui nuovi Post
+          </label>
+
+          <label class="flex items-center gap-3 text-sm text-text-primary">
+            <input v-model="form.notifyOnEvents" type="checkbox" class="rounded border-gray-300 text-primary focus:ring-primary/30" />
+            Aggiornami sui nuovi Eventi
           </label>
         </div>
 

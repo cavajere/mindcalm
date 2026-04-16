@@ -20,6 +20,7 @@ const preferencesSuccess = ref('')
 const notificationPrefs = ref({
   notifyOnAudio: true,
   notifyOnPosts: true,
+  notifyOnEvents: true,
   frequency: 'NONE',
 })
 
@@ -66,6 +67,7 @@ async function loadNotificationPreferences() {
     notificationPrefs.value = {
       notifyOnAudio: Boolean(data.notifyOnAudio),
       notifyOnPosts: Boolean(data.notifyOnPosts),
+      notifyOnEvents: Boolean(data.notifyOnEvents),
       frequency: data.frequency || 'NONE',
     }
   } catch (e: any) {
@@ -119,7 +121,7 @@ loadNotificationPreferences()
       <div>
         <h2 class="text-xl font-semibold text-text-primary">Notifiche email nuovi contenuti</h2>
         <p class="text-text-secondary text-sm mt-1">
-          Scegli se ricevere aggiornamenti per Audio e Post e con quale frequenza.
+          Scegli se ricevere aggiornamenti per Audio, Post ed Eventi e con quale frequenza.
         </p>
       </div>
 
@@ -138,6 +140,10 @@ loadNotificationPreferences()
         <label class="inline-flex items-center gap-2">
           <input v-model="notificationPrefs.notifyOnPosts" type="checkbox" />
           <span>Aggiornami sui nuovi Post</span>
+        </label>
+        <label class="inline-flex items-center gap-2">
+          <input v-model="notificationPrefs.notifyOnEvents" type="checkbox" />
+          <span>Aggiornami sui nuovi Eventi</span>
         </label>
       </div>
 

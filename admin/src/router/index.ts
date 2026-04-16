@@ -19,6 +19,7 @@ const router = createRouter({
     { path: '/events', component: () => import('../views/EventsListView.vue'), meta: { requiresAuth: true } },
     { path: '/events/new', component: () => import('../views/EventFormView.vue'), meta: { requiresAuth: true } },
     { path: '/events/:id/edit', component: () => import('../views/EventFormView.vue'), meta: { requiresAuth: true } },
+    { path: '/events/:id/bookings', component: () => import('../views/EventBookingsView.vue'), meta: { requiresAuth: true } },
     { path: '/album', component: () => import('../views/AlbumView.vue'), meta: { requiresAuth: true } },
     { path: '/categories', component: () => import('../views/CategoriesView.vue'), meta: { requiresAuth: true } },
     { path: '/tags', component: () => import('../views/TagsView.vue'), meta: { requiresAuth: true } },

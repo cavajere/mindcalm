@@ -7,6 +7,7 @@ const auth = useAuthStore()
 const notificationPrefs = ref({
   notifyOnAudio: true,
   notifyOnPosts: true,
+  notifyOnEvents: true,
   frequency: 'NONE',
 })
 const notificationError = ref('')
@@ -44,6 +45,7 @@ async function loadNotificationPreferences() {
     notificationPrefs.value = {
       notifyOnAudio: data.notifyOnAudio ?? true,
       notifyOnPosts: data.notifyOnPosts ?? true,
+      notifyOnEvents: data.notifyOnEvents ?? true,
       frequency: data.frequency ?? 'NONE',
     }
   } catch (error: any) {
@@ -135,6 +137,12 @@ onMounted(loadNotificationPreferences)
               :class="notificationPrefs.notifyOnPosts ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'"
             >
               {{ notificationPrefs.notifyOnPosts ? 'Post attivi' : 'Post disattivati' }}
+            </span>
+            <span
+              class="inline-flex rounded-full px-3 py-1 text-xs font-medium"
+              :class="notificationPrefs.notifyOnEvents ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'"
+            >
+              {{ notificationPrefs.notifyOnEvents ? 'Eventi attivi' : 'Eventi disattivati' }}
             </span>
           </div>
         </div>

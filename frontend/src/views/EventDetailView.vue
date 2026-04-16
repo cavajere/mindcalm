@@ -17,11 +17,53 @@ interface EventItem {
   startsAt: string
   endsAt: string | null
   coverImage: string | null
+  bookingEnabled: boolean
+  bookingAvailable: boolean
+  participationMode: 'FREE' | 'PAID'
+  participationPriceCents: number | null
+}
+
+interface BookingParticipant {
+  id: string
+  firstName: string
+  lastName: string
+  phone: string | null
+  isBooker: boolean
+}
+
+interface BookingSummary {
+  id: string
+  status: 'CONFIRMED' | 'CANCELLED'
+  bookerFirstName: string
+  bookerLastName: string
+  bookerPhone: string
+  seatsReserved: number
+  participants: BookingParticipant[]
+}
+
+interface BookingAccess {
+  accessStatus: 'VALID' | 'INVALID' | 'EXPIRED' | 'REVOKED' | 'BOOKING_CLOSED' | 'SOLD_OUT' | 'BOOKED'
+  canBook: boolean
+  bookingAvailable: boolean
+  maxParticipants: number
+  existingBooking: BookingSummary | null
 }
 
 const route = useRoute()
 const eventItem = ref<EventItem | null>(null)
 const loading = ref(true)
+const bookingAccess = ref<BookingAccess | null>(null)
+const bookingLoading = ref(false)
+const bookingSaving = ref(false)
+const bookingError = ref('')
+const bookingSuccess = ref('')
+const bookingForm = ref({
+  bookerFirstName: '',
+  bookerLastName: '',
+  bookerPhone: '',
+  participants: [] as Array<{ firstName: string; lastName: string }>,
+})
+const bookingToken = computed(() => typeof route.query.bookingToken === 'string' ? route.query.bookingToken : '')
 
 const formattedDate = computed(() => {
   if (!eventItem.value) return ''
@@ -62,6 +104,39 @@ const locationLabel = computed(() => {
     : eventItem.value.city
 })
 
+const bookingStatusLabel = computed(() => {
+  if (!eventItem.value?.bookingEnabled) return ''
+  return eventItem.value.bookingAvailable ? 'Prenotazioni aperte' : 'Prenotazioni chiuse'
+})
+
+const participationLabel = computed(() => {
+  if (!eventItem.value) return ''
+  if (eventItem.value.participationMode !== 'PAID' || eventItem.value.participationPriceCents == null) {
+    return 'Partecipazione gratuita'
+  }
+
+  return `Partecipazione a pagamento · € ${(eventItem.value.participationPriceCents / 100).toFixed(2)}`
+})
+
+function addParticipant() {
+  const totalPeople = 1 + bookingForm.value.participants.length
+  if (bookingAccess.value && totalPeople >= bookingAccess.value.maxParticipants) return
+  bookingForm.value.participants.push({ firstName: '', lastName: '' })
+}
+
+function removeParticipant(index: number) {
+  bookingForm.value.participants.splice(index, 1)
+}
+
+function normalizedGuestsPayload() {
+  return bookingForm.value.participants
+    .filter((participant) => participant.firstName.trim() || participant.lastName.trim())
+    .map((participant) => ({
+      firstName: participant.firstName.trim(),
+      lastName: participant.lastName.trim(),
+    }))
+}
+
 async function loadEvent(slug: string) {
   loading.value = true
   eventItem.value = null
@@ -76,11 +151,62 @@ async function loadEvent(slug: string) {
   }
 }
 
+async function loadBookingAccess(slug: string, token: string) {
+  if (!token) {
+    bookingAccess.value = null
+    bookingError.value = ''
+    bookingSuccess.value = ''
+    return
+  }
+
+  bookingLoading.value = true
+  bookingError.value = ''
+
+  try {
+    const { data } = await axios.get(`/api/events/${slug}/booking-access`, {
+      params: { token },
+    })
+    bookingAccess.value = data
+  } catch (error: any) {
+    bookingAccess.value = null
+    bookingError.value = error.response?.data?.error || 'Impossibile verificare il link di prenotazione'
+  } finally {
+    bookingLoading.value = false
+  }
+}
+
+async function submitBooking() {
+  if (!eventItem.value || !bookingToken.value) return
+
+  bookingSaving.value = true
+  bookingError.value = ''
+  bookingSuccess.value = ''
+
+  try {
+    await axios.post(`/api/events/${eventItem.value.slug}/bookings`, {
+      token: bookingToken.value,
+      bookerFirstName: bookingForm.value.bookerFirstName,
+      bookerLastName: bookingForm.value.bookerLastName,
+      bookerPhone: bookingForm.value.bookerPhone,
+      participants: normalizedGuestsPayload(),
+    })
+
+    bookingSuccess.value = 'Prenotazione registrata correttamente.'
+    await loadEvent(eventItem.value.slug)
+    await loadBookingAccess(eventItem.value.slug, bookingToken.value)
+  } catch (error: any) {
+    bookingError.value = error.response?.data?.error || 'Errore durante la prenotazione'
+  } finally {
+    bookingSaving.value = false
+  }
+}
+
 watch(
-  () => route.params.slug,
-  (slug) => {
+  () => [route.params.slug, bookingToken.value],
+  async ([slug, token]) => {
     if (typeof slug === 'string' && slug) {
-      loadEvent(slug)
+      await loadEvent(slug)
+      await loadBookingAccess(slug, typeof token === 'string' ? token : '')
     }
   },
   { immediate: true },
@@ -144,6 +270,9 @@ watch(
               <span class="badge surface-pill text-primary">Evento pubblico</span>
               <span class="badge surface-pill text-text-secondary">{{ formattedDate }}</span>
               <span class="badge surface-pill text-text-secondary">{{ formattedTime }}</span>
+              <span v-if="eventItem.bookingEnabled && eventItem.bookingAvailable" class="badge surface-pill bg-emerald-100 text-emerald-700">
+                {{ bookingStatusLabel }}
+              </span>
             </div>
 
             <h1 class="max-w-3xl text-3xl font-bold tracking-tight text-text-primary sm:text-4xl lg:text-5xl">
@@ -172,6 +301,10 @@ watch(
               <div class="surface-card-muted rounded-[24px] p-4">
                 <p class="text-xs uppercase tracking-[0.18em] text-text-secondary">Quando</p>
                 <p class="mt-2 text-sm font-semibold text-text-primary">{{ formattedDate }} · {{ formattedTime }}</p>
+              </div>
+              <div class="surface-card-muted rounded-[24px] p-4 sm:col-span-2">
+                <p class="text-xs uppercase tracking-[0.18em] text-text-secondary">Partecipazione</p>
+                <p class="mt-2 text-sm font-semibold text-text-primary">{{ participationLabel }}</p>
               </div>
             </div>
           </div>
@@ -213,6 +346,114 @@ watch(
                 <p class="text-xs uppercase tracking-[0.18em] text-text-secondary">Organizzatore</p>
                 <p class="mt-1 text-sm font-medium text-text-primary">{{ eventItem.organizer }}</p>
               </div>
+              <div>
+                <p class="text-xs uppercase tracking-[0.18em] text-text-secondary">Partecipazione</p>
+                <p class="mt-1 text-sm font-medium text-text-primary">{{ participationLabel }}</p>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="eventItem.bookingEnabled" class="surface-card p-6">
+            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-text-secondary">Prenotazione</p>
+            <p class="mt-3 text-lg font-semibold text-text-primary">{{ bookingStatusLabel }}</p>
+            <p class="mt-2 text-sm leading-7 text-text-secondary">
+              {{ eventItem.bookingAvailable
+                ? 'La disponibilita e aperta. Il numero di posti residui non viene mostrato sul portale pubblico.'
+                : 'Al momento non ci sono prenotazioni disponibili online per questo evento.' }}
+            </p>
+
+            <div v-if="bookingToken" class="mt-5 space-y-4">
+              <div v-if="bookingLoading" class="text-sm text-text-secondary">Verifica del link in corso...</div>
+              <template v-else-if="bookingAccess">
+                <div v-if="bookingError" class="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">{{ bookingError }}</div>
+                <div v-if="bookingSuccess" class="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ bookingSuccess }}</div>
+
+                <form
+                  v-if="bookingAccess.accessStatus === 'VALID' && bookingAccess.canBook"
+                  class="space-y-4"
+                  @submit.prevent="submitBooking"
+                >
+                  <div class="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label class="block text-sm font-medium text-text-primary mb-1">Nome referente</label>
+                      <input v-model="bookingForm.bookerFirstName" type="text" required class="input-field" />
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-text-primary mb-1">Cognome referente</label>
+                      <input v-model="bookingForm.bookerLastName" type="text" required class="input-field" />
+                    </div>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-text-primary mb-1">Telefono referente</label>
+                    <input v-model="bookingForm.bookerPhone" type="tel" required class="input-field" />
+                  </div>
+
+                  <div class="space-y-3">
+                    <div class="flex items-center justify-between gap-4">
+                      <p class="text-sm font-medium text-text-primary">Partecipanti aggiuntivi</p>
+                      <button
+                        type="button"
+                        class="btn-secondary"
+                        :disabled="1 + bookingForm.participants.length >= bookingAccess.maxParticipants"
+                        @click="addParticipant"
+                      >
+                        Aggiungi persona
+                      </button>
+                    </div>
+
+                    <div
+                      v-for="(participant, index) in bookingForm.participants"
+                      :key="index"
+                      class="rounded-[24px] border border-ui-border bg-surface/90 p-4"
+                    >
+                      <div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+                        <input v-model="participant.firstName" type="text" required class="input-field" placeholder="Nome" />
+                        <input v-model="participant.lastName" type="text" required class="input-field" placeholder="Cognome" />
+                        <button type="button" class="btn-secondary" @click="removeParticipant(index)">Rimuovi</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button type="submit" class="btn-primary w-full" :disabled="bookingSaving">
+                    {{ bookingSaving ? 'Invio in corso...' : 'Conferma prenotazione' }}
+                  </button>
+                </form>
+
+                <div v-else-if="bookingAccess.accessStatus === 'BOOKED' && bookingAccess.existingBooking" class="space-y-3">
+                  <div class="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                    Per questo link risulta gia una prenotazione confermata.
+                  </div>
+                  <div class="rounded-[24px] border border-ui-border bg-surface/90 p-4">
+                    <p class="text-sm font-medium text-text-primary">
+                      {{ bookingAccess.existingBooking.bookerFirstName }} {{ bookingAccess.existingBooking.bookerLastName }}
+                    </p>
+                    <p class="mt-1 text-sm text-text-secondary">{{ bookingAccess.existingBooking.bookerPhone }}</p>
+                    <div class="mt-3 space-y-1 text-sm text-text-secondary">
+                      <div v-for="participant in bookingAccess.existingBooking.participants" :key="participant.id">
+                        {{ participant.firstName }} {{ participant.lastName }}<span v-if="participant.isBooker"> · referente</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div v-else class="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                  {{
+                    bookingAccess.accessStatus === 'EXPIRED'
+                      ? 'Il link di prenotazione e scaduto.'
+                      : bookingAccess.accessStatus === 'REVOKED'
+                        ? 'Il link di prenotazione non e piu valido.'
+                        : bookingAccess.accessStatus === 'SOLD_OUT'
+                          ? 'I posti disponibili sono terminati.'
+                          : bookingAccess.accessStatus === 'BOOKING_CLOSED'
+                            ? 'Le prenotazioni online per questo evento sono chiuse.'
+                            : 'Il link di prenotazione non e valido.'
+                  }}
+                </div>
+              </template>
+            </div>
+
+            <div v-else-if="eventItem.bookingAvailable" class="mt-5 rounded-2xl bg-primary/5 px-4 py-3 text-sm text-text-secondary">
+              Per prenotare usa il link personale ricevuto via email.
             </div>
           </div>
 

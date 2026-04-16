@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import PageHeader from '../components/PageHeader.vue'
@@ -29,6 +29,12 @@ const form = ref({
   endsAt: '',
   status: 'DRAFT',
   visibility: 'REGISTERED',
+  bookingEnabled: false,
+  bookingCapacity: '',
+  bookingOpensAt: '',
+  bookingClosesAt: '',
+  participationMode: 'FREE',
+  participationPrice: '',
 })
 
 const coverFiles = ref<UploadFileItem[]>([])
@@ -121,6 +127,12 @@ async function save() {
     fd.append('endsAt', form.value.endsAt)
     fd.append('status', form.value.status)
     fd.append('visibility', form.value.visibility)
+    fd.append('bookingEnabled', String(form.value.bookingEnabled))
+    fd.append('bookingCapacity', form.value.bookingCapacity)
+    fd.append('bookingOpensAt', form.value.bookingOpensAt)
+    fd.append('bookingClosesAt', form.value.bookingClosesAt)
+    fd.append('participationMode', form.value.participationMode)
+    fd.append('participationPrice', form.value.participationPrice)
     fd.append('publicBaseUrl', getPublicAppUrl())
     fd.append('coverImageDisplayName', coverFiles.value.length ? coverFiles.value[0].displayName : coverImageDisplayName.value)
 
@@ -168,6 +180,12 @@ onMounted(async () => {
       endsAt: toLocalDateTimeInput(eventItem.endsAt),
       status: eventItem.status,
       visibility: eventItem.visibility,
+      bookingEnabled: Boolean(eventItem.bookingEnabled),
+      bookingCapacity: eventItem.bookingCapacity ? String(eventItem.bookingCapacity) : '',
+      bookingOpensAt: toLocalDateTimeInput(eventItem.bookingOpensAt),
+      bookingClosesAt: toLocalDateTimeInput(eventItem.bookingClosesAt),
+      participationMode: eventItem.participationMode || 'FREE',
+      participationPrice: eventItem.participationPriceCents != null ? (eventItem.participationPriceCents / 100).toFixed(2) : '',
     }
     existingAlbumCover.value = eventItem.coverAlbumImage || null
     existingCover.value = eventItem.coverAlbumImage
@@ -186,6 +204,15 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+watch(
+  () => form.value.participationMode,
+  (mode) => {
+    if (mode !== 'PAID') {
+      form.value.participationPrice = ''
+    }
+  },
+)
 </script>
 
 <template>
@@ -195,6 +222,7 @@ onMounted(async () => {
       :description="isEdit ? 'Aggiorna programma, visibilita e metadata.' : 'Crea un nuovo evento per il portale utente.'"
     >
       <template #actions>
+        <button v-if="isEdit" type="button" @click="router.push(`/events/${route.params.id}/bookings`)" class="btn-secondary">Prenotazioni</button>
         <button type="button" @click="router.push('/events')" class="btn-secondary">Annulla</button>
       </template>
     </PageHeader>
@@ -233,6 +261,67 @@ onMounted(async () => {
           <div>
             <label class="label">Fine</label>
             <input v-model="form.endsAt" type="datetime-local" class="input-field" />
+          </div>
+        </div>
+
+        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5 space-y-4">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <label class="label mb-0">Prenotazioni online</label>
+              <p class="mt-1 text-xs text-text-secondary">Mostra la disponibilita sul portale pubblico senza esporre il numero di posti residui.</p>
+            </div>
+            <label class="inline-flex items-center gap-3 text-sm font-medium text-text-primary">
+              <input v-model="form.bookingEnabled" type="checkbox" class="rounded border-gray-300 text-primary focus:ring-primary/30" />
+              Attive
+            </label>
+          </div>
+
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-3" :class="{ 'opacity-60': !form.bookingEnabled }">
+            <div>
+              <label class="label">Capienza</label>
+              <input v-model="form.bookingCapacity" type="number" min="1" class="input-field" :disabled="!form.bookingEnabled" />
+            </div>
+            <div>
+              <label class="label">Apertura prenotazioni</label>
+              <input v-model="form.bookingOpensAt" type="datetime-local" class="input-field" :disabled="!form.bookingEnabled" />
+            </div>
+            <div>
+              <label class="label">Chiusura prenotazioni</label>
+              <input v-model="form.bookingClosesAt" type="datetime-local" class="input-field" :disabled="!form.bookingEnabled" />
+            </div>
+          </div>
+
+          <p class="text-xs text-text-secondary">
+            Se la chiusura non e specificata, le prenotazioni si chiudono all'inizio dell'evento. Ogni prenotazione puo includere fino a 5 persone.
+          </p>
+        </div>
+
+        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5 space-y-4">
+          <div>
+            <label class="label mb-0">Partecipazione</label>
+            <p class="mt-1 text-xs text-text-secondary">Indica se l'evento e gratuito o a pagamento e, in quel caso, il costo.</p>
+          </div>
+
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <label class="label">Modalita'</label>
+              <select v-model="form.participationMode" class="input-field">
+                <option value="FREE">Gratuita</option>
+                <option value="PAID">A pagamento</option>
+              </select>
+            </div>
+            <div>
+              <label class="label">Costo in euro</label>
+              <input
+                v-model="form.participationPrice"
+                type="number"
+                min="0"
+                step="0.01"
+                class="input-field"
+                :disabled="form.participationMode !== 'PAID'"
+                placeholder="0,00"
+              />
+            </div>
           </div>
         </div>
 

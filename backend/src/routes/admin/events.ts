@@ -1,6 +1,6 @@
 import { Request, Response } from 'express'
 import { createAsyncRouter } from '../../utils/asyncRouter'
-import { AuditAction, AuditEntityType, ContentVisibility, Prisma, Status } from '@prisma/client'
+import { AuditAction, AuditEntityType, ContentVisibility, EventParticipationMode, Prisma, Status } from '@prisma/client'
 import { validationResult } from 'express-validator'
 import { adminAuthMiddleware, requireAdmin } from '../../middleware/auth'
 import { uploadImage } from '../../middleware/upload'
@@ -15,6 +15,14 @@ import { queuePublishedContentOutboxEntry } from '../../services/notificationSer
 import { buildAppUrl, derivePublicAppBaseUrl } from '../../utils/appUrls'
 import { config } from '../../config'
 import { createTagSlug } from '../../services/tagService'
+import {
+  cancelBooking,
+  EventBookingError,
+  getEventBookingAdminSummary,
+  getEventBookingAvailability,
+  recomputeReservedSeats,
+  restoreBooking,
+} from '../../services/eventBookingService'
 
 const router = createAsyncRouter()
 
@@ -67,6 +75,13 @@ function serializeEvent(event: {
   publishedAt: Date | null
   createdAt: Date
   updatedAt: Date
+  bookingEnabled: boolean
+  bookingCapacity: number | null
+  bookingReservedSeats: number
+  bookingOpensAt: Date | null
+  bookingClosesAt: Date | null
+  participationMode: 'FREE' | 'PAID'
+  participationPriceCents: number | null
   coverImage: string | null
   coverImageOriginalName: string | null
   coverImageDisplayName: string | null
@@ -81,6 +96,19 @@ function serializeEvent(event: {
     size: number
   } | null
 }) {
+  const availability = getEventBookingAvailability({
+    id: event.id,
+    slug: event.slug,
+    title: event.title,
+    startsAt: event.startsAt,
+    bookingEnabled: event.bookingEnabled,
+    bookingCapacity: event.bookingCapacity,
+    bookingReservedSeats: event.bookingReservedSeats,
+    bookingOpensAt: event.bookingOpensAt,
+    bookingClosesAt: event.bookingClosesAt,
+    status: event.status,
+  })
+
   const cover = resolveCoverImageSource({
     coverImage: event.coverImage,
     coverImageOriginalName: event.coverImageOriginalName,
@@ -104,7 +132,56 @@ function serializeEvent(event: {
     publishedAt: event.publishedAt,
     createdAt: event.createdAt,
     updatedAt: event.updatedAt,
+    bookingEnabled: event.bookingEnabled,
+    bookingCapacity: event.bookingCapacity,
+    bookingReservedSeats: event.bookingReservedSeats,
+    bookingRemainingSeats: availability.seatsRemaining,
+    bookingOpensAt: event.bookingOpensAt,
+    bookingClosesAt: event.bookingClosesAt,
+    bookingAvailable: availability.bookingAvailable,
+    bookingOpen: availability.bookingOpen,
+    participationMode: event.participationMode,
+    participationPriceCents: event.participationPriceCents,
     ...cover,
+  }
+}
+
+function parseBookingSettings(body: Request['body']) {
+  const bookingEnabled = getBoolean(body.bookingEnabled) === true
+  const bookingCapacityRaw = getSingleString(body.bookingCapacity)
+  const bookingOpensAtRaw = getSingleString(body.bookingOpensAt)
+  const bookingClosesAtRaw = getSingleString(body.bookingClosesAt)
+  const bookingCapacity = bookingCapacityRaw ? Number.parseInt(bookingCapacityRaw, 10) : null
+  const bookingOpensAt = bookingOpensAtRaw ? new Date(bookingOpensAtRaw) : null
+  const bookingClosesAt = bookingClosesAtRaw ? new Date(bookingClosesAtRaw) : null
+
+  return {
+    bookingEnabled,
+    bookingCapacity,
+    bookingOpensAt,
+    bookingClosesAt,
+  }
+}
+
+function parseParticipationSettings(body: Request['body']) {
+  const participationMode = getSingleString(body.participationMode) === 'PAID'
+    ? EventParticipationMode.PAID
+    : EventParticipationMode.FREE
+  const rawPrice = getSingleString(body.participationPrice)?.trim() || ''
+
+  if (participationMode === 'FREE') {
+    return {
+      participationMode,
+      participationPriceCents: null,
+    }
+  }
+
+  const normalized = rawPrice.replace(',', '.')
+  const parsed = Number.parseFloat(normalized)
+
+  return {
+    participationMode,
+    participationPriceCents: Number.isFinite(parsed) ? Math.round(parsed * 100) : null,
   }
 }
 
@@ -171,6 +248,8 @@ router.post('/', uploadImage.single('coverImage'), eventValidation, async (req: 
   const endsAt = getSingleString(req.body.endsAt)
   const status = getSingleString(req.body.status)
   const visibility = getSingleString(req.body.visibility)
+  const bookingSettings = parseBookingSettings(req.body)
+  const participationSettings = parseParticipationSettings(req.body)
   const slug = createTagSlug(title!)
   const requestedCoverAlbumImageId = getSingleString(req.body.coverAlbumImageId)?.trim() || undefined
   const coverImageNames = req.file
@@ -201,6 +280,24 @@ router.post('/', uploadImage.single('coverImage'), eventValidation, async (req: 
     return
   }
 
+  if (bookingSettings.bookingEnabled && (!bookingSettings.bookingCapacity || bookingSettings.bookingCapacity < 1)) {
+    deleteDirectCoverImage(req.file ? `images/${req.file.filename}` : null)
+    res.status(400).json({ error: 'Imposta una capienza valida per attivare le prenotazioni online' })
+    return
+  }
+
+  if (bookingSettings.bookingOpensAt && bookingSettings.bookingClosesAt && bookingSettings.bookingClosesAt <= bookingSettings.bookingOpensAt) {
+    deleteDirectCoverImage(req.file ? `images/${req.file.filename}` : null)
+    res.status(400).json({ error: 'La chiusura prenotazioni deve essere successiva all apertura' })
+    return
+  }
+
+  if (participationSettings.participationMode === 'PAID' && participationSettings.participationPriceCents === null) {
+    deleteDirectCoverImage(req.file ? `images/${req.file.filename}` : null)
+    res.status(400).json({ error: 'Imposta un costo valido per gli eventi a pagamento' })
+    return
+  }
+
   const sanitizedBody = sanitizeBody(body!)
 
   const event = await prisma.$transaction(async (tx) => {
@@ -216,6 +313,13 @@ router.post('/', uploadImage.single('coverImage'), eventValidation, async (req: 
         venue: venue || null,
         startsAt: new Date(startsAt!),
         endsAt: endsAt ? new Date(endsAt) : null,
+        bookingEnabled: bookingSettings.bookingEnabled,
+        bookingCapacity: bookingSettings.bookingEnabled ? bookingSettings.bookingCapacity : null,
+        bookingReservedSeats: 0,
+        bookingOpensAt: bookingSettings.bookingEnabled ? bookingSettings.bookingOpensAt : null,
+        bookingClosesAt: bookingSettings.bookingEnabled ? bookingSettings.bookingClosesAt : null,
+        participationMode: participationSettings.participationMode,
+        participationPriceCents: participationSettings.participationPriceCents,
         visibility: visibility === 'PUBLIC' ? 'PUBLIC' : 'REGISTERED',
         coverImage: req.file ? `images/${req.file.filename}` : null,
         coverImageOriginalName: coverImageNames?.originalName ?? null,
@@ -244,6 +348,10 @@ router.post('/', uploadImage.single('coverImage'), eventValidation, async (req: 
       visibility: event.visibility,
       startsAt: event.startsAt.toISOString(),
       city: event.city,
+      bookingEnabled: event.bookingEnabled,
+      bookingCapacity: event.bookingCapacity,
+      participationMode: event.participationMode,
+      participationPriceCents: event.participationPriceCents,
     },
   })
 
@@ -288,6 +396,8 @@ router.put('/:id', uploadImage.single('coverImage'), eventValidation, async (req
   const endsAt = getSingleString(req.body.endsAt)
   const status = getSingleString(req.body.status)
   const visibility = getSingleString(req.body.visibility)
+  const bookingSettings = parseBookingSettings(req.body)
+  const participationSettings = parseParticipationSettings(req.body)
   const requestedCoverImageDisplayName = getSingleString(req.body.coverImageDisplayName)
   const removeCoverImage = getBoolean(req.body.removeCoverImage) === true
   const hasCoverAlbumImageId = Object.prototype.hasOwnProperty.call(req.body, 'coverAlbumImageId')
@@ -299,6 +409,24 @@ router.put('/:id', uploadImage.single('coverImage'), eventValidation, async (req
   if (endsAt && new Date(endsAt) < new Date(startsAt!)) {
     deleteDirectCoverImage(req.file ? `images/${req.file.filename}` : null)
     res.status(400).json({ error: 'La data di fine deve essere successiva alla data di inizio' })
+    return
+  }
+
+  if (bookingSettings.bookingEnabled && (!bookingSettings.bookingCapacity || bookingSettings.bookingCapacity < existing.bookingReservedSeats)) {
+    deleteDirectCoverImage(req.file ? `images/${req.file.filename}` : null)
+    res.status(400).json({ error: 'La capienza non può essere inferiore ai posti già prenotati' })
+    return
+  }
+
+  if (bookingSettings.bookingOpensAt && bookingSettings.bookingClosesAt && bookingSettings.bookingClosesAt <= bookingSettings.bookingOpensAt) {
+    deleteDirectCoverImage(req.file ? `images/${req.file.filename}` : null)
+    res.status(400).json({ error: 'La chiusura prenotazioni deve essere successiva all apertura' })
+    return
+  }
+
+  if (participationSettings.participationMode === 'PAID' && participationSettings.participationPriceCents === null) {
+    deleteDirectCoverImage(req.file ? `images/${req.file.filename}` : null)
+    res.status(400).json({ error: 'Imposta un costo valido per gli eventi a pagamento' })
     return
   }
 
@@ -338,6 +466,12 @@ router.put('/:id', uploadImage.single('coverImage'), eventValidation, async (req
         venue: venue || null,
         startsAt: new Date(startsAt!),
         endsAt: endsAt ? new Date(endsAt) : null,
+        bookingEnabled: bookingSettings.bookingEnabled,
+        bookingCapacity: bookingSettings.bookingEnabled ? bookingSettings.bookingCapacity : null,
+        bookingOpensAt: bookingSettings.bookingEnabled ? bookingSettings.bookingOpensAt : null,
+        bookingClosesAt: bookingSettings.bookingEnabled ? bookingSettings.bookingClosesAt : null,
+        participationMode: participationSettings.participationMode,
+        participationPriceCents: participationSettings.participationPriceCents,
         visibility: visibility === 'PUBLIC' ? 'PUBLIC' : 'REGISTERED',
         status: status === 'PUBLISHED' ? 'PUBLISHED' : 'DRAFT',
         publishedAt: status === 'PUBLISHED' ? (existing.publishedAt ?? new Date()) : null,
@@ -402,6 +536,10 @@ router.put('/:id', uploadImage.single('coverImage'), eventValidation, async (req
       visibility: updated.visibility,
       startsAt: updated.startsAt.toISOString(),
       city: updated.city,
+      bookingEnabled: updated.bookingEnabled,
+      bookingCapacity: updated.bookingCapacity,
+      participationMode: updated.participationMode,
+      participationPriceCents: updated.participationPriceCents,
     },
   })
 
@@ -415,15 +553,28 @@ router.patch('/:id/status', statusValidation, async (req: Request, res: Response
     return
   }
 
+  const publicBaseUrl = derivePublicAppBaseUrl({
+    override: getSingleString(req.body.publicBaseUrl),
+    requestOrigin: req.get('origin'),
+    requestProtocol: req.protocol,
+    requestHost: req.get('host'),
+    fallback: config.appUrls.public,
+  })
+
   const status = getSingleString(req.body.status)
   if (!status || !['DRAFT', 'PUBLISHED'].includes(status)) {
     res.status(400).json({ error: 'Stato non valido' })
     return
   }
 
-  const event = await prisma.event.update({
-    where: { id: eventId },
-    data: { status: status as Status, publishedAt: status === 'PUBLISHED' ? new Date() : null },
+  const event = await prisma.$transaction(async (tx) => {
+    const updated = await tx.event.update({
+      where: { id: eventId },
+      data: { status: status as Status, publishedAt: status === 'PUBLISHED' ? new Date() : null },
+    })
+
+    await queueEventPublicationOutbox(tx, publicBaseUrl, updated)
+    return updated
   })
 
   await logAuditEventSafe({
@@ -437,6 +588,122 @@ router.patch('/:id/status', statusValidation, async (req: Request, res: Response
   })
 
   res.json(event)
+})
+
+router.get('/:id/bookings', async (req: Request, res: Response) => {
+  const eventId = getSingleString(req.params.id)
+  if (!eventId) {
+    res.status(400).json({ error: 'ID evento non valido' })
+    return
+  }
+
+  try {
+    const summary = await getEventBookingAdminSummary(eventId)
+    res.json(summary)
+  } catch (error) {
+    if (error instanceof EventBookingError) {
+      res.status(error.status).json({ error: error.message, code: error.code })
+      return
+    }
+
+    throw error
+  }
+})
+
+router.post('/:id/bookings/:bookingId/cancel', async (req: Request, res: Response) => {
+  const eventId = getSingleString(req.params.id)
+  const bookingId = getSingleString(req.params.bookingId)
+  if (!eventId || !bookingId) {
+    res.status(400).json({ error: 'ID evento o prenotazione non valido' })
+    return
+  }
+
+  try {
+    const booking = await cancelBooking({
+      eventId,
+      bookingId,
+      reason: getSingleString(req.body.reason),
+    })
+
+    await logAuditEventSafe({
+      req,
+      action: AuditAction.EVENT_BOOKING_CANCELLED,
+      entityType: AuditEntityType.EVENT,
+      entityId: eventId,
+      entityLabel: bookingId,
+      ...getAuditActorFromRequest(req),
+      metadata: {
+        bookingId,
+        reason: booking.cancelReason,
+      },
+    })
+
+    res.json(booking)
+  } catch (error) {
+    if (error instanceof EventBookingError) {
+      res.status(error.status).json({ error: error.message, code: error.code })
+      return
+    }
+
+    throw error
+  }
+})
+
+router.post('/:id/bookings/:bookingId/restore', async (req: Request, res: Response) => {
+  const eventId = getSingleString(req.params.id)
+  const bookingId = getSingleString(req.params.bookingId)
+  if (!eventId || !bookingId) {
+    res.status(400).json({ error: 'ID evento o prenotazione non valido' })
+    return
+  }
+
+  try {
+    const booking = await restoreBooking({ eventId, bookingId })
+
+    await logAuditEventSafe({
+      req,
+      action: AuditAction.EVENT_BOOKING_RESTORED,
+      entityType: AuditEntityType.EVENT,
+      entityId: eventId,
+      entityLabel: bookingId,
+      ...getAuditActorFromRequest(req),
+      metadata: {
+        bookingId,
+      },
+    })
+
+    res.json(booking)
+  } catch (error) {
+    if (error instanceof EventBookingError) {
+      res.status(error.status).json({ error: error.message, code: error.code })
+      return
+    }
+
+    throw error
+  }
+})
+
+router.post('/:id/bookings/reconcile', async (req: Request, res: Response) => {
+  const eventId = getSingleString(req.params.id)
+  if (!eventId) {
+    res.status(400).json({ error: 'ID evento non valido' })
+    return
+  }
+
+  const reservedSeats = await recomputeReservedSeats(eventId)
+
+  await logAuditEventSafe({
+    req,
+    action: AuditAction.EVENT_BOOKING_RECONCILED,
+    entityType: AuditEntityType.EVENT,
+    entityId: eventId,
+    ...getAuditActorFromRequest(req),
+    metadata: {
+      reservedSeats,
+    },
+  })
+
+  res.json({ reservedSeats })
 })
 
 router.delete('/:id', async (req: Request, res: Response) => {

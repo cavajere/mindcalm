@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import axios from 'axios'
 import PageHeader from '../components/PageHeader.vue'
 import StatusBadge from '../components/StatusBadge.vue'
+import { getPublicAppUrl } from '../utils/appUrls'
 
 const router = useRouter()
 const events = ref<any[]>([])
@@ -31,7 +32,7 @@ async function fetchEvents() {
 
 async function toggleStatus(eventItem: any) {
   const newStatus = eventItem.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED'
-  await axios.patch(`/api/admin/events/${eventItem.id}/status`, { status: newStatus })
+  await axios.patch(`/api/admin/events/${eventItem.id}/status`, { status: newStatus, publicBaseUrl: getPublicAppUrl() })
   eventItem.status = newStatus
 }
 
@@ -64,6 +65,8 @@ onMounted(fetchEvents)
             <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Inizio</th>
             <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Stato</th>
             <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Visibilita'</th>
+            <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Partecipazione</th>
+            <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Prenotazioni</th>
             <th class="table-actions-header px-4 py-3 text-xs font-medium text-text-secondary uppercase">Azioni</th>
           </tr>
         </thead>
@@ -82,8 +85,36 @@ onMounted(fetchEvents)
                 {{ visibilityLabel(eventItem.visibility) }}
               </span>
             </td>
+            <td class="px-4 py-3 text-sm text-text-secondary">
+              <span
+                :class="['inline-flex rounded-full px-2.5 py-1 text-xs font-medium', eventItem.participationMode === 'PAID' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700']"
+              >
+                {{ eventItem.participationMode === 'PAID' ? `A pagamento € ${(eventItem.participationPriceCents / 100).toFixed(2)}` : 'Gratuita' }}
+              </span>
+            </td>
+            <td class="px-4 py-3 text-sm text-text-secondary">
+              <div v-if="eventItem.bookingEnabled" class="space-y-1">
+                <span class="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                  Prenotazioni attive
+                </span>
+                <p>{{ eventItem.bookingReservedSeats }}/{{ eventItem.bookingCapacity || 0 }} occupati</p>
+              </div>
+              <span v-else class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+                Disattive
+              </span>
+            </td>
             <td class="table-actions-cell">
               <div class="table-actions-group">
+                <button
+                  @click="router.push(`/events/${eventItem.id}/bookings`)"
+                  class="icon-action-button icon-action-button-neutral"
+                  title="Prenotazioni"
+                  aria-label="Prenotazioni"
+                >
+                  <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10m-11 9h12a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2v11a2 2 0 002 2z"/>
+                  </svg>
+                </button>
                 <button
                   @click="router.push(`/events/${eventItem.id}/edit`)"
                   class="icon-action-button icon-action-button-neutral"
@@ -108,7 +139,7 @@ onMounted(fetchEvents)
             </td>
           </tr>
           <tr v-if="!events.length && !loading">
-            <td colspan="6" class="px-4 py-8 text-center text-text-secondary">Nessun evento</td>
+            <td colspan="8" class="px-4 py-8 text-center text-text-secondary">Nessun evento</td>
           </tr>
         </tbody>
       </table>

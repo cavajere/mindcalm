@@ -53,6 +53,24 @@ export const registrationVerificationRateLimiter = rateLimit({
   message: { error: 'Troppi tentativi di conferma registrazione, riprova tra poco' },
 })
 
+export const eventBookingAccessRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: config.rateLimit.eventBookingAccess,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: getIpKey,
+  message: { error: 'Troppi tentativi di accesso prenotazione, riprova tra poco' },
+})
+
+export const eventBookingCreateRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: config.rateLimit.eventBookingCreate,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: getIpKey,
+  message: { error: 'Troppi tentativi di prenotazione, riprova tra poco' },
+})
+
 export const playbackSessionRateLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: config.playback.sessionRateLimitPerMinute,

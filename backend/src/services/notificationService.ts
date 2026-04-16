@@ -13,6 +13,7 @@ import {
   buildContentNotificationEmail,
   type ContentNotificationItem,
 } from './email/templates'
+import { EventBookingError, upsertInvitationForEventRecipient } from './eventBookingService'
 
 const SCHEDULE_ROW_ID = 1
 const NOTIFICATION_SCHEDULER_INTERVAL_MS = 5 * 60 * 1000
@@ -25,6 +26,7 @@ let notificationPipelineStarted = false
 export interface UserNotificationPreferencesInput {
   notifyOnAudio: boolean
   notifyOnPosts: boolean
+  notifyOnEvents: boolean
   frequency: NotificationFrequency
 }
 
@@ -114,7 +116,7 @@ export interface ContentPublicationOutboxInput {
 }
 
 async function buildImmediateNotificationItem(input: ContentPublicationOutboxInput): Promise<ContentNotificationItem> {
-  if (input.contentUrl) {
+  if (input.contentUrl && input.type !== 'event') {
     return {
       type: input.type,
       title: input.title,
@@ -167,6 +169,18 @@ async function buildImmediateNotificationItem(input: ContentPublicationOutboxInp
     title: input.title,
     publishedAt: input.publishedAt,
   })
+}
+
+function getPreferenceFilterForContentType(type: ContentNotificationItem['type']) {
+  if (type === 'audio') {
+    return { notifyOnAudio: true }
+  }
+
+  if (type === 'event') {
+    return { notifyOnEvents: true }
+  }
+
+  return { notifyOnPosts: true }
 }
 
 function asUtcDateRange(from: Date, to: Date): Prisma.DateTimeFilter {
@@ -281,6 +295,37 @@ function toEventItem(item: { slug: string; title: string; publishedAt: Date | nu
     title: item.title,
     publishedAt: item.publishedAt,
     url: buildEventContentUrl(item.slug),
+  }
+}
+
+async function toEventItemForUser(
+  item: { id: string; slug: string; title: string; publishedAt: Date | null; bookingEnabled: boolean },
+  user: { id: string; email: string; name: string },
+): Promise<ContentNotificationItem> {
+  if (!item.bookingEnabled) {
+    return toEventItem(item)
+  }
+
+  try {
+    const invitation = await upsertInvitationForEventRecipient({
+      eventId: item.id,
+      userId: user.id,
+      recipientEmail: user.email,
+      recipientName: user.name,
+    })
+
+    return {
+      type: 'event',
+      title: item.title,
+      publishedAt: item.publishedAt,
+      url: invitation.url,
+    }
+  } catch (error) {
+    if (error instanceof EventBookingError && error.code === 'BOOKING_DISABLED') {
+      return toEventItem(item)
+    }
+
+    throw error
   }
 }
 
@@ -461,6 +506,42 @@ async function sendContentEmail(input: {
     to: input.user.email,
     ...template,
   })
+}
+
+async function buildNotificationItemForUser(input: {
+  contentId: string
+  type: ContentNotificationItem['type']
+  title: string
+  publishedAt: Date
+  contentUrl?: string
+}, user: { id: string; email: string; name: string }) {
+  if (input.type !== 'event') {
+    return buildImmediateNotificationItem(input)
+  }
+
+  const event = await prisma.event.findUnique({
+    where: { id: input.contentId },
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+      publishedAt: true,
+      status: true,
+      bookingEnabled: true,
+    },
+  })
+
+  if (!event || event.status !== 'PUBLISHED') {
+    throw new Error('Evento pubblicato non trovato per la generazione del link notifica')
+  }
+
+  return toEventItemForUser({
+    id: event.id,
+    slug: event.slug,
+    title: input.title,
+    publishedAt: input.publishedAt,
+    bookingEnabled: event.bookingEnabled,
+  }, user)
 }
 
 async function getNotificationCursor(input: {
@@ -925,6 +1006,7 @@ export async function getUserNotificationPreferences(userId: string) {
       frequency: NotificationFrequency.NONE,
       notifyOnAudio: true,
       notifyOnPosts: true,
+      notifyOnEvents: true,
     },
   })
 }
@@ -935,12 +1017,14 @@ export async function updateUserNotificationPreferences(userId: string, input: U
     update: {
       notifyOnAudio: input.notifyOnAudio,
       notifyOnPosts: input.notifyOnPosts,
+      notifyOnEvents: input.notifyOnEvents,
       frequency: input.frequency,
     },
     create: {
       userId,
       notifyOnAudio: input.notifyOnAudio,
       notifyOnPosts: input.notifyOnPosts,
+      notifyOnEvents: input.notifyOnEvents,
       frequency: input.frequency,
     },
   })
@@ -1003,6 +1087,7 @@ export async function getNotificationDispatchStats() {
         OR: [
           { notifyOnAudio: true },
           { notifyOnPosts: true },
+          { notifyOnEvents: true },
         ],
       },
     }),
@@ -1129,7 +1214,7 @@ export async function enqueueImmediateContentNotifications(input: ContentPublica
         notificationPreference: {
           is: {
             frequency: NotificationFrequency.IMMEDIATE,
-            ...(input.type === 'audio' ? { notifyOnAudio: true } : { notifyOnPosts: true }),
+            ...getPreferenceFilterForContentType(input.type),
           },
         },
       },
@@ -1146,10 +1231,16 @@ export async function enqueueImmediateContentNotifications(input: ContentPublica
   }
 
   const copy = getNotificationCopy(NotificationFrequency.IMMEDIATE)
-  const item = await buildImmediateNotificationItem(input)
+  const jobs = await Promise.all(users.map(async (user) => {
+    const item = await buildNotificationItemForUser({
+      contentId: input.contentId,
+      type: input.type,
+      title: input.title,
+      publishedAt: input.publishedAt,
+      contentUrl: input.contentUrl,
+    }, user)
 
-  const result = await prisma.notificationDispatchJob.createMany({
-    data: users.map((user) => ({
+    return {
       userId: user.id,
       dedupeKey: buildImmediateNotificationDedupeKey({
         userId: user.id,
@@ -1171,7 +1262,11 @@ export async function enqueueImmediateContentNotifications(input: ContentPublica
       scheduledFor: input.publishedAt,
       availableAt: input.publishedAt,
       maxAttempts: schedule.maxAttempts,
-    })),
+    }
+  }))
+
+  const result = await prisma.notificationDispatchJob.createMany({
+    data: jobs,
     skipDuplicates: true,
   })
 
@@ -1269,7 +1364,7 @@ export async function enqueueDueNotifications(now = new Date()) {
       continue
     }
 
-    if (!preference.notifyOnAudio && !preference.notifyOnPosts) {
+    if (!preference.notifyOnAudio && !preference.notifyOnPosts && !preference.notifyOnEvents) {
       continue
     }
 
@@ -1332,16 +1427,18 @@ export async function enqueueDueNotifications(now = new Date()) {
             },
           })
         : Promise.resolve([]),
-      preference.notifyOnPosts
+      preference.notifyOnEvents
         ? prisma.event.findMany({
             where: {
               status: 'PUBLISHED',
               publishedAt: asUtcDateRange(windowStartedAt, now),
             },
             select: {
+              id: true,
               slug: true,
               title: true,
               publishedAt: true,
+              bookingEnabled: true,
             },
             orderBy: {
               publishedAt: 'desc',
@@ -1350,7 +1447,11 @@ export async function enqueueDueNotifications(now = new Date()) {
         : Promise.resolve([]),
     ])
 
-    const items = [...audio.map(toAudioItem), ...posts.map(toPostItem), ...events.map(toEventItem)].sort((left, right) => {
+    const eventItems = preference.notifyOnEvents
+      ? await Promise.all(events.map((event) => toEventItemForUser(event, user)))
+      : []
+
+    const items = [...audio.map(toAudioItem), ...posts.map(toPostItem), ...eventItems].sort((left, right) => {
       const leftTime = left.publishedAt?.getTime() ?? 0
       const rightTime = right.publishedAt?.getTime() ?? 0
       return rightTime - leftTime

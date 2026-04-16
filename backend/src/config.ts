@@ -93,6 +93,8 @@ export const config = {
     inviteCodeValidation: parseInt(process.env.RATE_LIMIT_INVITE_CODE_VALIDATION || '20', 10),
     registration: parseInt(process.env.RATE_LIMIT_REGISTRATION || '10', 10),
     registrationVerification: parseInt(process.env.RATE_LIMIT_REGISTRATION_VERIFICATION || '20', 10),
+    eventBookingAccess: parseInt(process.env.RATE_LIMIT_EVENT_BOOKING_ACCESS || '30', 10),
+    eventBookingCreate: parseInt(process.env.RATE_LIMIT_EVENT_BOOKING_CREATE || '12', 10),
   },
 
   resetPassword: {
@@ -105,5 +107,9 @@ export const config = {
 
   registration: {
     verificationExpiresInHours: parseInt(process.env.REGISTRATION_VERIFICATION_EXPIRES_IN_HOURS || '24', 10),
+  },
+
+  eventBooking: {
+    invitationExpiresInHours: parseInt(process.env.EVENT_BOOKING_INVITATION_EXPIRES_IN_HOURS || '168', 10),
   },
 }
