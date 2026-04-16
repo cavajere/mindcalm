@@ -317,7 +317,7 @@ onBeforeUnmount(() => {
               Accedi
             </router-link>
             <router-link to="/register" class="btn-primary">
-              Hai un invito?
+              Registrati
             </router-link>
           </template>
         </div>
@@ -409,10 +409,10 @@ onBeforeUnmount(() => {
           <template v-else>
             <div class="surface-card-muted rounded-[22px] p-4">
               <p class="text-sm leading-6 text-text-secondary">
-                Consulta post ed eventi pubblici. Se hai un invito, accedi all'area riservata per ascoltare i percorsi audio.
+                Consulta post ed eventi pubblici. Registrati per accedere all'area personale e ai contenuti riservati.
               </p>
               <router-link to="/register" class="btn-primary mt-4 flex w-full items-center justify-center">
-                Hai un invito?
+                Registrati
               </router-link>
             </div>
           </template>
