@@ -18,17 +18,17 @@ const documentHtml = ref('')
 
 const pageConfig = computed(() => props.documentType === 'privacy'
   ? {
-      title: 'Privacy policy',
+      title: 'Informativa Privacy',
       eyebrow: 'Documento legale',
       fallbackUrl: '/public-api/privacy',
-      emptyTitle: 'Privacy policy non disponibile',
+      emptyTitle: 'Informativa Privacy non disponibile',
       emptyBody: 'La privacy policy pubblicata non e al momento disponibile. Riprova piu tardi.',
     }
   : {
-      title: 'Termini e condizioni',
+      title: 'Termini e Condizioni',
       eyebrow: 'Documento legale',
       fallbackUrl: '/public-api/terms',
-      emptyTitle: 'Termini e condizioni non disponibili',
+      emptyTitle: 'Termini e Condizioni non disponibili',
       emptyBody: 'I termini e condizioni pubblicati non sono al momento disponibili. Riprova piu tardi.',
     },
 )

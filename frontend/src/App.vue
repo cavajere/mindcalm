@@ -6,8 +6,8 @@ import { useAudio } from './composables/useAudio'
 import AudioPlayer from './components/AudioPlayer.vue'
 import InstallPrompt from './components/InstallPrompt.vue'
 import AppHeader from './components/AppHeader.vue'
-import SimpleHeader from './components/SimpleHeader.vue'
 import AppFooter from './components/AppFooter.vue'
+import NotificationPopup from './components/NotificationPopup.vue'
 import { usePlayerStore } from './stores/playerStore'
 
 const ui = useUiStore()
@@ -32,19 +32,18 @@ onBeforeUnmount(() => window.removeEventListener('scroll', handleScroll))
 
 <template>
   <div class="flex min-h-screen flex-col" :class="{ 'pb-24': player.currentAudio }">
-    <SimpleHeader v-if="route.meta.simpleHeader" />
-    <AppHeader v-else-if="!route.meta.hideChrome" />
+    <AppHeader v-if="!route.meta.hideChrome" />
 
     <!-- Offline banner -->
     <div
-      v-if="!route.meta.hideChrome && !route.meta.simpleHeader && !ui.isOnline"
+      v-if="!route.meta.hideChrome && !ui.isOnline"
       class="border-b border-accent/20 bg-accent/12 px-4 py-2 text-center text-sm text-text-primary"
     >
       Sei offline — per ascoltare gli audio serve una connessione attiva
     </div>
 
     <!-- Main content -->
-    <main class="relative flex-1">
+    <main class="relative flex-1 main-background">
       <router-view v-slot="{ Component, route: viewRoute }">
         <transition name="fade" mode="out-in">
           <component :is="Component" :key="viewRoute.fullPath" />
@@ -52,13 +51,13 @@ onBeforeUnmount(() => window.removeEventListener('scroll', handleScroll))
       </router-view>
     </main>
 
-    <AppFooter v-if="!route.meta.hideChrome && !route.meta.simpleHeader" />
+    <AppFooter v-if="!route.meta.hideChrome" />
   </div>
 
   <!-- Scroll to top -->
   <transition name="scroll-top">
     <button
-      v-if="showScrollTop && !route.meta.hideChrome && !route.meta.simpleHeader"
+      v-if="showScrollTop && !route.meta.hideChrome"
       type="button"
       class="fixed z-30 flex h-10 w-10 items-center justify-center rounded-full border border-ui-border bg-surface/95 text-text-secondary shadow-lg backdrop-blur-sm transition-colors hover:bg-muted hover:text-text-primary"
       :class="player.currentAudio ? 'bottom-28 right-4' : 'bottom-6 right-4'"
@@ -72,10 +71,13 @@ onBeforeUnmount(() => window.removeEventListener('scroll', handleScroll))
   </transition>
 
   <!-- Global audio player -->
-  <AudioPlayer v-if="!route.meta.hideChrome && !route.meta.simpleHeader" />
+  <AudioPlayer v-if="!route.meta.hideChrome" />
 
   <!-- Install prompt -->
-  <InstallPrompt v-if="!route.meta.hideChrome && !route.meta.simpleHeader" />
+  <InstallPrompt v-if="!route.meta.hideChrome" />
+
+  <!-- Global notifications -->
+  <NotificationPopup />
 </template>
 
 <style>

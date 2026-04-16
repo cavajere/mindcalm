@@ -4,6 +4,8 @@ import { useRoute } from 'vue-router'
 import axios from 'axios'
 import ContentCover from '../components/ContentCover.vue'
 import TagFilter, { type FilterTag } from '../components/TagFilter.vue'
+import SearchLoader from '../components/SearchLoader.vue'
+import { useAdvancedSearch, SearchScorer } from '../composables/useAdvancedSearch'
 
 interface Post {
   id: string
@@ -17,26 +19,28 @@ interface Post {
 }
 
 const posts = ref<Post[]>([])
+const allPosts = ref<Post[]>([])
 const loading = ref(true)
 const pagination = ref({ page: 1, limit: 12, total: 0, totalPages: 0 })
-const search = ref('')
 const tags = ref<FilterTag[]>([])
 const selectedTags = ref<string[]>([])
 const route = useRoute()
 
-const hasActiveFilters = computed(() => selectedTags.value.length > 0 || search.value.trim() !== '')
-
-const activeFiltersLabel = computed(() => {
-  const parts = []
-  if (search.value.trim()) {
-    parts.push('ricerca attiva')
-  }
-  if (selectedTags.value.length) {
-    parts.push(`${selectedTags.value.length} tag`)
-  }
-
-  return parts.join(' · ')
+// Advanced search setup
+const {
+  searchQuery,
+  isSearching,
+  showSearchLoader,
+  hasValidQuery,
+  isQueryEmpty
+} = useAdvancedSearch({
+  debounceMs: 400,
+  minQueryLength: 2,
+  onSearch: performSearch,
+  onClear: loadAllPosts
 })
+
+const hasActiveFilters = computed(() => selectedTags.value.length > 0 || hasValidQuery.value)
 
 function formatPostDate(value: string) {
   return new Date(value).toLocaleDateString('it-IT', {
@@ -60,36 +64,100 @@ function parseTagsFromRoute() {
     .filter(Boolean)
 }
 
-async function fetchPosts() {
+// Load all posts for client-side search
+async function loadAllPosts() {
   loading.value = true
-
+  
   try {
     const query = new URLSearchParams({
-      page: String(pagination.value.page),
-      limit: String(pagination.value.limit),
+      limit: '1000' // Load all posts for client-side filtering
     })
-
-    if (search.value) query.set('search', search.value)
+    
     if (selectedTags.value.length) query.set('tags', selectedTags.value.join(','))
-
+    
     const { data } = await axios.get(`/api/posts?${query}`)
-    posts.value = data.data
-    pagination.value = { ...pagination.value, ...data.pagination }
+    allPosts.value = data.data
+    
+    // Apply current filters
+    applyFiltersAndPagination()
   } finally {
     loading.value = false
   }
 }
 
+// Perform client-side search with relevance scoring
+async function performSearch(query: string) {
+  if (!allPosts.value.length) {
+    await loadAllPosts()
+    return
+  }
+  
+  // Score and sort posts by relevance
+  const scoredPosts = allPosts.value
+    .map(post => ({
+      post,
+      score: SearchScorer.scoreItem(post, query, [
+        { key: 'title', weight: 3 },
+        { key: 'excerpt', weight: 2 },
+        { key: 'tags', weight: 1, isArray: true }
+      ])
+    }))
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map(({ post }) => post)
+  
+  // Apply tag filters if any
+  const filteredPosts = selectedTags.value.length 
+    ? scoredPosts.filter(post => 
+        selectedTags.value.some(tagId => 
+          post.tags.some(tag => tag.id === tagId)
+        )
+      )
+    : scoredPosts
+  
+  // Update pagination and posts
+  pagination.value.total = filteredPosts.length
+  pagination.value.totalPages = Math.ceil(filteredPosts.length / pagination.value.limit)
+  pagination.value.page = 1
+  
+  const startIndex = 0
+  const endIndex = pagination.value.limit
+  posts.value = filteredPosts.slice(startIndex, endIndex)
+}
+
+// Apply filters and pagination to current dataset
+function applyFiltersAndPagination() {
+  let filteredPosts = allPosts.value
+  
+  // Apply tag filters
+  if (selectedTags.value.length) {
+    filteredPosts = filteredPosts.filter(post =>
+      selectedTags.value.some(tagId =>
+        post.tags.some(tag => tag.id === tagId)
+      )
+    )
+  }
+  
+  // Update pagination
+  pagination.value.total = filteredPosts.length
+  pagination.value.totalPages = Math.ceil(filteredPosts.length / pagination.value.limit)
+  
+  // Apply pagination
+  const startIndex = (pagination.value.page - 1) * pagination.value.limit
+  const endIndex = startIndex + pagination.value.limit
+  posts.value = filteredPosts.slice(startIndex, endIndex)
+}
+
 function changePage(page: number) {
   pagination.value.page = page
-  fetchPosts()
+  applyFiltersAndPagination()
 }
 
 onMounted(async () => {
   const { data } = await axios.get('/api/tags?contentType=post')
   tags.value = data
   parseTagsFromRoute()
-  await fetchPosts()
+  await loadAllPosts()
 })
 
 watch(() => route.query.tags, () => {
@@ -98,78 +166,45 @@ watch(() => route.query.tags, () => {
 
 watch(selectedTags, () => {
   pagination.value.page = 1
-  fetchPosts()
-})
-
-let searchTimeout: number
-watch(search, () => {
-  clearTimeout(searchTimeout)
-  searchTimeout = window.setTimeout(() => {
-    pagination.value.page = 1
-    fetchPosts()
-  }, 350)
+  if (hasValidQuery.value) {
+    performSearch(searchQuery.value.trim())
+  } else {
+    loadAllPosts()
+  }
 })
 </script>
 
 <template>
-  <div class="page-container space-y-8 pb-10">
-    <section class="section-panel relative overflow-hidden">
-      <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(74,144,217,0.16),_transparent_34%),radial-gradient(circle_at_bottom_right,_rgba(80,184,96,0.12),_transparent_26%)]" />
+  <div class="page-container">
+    <h1 class="text-3xl font-bold text-text-primary mb-8">Post e articoli</h1>
 
-      <div class="relative grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:p-10">
-        <div>
-          <span class="eyebrow">Esplora</span>
-          <h1 class="font-display mt-4 text-4xl font-semibold leading-none text-text-primary sm:text-5xl">
-            Post.
-          </h1>
-          <p class="mt-4 max-w-3xl text-base leading-8 text-text-secondary sm:text-lg">
-            Cerca per parole chiave e trova rapidamente pillole di mindfulness, spunti e letture utili.
-          </p>
-        </div>
-
-        <div class="grid gap-3 lg:min-w-[320px]" :class="hasActiveFilters ? 'sm:grid-cols-2' : ''">
-          <div class="surface-card-muted p-4">
-            <p class="text-2xl font-semibold text-text-primary">{{ pagination.total }}</p>
-            <p class="mt-1 text-sm text-text-secondary">post pubblicati</p>
-          </div>
-          <div v-if="hasActiveFilters" class="surface-card-muted p-4">
-            <p class="text-sm font-semibold text-text-primary">{{ activeFiltersLabel }}</p>
-            <p class="mt-1 text-sm text-text-secondary">stato della ricerca</p>
-          </div>
-        </div>
+    <!-- Filtri -->
+    <div class="mb-8 space-y-4">
+      <!-- Search -->
+      <div class="relative">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="Cerca post..."
+          class="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+        />
       </div>
-    </section>
 
-    <section class="card p-5 sm:p-6">
-      <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start">
-        <div>
-          <label class="mb-2 block text-sm font-semibold text-text-primary">Cerca nei post</label>
-          <div class="relative">
-            <svg class="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              v-model="search"
-              type="text"
-              placeholder="Cerca temi, pratiche e parole chiave..."
-              class="w-full rounded-[22px] border border-ui-border bg-surface/92 py-3 pl-12 pr-4 transition-all"
-            />
-          </div>
-        </div>
+      <TagFilter
+        v-if="tags.length"
+        v-model="selectedTags"
+        :tags="tags"
+        label="Argomenti"
+      />
+    </div>
 
-        <div>
-          <TagFilter
-            v-if="tags.length"
-            v-model="selectedTags"
-            :tags="tags"
-            label="Filtra per tag"
-          />
-          <p v-else class="pt-8 text-sm text-text-secondary">I tag compariranno qui quando saranno disponibili.</p>
-        </div>
-      </div>
-    </section>
+    <!-- Search loader -->
+    <SearchLoader :visible="showSearchLoader" message="Ricerca post..." />
 
-    <div v-if="loading" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <div v-if="loading && !isSearching" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
       <div v-for="item in 6" :key="item" class="card animate-pulse overflow-hidden">
         <div class="aspect-[4/3] skeleton-block"></div>
         <div class="space-y-3 p-5">
@@ -181,7 +216,7 @@ watch(search, () => {
       </div>
     </div>
 
-    <div v-else-if="posts.length" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <div v-else-if="posts.length && !isSearching" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
       <router-link
         v-for="post in posts"
         :key="post.id"
@@ -224,26 +259,25 @@ watch(search, () => {
       </router-link>
     </div>
 
-    <div v-else class="section-panel p-8 text-center sm:p-10">
-      <div class="mx-auto max-w-2xl">
-        <span class="eyebrow">Archivio vuoto</span>
-        <h2 class="mt-5 text-2xl font-semibold text-text-primary sm:text-3xl">Nessun post corrisponde alla ricerca attuale.</h2>
-        <p class="mt-4 text-base leading-8 text-text-secondary">
-          Prova a rimuovere qualche filtro o torna piu tardi: i nuovi contenuti pubblici compariranno qui in automatico.
-        </p>
-        <router-link to="/" class="btn-secondary mt-6 inline-flex">Torna alla home</router-link>
-      </div>
+    <!-- Vuoto -->
+    <div v-else-if="!loading && !isSearching" class="text-center py-16">
+      <p class="text-text-secondary text-lg">Nessun post trovato</p>
+      <p class="text-text-secondary text-sm mt-2">Prova a cambiare i filtri</p>
     </div>
 
-    <div v-if="pagination.totalPages > 1" class="overflow-x-auto pb-2">
+    <!-- Paginazione -->
+    <div v-if="pagination.totalPages > 1" class="mt-8 overflow-x-auto pb-2">
       <div class="flex w-full min-w-max justify-start gap-2 sm:justify-center">
         <button
           v-for="page in pagination.totalPages"
           :key="page"
-          type="button"
-          class="h-11 min-w-11 rounded-full px-4 text-sm font-semibold transition-colors"
-          :class="page === pagination.page ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-surface text-text-secondary hover:bg-muted'"
           @click="changePage(page)"
+          :class="[
+            'h-10 min-w-10 rounded-lg px-3 text-sm font-medium transition-colors',
+            page === pagination.page
+              ? 'bg-primary text-white'
+              : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
+          ]"
         >
           {{ page }}
         </button>

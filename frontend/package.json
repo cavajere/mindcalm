@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite --port 5473",
     "build": "vue-tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@mindcalm/design-tokens": "file:../packages/design-tokens",
@@ -17,13 +20,18 @@
     "vue-router": "^4.5.0"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/vue": "^8.1.0",
     "@vitejs/plugin-vue": "^5.2.0",
+    "@vue/test-utils": "^2.4.6",
     "autoprefixer": "^10.4.0",
+    "jsdom": "^29.0.2",
     "postcss": "^8.4.0",
     "tailwindcss": "^3.4.0",
     "typescript": "^5.7.0",
     "vite": "^6.0.0",
     "vite-plugin-pwa": "^0.21.0",
+    "vitest": "^4.1.4",
     "vue-tsc": "^2.2.0"
   }
 }

@@ -57,14 +57,18 @@
 
   body {
     font-family: 'Manrope', sans-serif;
+    background-color: rgb(var(--color-surface));
+    @apply min-h-screen text-text-primary transition-colors duration-200;
+  }
+
+  .main-background {
     background:
       radial-gradient(circle at top left, rgba(var(--app-accent-a), 0.16), transparent 30%),
       radial-gradient(circle at top right, rgba(var(--app-accent-b), 0.1), transparent 32%),
       linear-gradient(180deg, rgb(var(--app-body-start)) 0%, rgb(var(--app-body-mid)) 34%, rgb(var(--app-body-end)) 100%);
-    @apply min-h-screen text-text-primary transition-colors duration-200;
   }
 
-  html.dark body {
+  html.dark .main-background {
     background:
       radial-gradient(circle at top left, rgba(var(--app-accent-a), 0.2), transparent 32%),
       radial-gradient(circle at top right, rgba(var(--app-accent-b), 0.14), transparent 36%),
@@ -100,6 +104,13 @@
     @apply rounded-full bg-primary px-6 py-3 font-semibold text-white
            shadow-[0_16px_34px_-18px_rgba(74,144,217,0.85)]
            transition-all duration-200 hover:bg-primary-dark
+           active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  
+  .btn-primary-active {
+    @apply rounded-full bg-primary-dark px-6 py-3 font-semibold text-white
+           shadow-[0_16px_34px_-18px_rgba(74,144,217,1)]
+           transition-all duration-200 ring-2 ring-primary/30
            active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
   }
 

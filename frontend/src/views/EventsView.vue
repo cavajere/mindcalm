@@ -2,6 +2,8 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import axios from 'axios'
 import ContentCover from '../components/ContentCover.vue'
+import SearchLoader from '../components/SearchLoader.vue'
+import { useAdvancedSearch, SearchScorer } from '../composables/useAdvancedSearch'
 
 interface EventItem {
   id: string
@@ -21,15 +23,28 @@ interface EventItem {
 }
 
 const events = ref<EventItem[]>([])
+const allEvents = ref<EventItem[]>([])
 const loading = ref(true)
-const search = ref('')
+
+// Advanced search setup
+const {
+  searchQuery,
+  isSearching,
+  showSearchLoader,
+  hasValidQuery,
+  isQueryEmpty
+} = useAdvancedSearch({
+  debounceMs: 400,
+  minQueryLength: 2,
+  onSearch: performSearch,
+  onClear: loadAllEvents
+})
 
 const upcomingEvents = computed(() => {
   const now = new Date()
   return events.value.filter(e => !e.cancelledAt && new Date(e.startsAt) > now)
 })
 const nextEvent = computed(() => upcomingEvents.value[0] ?? null)
-const activeFiltersLabel = computed(() => search.value.trim() ? 'ricerca attiva' : 'Nessun filtro attivo')
 
 function formatEventDate(value: string) {
   return new Date(value).toLocaleDateString('it-IT', {
@@ -46,86 +61,72 @@ function formatCompactEventDate(value: string) {
   })
 }
 
-async function fetchEvents() {
+// Load all events for client-side search
+async function loadAllEvents() {
   loading.value = true
-
+  
   try {
-    const query = new URLSearchParams({ limit: '50' })
-
-    if (search.value.trim()) {
-      query.set('search', search.value.trim())
-    }
-
-    const { data } = await axios.get(`/api/events?${query}`)
+    const { data } = await axios.get('/api/events?limit=1000')
+    allEvents.value = data.data
     events.value = data.data
   } finally {
     loading.value = false
   }
 }
 
-onMounted(fetchEvents)
+// Perform client-side search with relevance scoring
+async function performSearch(query: string) {
+  if (!allEvents.value.length) {
+    await loadAllEvents()
+    return
+  }
+  
+  // Score and sort events by relevance
+  const scoredEvents = allEvents.value
+    .map(event => ({
+      event,
+      score: SearchScorer.scoreItem(event, query, [
+        { key: 'title', weight: 3 },
+        { key: 'excerpt', weight: 2 },
+        { key: 'city', weight: 1.5 },
+        { key: 'venue', weight: 1.5 },
+        { key: 'organizer', weight: 1 }
+      ])
+    }))
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map(({ event }) => event)
+  
+  events.value = scoredEvents
+}
 
-let searchTimeout: number
-watch(search, () => {
-  clearTimeout(searchTimeout)
-  searchTimeout = window.setTimeout(() => {
-    fetchEvents()
-  }, 350)
-})
+onMounted(loadAllEvents)
 </script>
 
 <template>
-  <div class="page-container space-y-8 pb-10">
-    <section class="section-panel relative overflow-hidden">
-      <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(74,144,217,0.16),_transparent_34%),radial-gradient(circle_at_bottom_right,_rgba(80,184,96,0.12),_transparent_26%)]" />
+  <div class="page-container">
+    <h1 class="text-3xl font-bold text-text-primary mb-8">Eventi e incontri</h1>
 
-      <div class="relative grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.85fr)] lg:p-10">
-        <div>
-          <span class="eyebrow">Esplora</span>
-          <h1 class="font-display mt-4 text-4xl font-semibold leading-none text-text-primary sm:text-5xl">
-            Eventi, incontri e appuntamenti aperti.
-          </h1>
-          <p class="mt-4 max-w-3xl text-base leading-8 text-text-secondary sm:text-lg">
-            Consulta gli eventi pubblici di MindCalm e cerca per parole chiave tra titoli, luoghi, organizzatori e descrizioni.
-          </p>
-        </div>
-
-        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-          <div v-if="upcomingEvents.length" class="surface-card-muted p-4">
-            <p class="text-2xl font-semibold text-text-primary">{{ upcomingEvents.length }}</p>
-            <p class="mt-1 text-sm text-text-secondary">Prossimi eventi</p>
-          </div>
-          <div class="surface-card-muted p-4">
-            <template v-if="nextEvent">
-              <p class="text-xs font-medium uppercase tracking-wide text-text-secondary">Prossimo appuntamento</p>
-              <p class="mt-1.5 text-sm font-semibold text-text-primary">{{ formatEventDate(nextEvent.startsAt) }}</p>
-              <p class="mt-0.5 text-sm text-text-secondary line-clamp-1">{{ nextEvent.title }}</p>
-            </template>
-            <template v-else>
-              <p class="text-sm font-semibold text-text-primary">{{ activeFiltersLabel }}</p>
-              <p class="mt-1 text-sm text-text-secondary">stato della ricerca</p>
-            </template>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="card p-5 sm:p-6">
-      <label class="mb-2 block text-sm font-semibold text-text-primary">Cerca negli eventi</label>
+    <!-- Filtri -->
+    <div class="mb-8 space-y-4">
+      <!-- Search -->
       <div class="relative">
-        <svg class="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
         </svg>
         <input
-          v-model="search"
+          v-model="searchQuery"
           type="text"
-          placeholder="Cerca per titolo, citta, luogo o organizzatore..."
-          class="w-full rounded-[22px] border border-ui-border bg-surface/92 py-3 pl-12 pr-4 transition-all"
+          placeholder="Cerca eventi..."
+          class="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
         />
       </div>
-    </section>
+    </div>
 
-    <div v-if="loading" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <!-- Search loader -->
+    <SearchLoader :visible="showSearchLoader" message="Ricerca eventi..." />
+
+    <div v-if="loading && !isSearching" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
       <div v-for="item in 6" :key="item" class="card animate-pulse overflow-hidden">
         <div class="aspect-[4/3] skeleton-block"></div>
         <div class="space-y-3 p-5">
@@ -137,7 +138,7 @@ watch(search, () => {
       </div>
     </div>
 
-    <div v-else-if="events.length" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <div v-else-if="events.length && !isSearching" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
       <router-link
         v-for="eventItem in events"
         :key="eventItem.id"
@@ -187,15 +188,10 @@ watch(search, () => {
       </router-link>
     </div>
 
-    <div v-else class="section-panel p-8 text-center sm:p-10">
-      <div class="mx-auto max-w-2xl">
-        <span class="eyebrow">Nessun risultato</span>
-        <h2 class="mt-5 text-2xl font-semibold text-text-primary sm:text-3xl">Non ci sono eventi che corrispondono alla ricerca.</h2>
-        <p class="mt-4 text-base leading-8 text-text-secondary">
-          Prova con un'altra parola chiave oppure torna piu tardi per vedere i prossimi appuntamenti pubblici.
-        </p>
-        <router-link to="/" class="btn-secondary mt-6 inline-flex">Torna alla home</router-link>
-      </div>
+    <!-- Vuoto -->
+    <div v-else-if="!loading && !isSearching" class="text-center py-16">
+      <p class="text-text-secondary text-lg">Nessun evento trovato</p>
+      <p class="text-text-secondary text-sm mt-2">Prova a cambiare i filtri</p>
     </div>
   </div>
 </template>

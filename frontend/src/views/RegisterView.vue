@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import axios from 'axios'
-import AppStatusMessage from '../components/AppStatusMessage.vue'
+import { useNotificationStore } from '../stores/notificationStore'
 import { getApiErrorMessage, getApiSuccessMessage } from '../utils/apiMessages'
 
 const PHONE_REGEX = /^\\+?[0-9\\s().-]{7,20}$/
@@ -9,11 +9,10 @@ const INVITE_CODE_REGEX = /^[A-NP-Z1-9]{7}$/
 
 const loading = ref(false)
 const validatingCode = ref(false)
-const error = ref('')
-const success = ref('')
 const inviteCodeError = ref('')
 const inviteCodeDetails = ref<{ licenseDurationDays: number } | null>(null)
 const legalLoading = ref(false)
+const notifications = useNotificationStore()
 const legalDocuments = ref<{
   privacy: { versionId: string; title: string; url: string } | null
   terms: { versionId: string; title: string; url: string; requiredForRegistration: boolean } | null
@@ -69,6 +68,7 @@ const isPremium = computed(() => registrationType.value === 'premium')
 
 function isPhoneValid(phone: string) {
   const normalized = phone.trim()
+  if (!normalized) return true // Empty phone is valid (optional)
   const digitsOnly = normalized.replace(/\\D/g, '')
   return PHONE_REGEX.test(normalized) && digitsOnly.length >= 7 && digitsOnly.length <= 15
 }
@@ -159,28 +159,25 @@ async function fetchCommunicationConsentFormulas() {
 }
 
 async function handleSubmit() {
-  error.value = ''
-  success.value = ''
-
   if (form.value.password !== form.value.confirmPassword) {
-    error.value = 'Le password non coincidono'
+    notifications.showError('Le password non coincidono')
     return
   }
 
-  if (!isPhoneValid(form.value.phone)) {
-    error.value = 'Numero di telefono non valido'
+  if (form.value.phone && !isPhoneValid(form.value.phone)) {
+    notifications.showError('Numero di telefono non valido')
     return
   }
 
   if (termsDocument.value?.requiredForRegistration && !form.value.acceptTerms) {
-    error.value = 'Devi accettare i termini e le condizioni per continuare'
+    notifications.showError('Devi accettare i termini e le condizioni per continuare')
     return
   }
 
   if (hasCommunicationConsents.value) {
     const missingChoice = communicationConsentFormulas.value.find((formula) => !form.value.communicationConsents[formula.id])
     if (missingChoice) {
-      error.value = 'Seleziona una preferenza per ogni consenso comunicazione'
+      notifications.showError('Seleziona una preferenza per ogni consenso comunicazione')
       return
     }
   }
@@ -189,7 +186,7 @@ async function handleSubmit() {
   if (isPremium.value) {
     const isCodeValid = await lookupInviteCode()
     if (!isCodeValid) {
-      error.value = inviteCodeError.value || 'Codice invito non valido'
+      notifications.showError(inviteCodeError.value || 'Codice invito non valido')
       return
     }
   }
@@ -219,9 +216,11 @@ async function handleSubmit() {
 
     const { data } = await axios.post(endpoint, payload)
 
-    success.value = getApiSuccessMessage(data, 'Controlla la tua email per completare la registrazione')
+    const successMessage = getApiSuccessMessage(data, 'Controlla la tua email per completare la registrazione')
+    notifications.showSuccess(successMessage)
   } catch (apiError) {
-    error.value = getApiErrorMessage(apiError, 'Registrazione non riuscita')
+    const errorMessage = getApiErrorMessage(apiError, 'Registrazione non riuscita')
+    notifications.showError(errorMessage)
   } finally {
     loading.value = false
   }
@@ -246,13 +245,13 @@ onMounted(() => {
   <div class="min-h-screen flex items-center justify-center bg-background px-4 py-8">
     <div class="w-full max-w-lg">
       <div class="text-center mb-8">
-        <h1 class="text-2xl font-bold text-text-primary">Registrazione</h1>
-        <p class="text-text-secondary text-sm mt-1">Crea il tuo account su MindCalm</p>
+        <h1 class="text-3xl font-semibold text-text-primary mb-2">Inizia il tuo percorso</h1>
+        <p class="text-text-secondary">
+          Registrati per accedere ai contenuti personalizzati e iniziare il tuo viaggio verso il benessere.
+        </p>
       </div>
 
       <form @submit.prevent="handleSubmit" class="card p-6 space-y-6" autocomplete="on">
-        <AppStatusMessage v-if="success" :message="success" variant="success" />
-        <AppStatusMessage v-if="error" :message="error" variant="error" />
 
         <!-- Registration Type Toggle -->
         <div class="space-y-3">
@@ -311,8 +310,8 @@ onMounted(() => {
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-text-primary mb-1">Telefono</label>
-          <input v-model="form.phone" name="phone" type="tel" autocomplete="tel" required class="w-full px-3 py-3 rounded-xl border border-ui-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" placeholder="+39 333 123 4567" />
+          <label class="block text-sm font-medium text-text-primary mb-1">Telefono <span class="text-text-secondary font-normal">(opzionale)</span></label>
+          <input v-model="form.phone" name="phone" type="tel" autocomplete="tel" class="w-full px-3 py-3 rounded-xl border border-ui-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" placeholder="+39 333 123 4567" />
         </div>
 
         <!-- Invite Code Field (only for premium) -->
@@ -377,9 +376,8 @@ onMounted(() => {
 
         <!-- Communication Consents Section -->
         <div v-if="communicationConsentLoading || hasCommunicationConsents || communicationConsentError" class="border-t border-ui-border/50 pt-6">
-          <h3 class="text-sm font-semibold text-text-primary mb-3">Consensi comunicazione</h3>
           <p class="text-sm text-text-secondary mb-4">
-            Indica se desideri ricevere comunicazioni informative e promozionali.
+            Scegli se vuoi ricevere comunicazioni.
           </p>
 
           <p v-if="communicationConsentLoading" class="text-sm text-text-secondary">
@@ -436,11 +434,6 @@ onMounted(() => {
           {{ loading ? 'Registrazione...' : 'Registrati' }}
         </button>
 
-        <div class="text-center text-sm">
-          <router-link to="/login" class="text-primary hover:underline">
-            Hai già un account? Accedi
-          </router-link>
-        </div>
       </form>
     </div>
   </div>

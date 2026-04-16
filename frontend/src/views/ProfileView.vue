@@ -132,18 +132,30 @@ loadNotificationPreferences()
         {{ preferencesSuccess }}
       </div>
 
-      <div class="space-y-2">
-        <label class="inline-flex items-center gap-2">
-          <input v-model="notificationPrefs.notifyOnAudio" type="checkbox" />
-          <span>Aggiornami sui nuovi Audio</span>
+      <div class="space-y-3">
+        <label class="flex items-start gap-3 rounded-2xl border border-ui-border px-4 py-3 cursor-pointer">
+          <input
+            v-model="notificationPrefs.notifyOnAudio"
+            type="checkbox"
+            class="mt-1 h-4 w-4 rounded border-ui-border accent-primary"
+          />
+          <span class="text-sm text-text-primary">Aggiornami sui nuovi Audio</span>
         </label>
-        <label class="inline-flex items-center gap-2">
-          <input v-model="notificationPrefs.notifyOnPosts" type="checkbox" />
-          <span>Aggiornami sui nuovi Post</span>
+        <label class="flex items-start gap-3 rounded-2xl border border-ui-border px-4 py-3 cursor-pointer">
+          <input
+            v-model="notificationPrefs.notifyOnPosts"
+            type="checkbox"
+            class="mt-1 h-4 w-4 rounded border-ui-border accent-primary"
+          />
+          <span class="text-sm text-text-primary">Aggiornami sui nuovi Post</span>
         </label>
-        <label class="inline-flex items-center gap-2">
-          <input v-model="notificationPrefs.notifyOnEvents" type="checkbox" />
-          <span>Aggiornami sui nuovi Eventi</span>
+        <label class="flex items-start gap-3 rounded-2xl border border-ui-border px-4 py-3 cursor-pointer">
+          <input
+            v-model="notificationPrefs.notifyOnEvents"
+            type="checkbox"
+            class="mt-1 h-4 w-4 rounded border-ui-border accent-primary"
+          />
+          <span class="text-sm text-text-primary">Aggiornami sui nuovi Eventi</span>
         </label>
       </div>
 

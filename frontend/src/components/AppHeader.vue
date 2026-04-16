@@ -183,14 +183,18 @@ onBeforeUnmount(() => {
           aria-label="Vai alla home di MindCalm"
         >
           <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-secondary text-white shadow-lg shadow-primary/20">
-            <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-              <path d="M10 2.75l1.54 3.388 3.71.431-2.757 2.526.75 3.681L10 10.924 6.757 12.776l.75-3.681L4.75 6.569l3.71-.431L10 2.75z" />
+            <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="8.5" r="2.5" opacity="0.9"/>
+              <path d="M12 12c-3.5 0-6 1.5-6 3.5v1c0 0.5 0.5 1 1 1h10c0.5 0 1-0.5 1-1v-1c0-2-2.5-3.5-6-3.5z" opacity="0.9"/>
+              <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1" fill="none" opacity="0.4"/>
+              <circle cx="12" cy="12" r="6" stroke="currentColor" stroke-width="1.5" fill="none" opacity="0.5"/>
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="0.8" fill="none" opacity="0.3"/>
             </svg>
           </div>
           <div class="min-w-0">
             <p class="truncate text-base font-semibold text-text-primary">MindCalm</p>
             <p class="truncate text-xs text-text-secondary">
-              {{ isPublicVisitor ? 'Post pubblici, eventi e accesso riservato' : 'La tua area personale' }}
+              {{ isPublicVisitor ? 'Ritrova presenza, calma e continuità' : 'Il tuo percorso di mindfulness' }}
             </p>
           </div>
         </router-link>
@@ -312,11 +316,20 @@ onBeforeUnmount(() => {
           <template v-else>
             <router-link
               to="/login"
-              class="surface-pill inline-flex h-11 items-center rounded-full px-4 text-sm font-medium text-text-primary transition-colors hover:border-primary/25 hover:text-primary"
+              class="surface-pill inline-flex h-11 items-center rounded-full px-4 text-sm font-medium transition-colors"
+              :class="isActivePath('/login') 
+                ? 'border-primary/20 bg-primary/10 text-primary' 
+                : 'text-text-primary hover:border-primary/25 hover:text-primary'"
             >
               Accedi
             </router-link>
-            <router-link to="/register" class="btn-primary h-11 inline-flex items-center">
+            <router-link 
+              to="/register" 
+              class="h-11 inline-flex items-center transition-colors"
+              :class="isActivePath('/register')
+                ? 'btn-primary-active'
+                : 'btn-primary'"
+            >
               Registrati
             </router-link>
           </template>
@@ -385,7 +398,10 @@ onBeforeUnmount(() => {
             <template v-else>
               <router-link
                 to="/login"
-                class="surface-pill inline-flex items-center justify-center rounded-[22px] px-4 py-3 text-sm font-medium text-text-primary transition-colors hover:bg-muted"
+                class="surface-pill inline-flex items-center justify-center rounded-[22px] px-4 py-3 text-sm font-medium transition-colors"
+                :class="isActivePath('/login')
+                  ? 'bg-primary/10 text-primary border-primary/20'
+                  : 'text-text-primary hover:bg-muted'"
               >
                 Accedi
               </router-link>
@@ -411,7 +427,13 @@ onBeforeUnmount(() => {
               <p class="text-sm leading-6 text-text-secondary">
                 Consulta post ed eventi pubblici. Registrati per accedere all'area personale e ai contenuti riservati.
               </p>
-              <router-link to="/register" class="btn-primary mt-4 flex w-full items-center justify-center">
+              <router-link 
+                to="/register" 
+                class="mt-4 flex w-full items-center justify-center transition-colors"
+                :class="isActivePath('/register')
+                  ? 'btn-primary-active'
+                  : 'btn-primary'"
+              >
                 Registrati
               </router-link>
             </div>

@@ -24,14 +24,14 @@ function isActivePath(path: string) {
           class="text-xs text-text-secondary transition-colors hover:text-text-primary"
           :class="{ 'text-text-primary': isActivePath('/termini-e-condizioni') }"
         >
-          Termini e condizioni
+          Termini e Condizioni
         </router-link>
         <router-link
           to="/privacy-policy"
           class="text-xs text-text-secondary transition-colors hover:text-text-primary"
           :class="{ 'text-text-primary': isActivePath('/privacy-policy') }"
         >
-          Privacy policy
+          Informativa Privacy
         </router-link>
       </nav>
     </div>

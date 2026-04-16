@@ -6,17 +6,36 @@ import { useAudioStore } from '../stores/audioStore'
 import AudioCard from '../components/AudioCard.vue'
 import CategoryFilter from '../components/CategoryFilter.vue'
 import TagFilter, { type FilterTag } from '../components/TagFilter.vue'
+import SearchLoader from '../components/SearchLoader.vue'
+import { useAdvancedSearch, SearchScorer } from '../composables/useAdvancedSearch'
 
 const store = useAudioStore()
 const route = useRoute()
 const router = useRouter()
 
-const search = ref('')
+const allAudio = ref<any[]>([])
+const filteredAudio = ref<any[]>([])
 const selectedCategory = ref('')
 const selectedLevel = ref('')
 const selectedDuration = ref('')
 const selectedTags = ref<string[]>([])
 const tags = ref<FilterTag[]>([])
+const loading = ref(false)
+const pagination = ref({ page: 1, limit: 20, total: 0, totalPages: 0 })
+
+// Advanced search setup
+const {
+  searchQuery,
+  isSearching,
+  showSearchLoader,
+  hasValidQuery,
+  isQueryEmpty
+} = useAdvancedSearch({
+  debounceMs: 400,
+  minQueryLength: 2,
+  onSearch: performSearch,
+  onClear: loadAllAudio
+})
 
 const levels = [
   { value: '', label: 'Tutti' },
@@ -32,23 +51,114 @@ const durations = [
   { value: 'long', label: 'Lunga (> 20 min)' },
 ]
 
-function buildParams() {
-  const params: Record<string, string> = {}
-  if (search.value) params.search = search.value
-  if (selectedCategory.value) params.category = selectedCategory.value
-  if (selectedLevel.value) params.level = selectedLevel.value
-  if (selectedDuration.value) params.duration = selectedDuration.value
-  if (selectedTags.value.length) params.tags = selectedTags.value.join(',')
-  return params
+// Load all audio for client-side search and filtering
+async function loadAllAudio() {
+  loading.value = true
+  
+  try {
+    const { data } = await axios.get('/api/audio?limit=1000')
+    allAudio.value = data.data
+    
+    // Apply current filters
+    applyFiltersAndPagination()
+  } finally {
+    loading.value = false
+  }
 }
 
-async function loadAudio() {
-  await store.fetchAudio(buildParams())
+// Perform client-side search with relevance scoring
+async function performSearch(query: string) {
+  if (!allAudio.value.length) {
+    await loadAllAudio()
+    return
+  }
+  
+  // Score and sort audio by relevance
+  const scoredAudio = allAudio.value
+    .map(audio => ({
+      audio,
+      score: SearchScorer.scoreItem(audio, query, [
+        { key: 'title', weight: 3 },
+        { key: 'description', weight: 2 },
+        { key: 'tags', weight: 1, isArray: true }
+      ])
+    }))
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map(({ audio }) => audio)
+  
+  // Apply filters
+  const filtered = applyFilters(scoredAudio)
+  
+  // Update pagination and display
+  updatePaginationAndDisplay(filtered)
+}
+
+// Apply all filters (category, level, duration, tags)
+function applyFilters(audioList: any[]) {
+  let filtered = audioList
+  
+  // Category filter
+  if (selectedCategory.value) {
+    filtered = filtered.filter(audio => audio.category?.id === selectedCategory.value)
+  }
+  
+  // Level filter
+  if (selectedLevel.value) {
+    filtered = filtered.filter(audio => audio.level === selectedLevel.value)
+  }
+  
+  // Duration filter
+  if (selectedDuration.value) {
+    const durationFilter = selectedDuration.value
+    filtered = filtered.filter(audio => {
+      const duration = audio.durationSeconds || 0
+      switch (durationFilter) {
+        case 'short':
+          return duration < 600 // < 10 min
+        case 'medium':
+          return duration >= 600 && duration <= 1200 // 10-20 min
+        case 'long':
+          return duration > 1200 // > 20 min
+        default:
+          return true
+      }
+    })
+  }
+  
+  // Tags filter
+  if (selectedTags.value.length) {
+    filtered = filtered.filter(audio =>
+      selectedTags.value.some(tagId =>
+        audio.tags?.some((tag: any) => tag.id === tagId)
+      )
+    )
+  }
+  
+  return filtered
+}
+
+// Apply filters and pagination to current dataset
+function applyFiltersAndPagination() {
+  const filtered = applyFilters(allAudio.value)
+  updatePaginationAndDisplay(filtered)
+}
+
+// Update pagination and display results
+function updatePaginationAndDisplay(filtered: any[]) {
+  // Update pagination
+  pagination.value.total = filtered.length
+  pagination.value.totalPages = Math.ceil(filtered.length / pagination.value.limit)
+  
+  // Apply pagination
+  const startIndex = (pagination.value.page - 1) * pagination.value.limit
+  const endIndex = startIndex + pagination.value.limit
+  filteredAudio.value = filtered.slice(startIndex, endIndex)
 }
 
 function changePage(page: number) {
-  store.pagination.page = page
-  loadAudio()
+  pagination.value.page = page
+  applyFiltersAndPagination()
 }
 
 onMounted(async () => {
@@ -60,21 +170,16 @@ onMounted(async () => {
   if (route.query.category) {
     selectedCategory.value = route.query.category as string
   }
-  await loadAudio()
+  await loadAllAudio()
 })
 
 watch([selectedCategory, selectedLevel, selectedDuration, selectedTags], () => {
-  store.pagination.page = 1
-  loadAudio()
-})
-
-let searchTimeout: number
-watch(search, () => {
-  clearTimeout(searchTimeout)
-  searchTimeout = window.setTimeout(() => {
-    store.pagination.page = 1
-    loadAudio()
-  }, 400)
+  pagination.value.page = 1
+  if (hasValidQuery.value) {
+    performSearch(searchQuery.value.trim())
+  } else {
+    applyFiltersAndPagination()
+  }
 })
 </script>
 
@@ -90,7 +195,7 @@ watch(search, () => {
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
         </svg>
         <input
-          v-model="search"
+          v-model="searchQuery"
           type="text"
           placeholder="Cerca audio..."
           class="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
@@ -139,8 +244,11 @@ watch(search, () => {
       />
     </div>
 
+    <!-- Search loader -->
+    <SearchLoader :visible="showSearchLoader" message="Ricerca audio..." />
+
     <!-- Loading -->
-    <div v-if="store.loading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div v-if="loading && !isSearching" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
       <div v-for="i in 6" :key="i" class="card p-4 animate-pulse">
         <div class="aspect-video bg-gray-200 rounded-xl mb-4"></div>
         <div class="h-4 bg-gray-200 rounded mb-2 w-3/4"></div>
@@ -149,26 +257,26 @@ watch(search, () => {
     </div>
 
     <!-- Risultati -->
-    <div v-else-if="store.audioItems.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-      <AudioCard v-for="audio in store.audioItems" :key="audio.id" :audio="audio" />
+    <div v-else-if="filteredAudio.length && !isSearching" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <AudioCard v-for="audio in filteredAudio" :key="audio.id" :audio="audio" />
     </div>
 
     <!-- Vuoto -->
-    <div v-else class="text-center py-16">
+    <div v-else-if="!loading && !isSearching" class="text-center py-16">
       <p class="text-text-secondary text-lg">Nessun audio trovato</p>
       <p class="text-text-secondary text-sm mt-2">Prova a cambiare i filtri</p>
     </div>
 
     <!-- Paginazione -->
-    <div v-if="store.pagination.totalPages > 1" class="mt-8 overflow-x-auto pb-2">
+    <div v-if="pagination.totalPages > 1" class="mt-8 overflow-x-auto pb-2">
       <div class="flex w-full min-w-max justify-start gap-2 sm:justify-center">
         <button
-          v-for="page in store.pagination.totalPages"
+          v-for="page in pagination.totalPages"
           :key="page"
           @click="changePage(page)"
           :class="[
             'h-10 min-w-10 rounded-lg px-3 text-sm font-medium transition-colors',
-            page === store.pagination.page
+            page === pagination.page
               ? 'bg-primary text-white'
               : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
           ]"
