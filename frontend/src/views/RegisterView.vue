@@ -257,16 +257,16 @@ onMounted(() => {
         <!-- Registration Type Toggle -->
         <div class="space-y-3">
           <label class="block text-sm font-medium text-text-primary">Tipo di registrazione</label>
-          <div class="flex bg-gray-100 rounded-xl p-1">
+          <div class="flex bg-muted rounded-xl p-1">
             <button
               type="button"
               class="flex-1 px-4 py-3 text-sm font-medium rounded-lg transition-all"
-              :class="!isPremium ? 'bg-white text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'"
+              :class="!isPremium ? 'bg-surface text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'"
               @click="registrationType = 'free'"
             >
               <div class="flex items-center justify-center gap-2">
                 <span>Gratuita</span>
-                <span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-[10px] font-medium text-gray-600">
+                <span class="inline-flex items-center rounded-full bg-muted px-2 py-1 text-[10px] font-medium text-text-secondary">
                   Free
                 </span>
               </div>
@@ -274,7 +274,7 @@ onMounted(() => {
             <button
               type="button"
               class="flex-1 px-4 py-3 text-sm font-medium rounded-lg transition-all"
-              :class="isPremium ? 'bg-white text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'"
+              :class="isPremium ? 'bg-surface text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'"
               @click="registrationType = 'premium'"
             >
               <div class="flex items-center justify-center gap-2">
@@ -296,23 +296,23 @@ onMounted(() => {
         <div class="grid gap-4 md:grid-cols-2">
           <div>
             <label class="block text-sm font-medium text-text-primary mb-1">Nome</label>
-            <input v-model="form.firstName" name="firstName" type="text" autocomplete="given-name" required class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" placeholder="Mario" />
+            <input v-model="form.firstName" name="firstName" type="text" autocomplete="given-name" required class="w-full px-3 py-3 rounded-xl border border-ui-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" placeholder="Mario" />
           </div>
 
           <div>
             <label class="block text-sm font-medium text-text-primary mb-1">Cognome</label>
-            <input v-model="form.lastName" name="lastName" type="text" autocomplete="family-name" required class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" placeholder="Rossi" />
+            <input v-model="form.lastName" name="lastName" type="text" autocomplete="family-name" required class="w-full px-3 py-3 rounded-xl border border-ui-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" placeholder="Rossi" />
           </div>
         </div>
 
         <div>
           <label class="block text-sm font-medium text-text-primary mb-1">Email</label>
-          <input v-model="form.email" name="email" type="email" autocomplete="email" required class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" placeholder="utente@example.com" />
+          <input v-model="form.email" name="email" type="email" autocomplete="email" required class="w-full px-3 py-3 rounded-xl border border-ui-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" placeholder="utente@example.com" />
         </div>
 
         <div>
           <label class="block text-sm font-medium text-text-primary mb-1">Telefono</label>
-          <input v-model="form.phone" name="phone" type="tel" autocomplete="tel" required class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" placeholder="+39 333 123 4567" />
+          <input v-model="form.phone" name="phone" type="tel" autocomplete="tel" required class="w-full px-3 py-3 rounded-xl border border-ui-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" placeholder="+39 333 123 4567" />
         </div>
 
         <!-- Invite Code Field (only for premium) -->
@@ -326,37 +326,38 @@ onMounted(() => {
             autocomplete="off"
             required
             maxlength="7"
-            class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface font-mono tracking-[0.35em] uppercase focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+            class="w-full px-3 py-3 rounded-xl border border-ui-border bg-surface font-mono tracking-[0.35em] uppercase focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             placeholder="G6K39C2"
             @input="onCodeInput"
             @blur="lookupInviteCode"
           />
           <p v-if="validatingCode" class="text-xs text-text-secondary mt-1">Verifica codice...</p>
-          <p v-else-if="inviteCodeDetails" class="text-xs text-green-700 mt-1">
+          <p v-else-if="inviteCodeDetails" class="text-xs text-green-600 dark:text-green-400 mt-1">
             Codice valido. Licenza: {{ formatDuration(inviteCodeDetails.licenseDurationDays) }} dall'attivazione.
           </p>
-          <p v-else-if="inviteCodeError" class="text-xs text-red-600 mt-1">{{ inviteCodeError }}</p>
+          <p v-else-if="inviteCodeError" class="text-xs text-red-600 dark:text-red-400 mt-1">{{ inviteCodeError }}</p>
         </div>
 
         <div class="grid gap-4 md:grid-cols-2">
           <div>
             <label class="block text-sm font-medium text-text-primary mb-1">Password</label>
-            <input v-model="form.password" name="password" type="password" minlength="8" autocomplete="new-password" required class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" placeholder="Minimo 8 caratteri" />
+            <input v-model="form.password" name="password" type="password" minlength="8" autocomplete="new-password" required class="w-full px-3 py-3 rounded-xl border border-ui-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" placeholder="Minimo 8 caratteri" />
           </div>
 
           <div>
             <label class="block text-sm font-medium text-text-primary mb-1">Conferma password</label>
-            <input v-model="form.confirmPassword" name="confirmPassword" type="password" minlength="8" autocomplete="new-password" required class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" placeholder="Ripeti la password" />
+            <input v-model="form.confirmPassword" name="confirmPassword" type="password" minlength="8" autocomplete="new-password" required class="w-full px-3 py-3 rounded-xl border border-ui-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" placeholder="Ripeti la password" />
           </div>
         </div>
 
-        <div class="rounded-2xl border border-gray-200 bg-slate-50 px-4 py-4">
-          <p class="text-sm font-medium text-text-primary">Documenti legali</p>
-          <p class="mt-1 text-sm text-text-secondary">
+        <!-- Legal Documents Section -->
+        <div class="border-t border-ui-border/50 pt-6">
+          <h3 class="text-sm font-semibold text-text-primary mb-3">Documenti legali</h3>
+          <p class="text-sm text-text-secondary mb-4">
             Consulta sempre i documenti aggiornati prima di completare la registrazione.
           </p>
 
-          <div class="mt-3 flex flex-wrap gap-3 text-sm">
+          <div class="flex flex-wrap gap-3 text-sm mb-4">
             <a v-if="privacyDocument" :href="privacyDocument.url" target="_blank" rel="noreferrer" class="text-primary hover:underline">
               {{ privacyDocument.title }}
             </a>
@@ -366,64 +367,65 @@ onMounted(() => {
             <span v-if="legalLoading" class="text-text-secondary">Caricamento documenti...</span>
           </div>
 
-          <label v-if="termsDocument" class="mt-4 flex items-start gap-3 text-sm text-text-primary">
-            <input v-model="form.acceptTerms" type="checkbox" class="mt-1 h-4 w-4 rounded border-gray-300" />
+          <label v-if="termsDocument" class="flex items-start gap-3 text-sm text-text-primary">
+            <input v-model="form.acceptTerms" type="checkbox" class="mt-1 h-4 w-4 rounded border-ui-border" />
             <span>
               Accetto i termini e le condizioni pubblicati.
             </span>
           </label>
         </div>
 
-        <div v-if="communicationConsentLoading || hasCommunicationConsents || communicationConsentError" class="rounded-2xl border border-gray-200 bg-slate-50 px-4 py-4">
-          <p class="text-sm font-medium text-text-primary">Consensi comunicazione</p>
-          <p class="mt-1 text-sm text-text-secondary">
+        <!-- Communication Consents Section -->
+        <div v-if="communicationConsentLoading || hasCommunicationConsents || communicationConsentError" class="border-t border-ui-border/50 pt-6">
+          <h3 class="text-sm font-semibold text-text-primary mb-3">Consensi comunicazione</h3>
+          <p class="text-sm text-text-secondary mb-4">
             Indica se desideri ricevere comunicazioni informative e promozionali.
           </p>
 
-          <p v-if="communicationConsentLoading" class="mt-3 text-sm text-text-secondary">
+          <p v-if="communicationConsentLoading" class="text-sm text-text-secondary">
             Caricamento consensi...
           </p>
-          <p v-else-if="communicationConsentError" class="mt-3 text-sm text-red-600">
+          <p v-else-if="communicationConsentError" class="text-sm text-red-600 dark:text-red-400">
             {{ communicationConsentError }}
           </p>
 
-          <div v-else class="mt-4 space-y-4">
+          <div v-else class="space-y-6">
             <div
               v-for="formula in communicationConsentFormulas"
               :key="formula.id"
-              class="rounded-2xl border border-gray-200 bg-white px-4 py-4"
+              class="pb-4 border-b border-ui-border/30 last:border-b-0 last:pb-0"
             >
-              <div class="flex items-start justify-between gap-4">
+              <div class="flex items-start justify-between gap-4 mb-4">
                 <div>
-                  <p class="text-sm font-medium text-text-primary">{{ formula.title }}</p>
+                  <h4 class="text-sm font-medium text-text-primary">{{ formula.title }}</h4>
                   <p v-if="formula.text" class="mt-1 text-sm text-text-secondary">{{ formula.text }}</p>
                 </div>
-                <span v-if="formula.required" class="rounded-full bg-amber-100 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-800">
+                <span v-if="formula.required" class="rounded-full bg-amber-100 dark:bg-amber-900 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-200 whitespace-nowrap">
                   Obbligatorio
                 </span>
               </div>
 
-              <div class="mt-4 grid gap-3 md:grid-cols-2">
-                <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 px-3 py-3 text-sm text-text-primary">
+              <div class="grid gap-3 sm:grid-cols-2">
+                <label class="flex items-center gap-3 text-sm text-text-primary cursor-pointer">
                   <input
                     v-model="form.communicationConsents[formula.id]"
                     :name="`communication-consent-${formula.id}`"
                     type="radio"
                     value="YES"
-                    class="mt-1 h-4 w-4 border-gray-300"
+                    class="h-4 w-4 border-ui-border text-primary focus:ring-primary"
                   />
-                  <span>Acconsento a ricevere queste comunicazioni</span>
+                  <span>Sì, acconsento</span>
                 </label>
 
-                <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 px-3 py-3 text-sm text-text-primary">
+                <label class="flex items-center gap-3 text-sm text-text-primary cursor-pointer">
                   <input
                     v-model="form.communicationConsents[formula.id]"
                     :name="`communication-consent-${formula.id}`"
                     type="radio"
                     value="NO"
-                    class="mt-1 h-4 w-4 border-gray-300"
+                    class="h-4 w-4 border-ui-border text-primary focus:ring-primary"
                   />
-                  <span>Non acconsento</span>
+                  <span>No, grazie</span>
                 </label>
               </div>
             </div>

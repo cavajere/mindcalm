@@ -442,8 +442,8 @@ onMounted(async () => {
           </div>
 
           <div class="flex flex-wrap gap-3">
-            <router-link to="/login" class="btn-secondary">Accedi</router-link>
-            <router-link to="/register" class="btn-primary">Hai un invito?</router-link>
+            <router-link to="/register" class="btn-secondary">Registrati</router-link>
+            <router-link to="/login" class="btn-primary">Accedi</router-link>
           </div>
         </div>
       </section>
