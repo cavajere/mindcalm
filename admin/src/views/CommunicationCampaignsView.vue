@@ -13,16 +13,11 @@ import { getPublicAppUrl } from '../utils/appUrls'
 type MatchMode = 'ALL' | 'ANY'
 type CampaignStatus = 'DRAFT' | 'SENT' | 'CANCELLED'
 
-type FormulaTranslation = {
-  lang: string
-  title: string
-}
-
 type AudienceFormulaVersion = {
   id: string
   versionNumber: number
   status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
-  translations: FormulaTranslation[]
+  title?: string | null
 }
 
 type AudienceFormula = {
@@ -173,15 +168,11 @@ function formatDateTime(value: string | null) {
 
 function getFormulaTitle(formula: AudienceFormula) {
   const currentVersion = formula.versions.find((version) => version.id === formula.currentVersionId) ?? formula.versions[0]
-  return currentVersion?.translations.find((translation) => translation.lang === 'it')?.title
-    || currentVersion?.translations[0]?.title
-    || formula.code
+  return currentVersion?.title || formula.code
 }
 
 function getVersionTitle(version: AudienceFormulaVersion) {
-  return version.translations.find((translation) => translation.lang === 'it')?.title
-    || version.translations[0]?.title
-    || `Versione ${version.versionNumber}`
+  return version.title || `Versione ${version.versionNumber}`
 }
 
 function getHistoryStatusBadge(status: CampaignStatus) {

@@ -10,11 +10,8 @@ type ConsentPreference = {
   value: 'YES' | 'NO'
   consentFormulaId: string
   consentFormulaVersion: {
-    translations: Array<{
-      lang: string
-      title: string
-      text: string
-    }>
+    title?: string | null
+    text?: string | null
   }
 }
 
@@ -36,15 +33,11 @@ const preferences = ref<Array<{
 const revokeAll = ref(false)
 
 function getPreferenceTitle(consent: ConsentPreference) {
-  return consent.consentFormulaVersion.translations.find((entry) => entry.lang === 'it')?.title
-    || consent.consentFormulaVersion.translations[0]?.title
-    || 'Comunicazione'
+  return consent.consentFormulaVersion.title || 'Comunicazione'
 }
 
 function getPreferenceText(consent: ConsentPreference) {
-  return consent.consentFormulaVersion.translations.find((entry) => entry.lang === 'it')?.text
-    || consent.consentFormulaVersion.translations[0]?.text
-    || 'Gestisci la ricezione di questa comunicazione.'
+  return consent.consentFormulaVersion.text || 'Gestisci la ricezione di questa comunicazione.'
 }
 
 async function fetchPreferences() {

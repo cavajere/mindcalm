@@ -1,4 +1,13 @@
-import { InviteCodeStatus, PendingRegistrationStatus, Prisma, UserRole } from '@prisma/client'
+import {
+  ConsentRecordStatus,
+  ConsentSource,
+  ConsentValue,
+  ContactStatus,
+  InviteCodeStatus,
+  PendingRegistrationStatus,
+  Prisma,
+  UserRole,
+} from '@prisma/client'
 import { prisma } from '../lib/prisma'
 import { config } from '../config'
 import { hashPassword } from './authService'
@@ -29,6 +38,32 @@ function getVerificationExpiresAt() {
   return new Date(Date.now() + config.registration.verificationExpiresInHours * 60 * 60 * 1000)
 }
 
+type PendingCommunicationConsent = {
+  formulaId: string
+  formulaVersionId: string
+  value: ConsentValue
+}
+
+function parsePendingCommunicationConsents(value: Prisma.JsonValue | null | undefined): PendingCommunicationConsent[] {
+  if (!Array.isArray(value)) return []
+
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return []
+
+    const formulaId = typeof entry.formulaId === 'string' ? entry.formulaId : null
+    const formulaVersionId = typeof entry.formulaVersionId === 'string' ? entry.formulaVersionId : null
+    const consentValue = entry.value === ConsentValue.YES || entry.value === ConsentValue.NO ? entry.value : null
+
+    if (!formulaId || !formulaVersionId || !consentValue) return []
+
+    return [{
+      formulaId,
+      formulaVersionId,
+      value: consentValue,
+    }]
+  })
+}
+
 const verificationDetailsSelect = {
   id: true,
   email: true,
@@ -54,6 +89,10 @@ export async function startInviteCodeRegistration(input: {
   verificationBaseUrl: string
   acceptTerms: boolean
   termsVersionId?: string
+  consents?: Array<{
+    formulaId: string
+    value: ConsentValue
+  }>
 }) {
   const email = normalizeEmail(input.email)
   const firstName = normalizeNamePart(input.firstName)
@@ -64,6 +103,23 @@ export async function startInviteCodeRegistration(input: {
     where: { status: 'PUBLISHED' },
     select: {
       currentVersionId: true,
+    },
+  })
+  const publishedCommunicationPolicy = await prisma.subscriptionPolicy.findFirst({
+    where: {
+      status: 'PUBLISHED',
+      subscribeEnabled: true,
+    },
+    select: {
+      currentVersionId: true,
+      consentFormulas: {
+        where: { status: 'ACTIVE' },
+        select: {
+          id: true,
+          required: true,
+          currentVersionId: true,
+        },
+      },
     },
   })
   const existingUser = await prisma.user.findUnique({ where: { email } })
@@ -80,6 +136,29 @@ export async function startInviteCodeRegistration(input: {
 
   if (existingUser) {
     throw new Error('Esiste già un account con questa email')
+  }
+
+  const requestedConsents = new Map((input.consents ?? []).map((entry) => [entry.formulaId, entry.value]))
+  const communicationConsents = publishedCommunicationPolicy?.currentVersionId
+    ? publishedCommunicationPolicy.consentFormulas.map((formula) => {
+        const value = requestedConsents.get(formula.id)
+        if (!value || !formula.currentVersionId) {
+          throw new Error('CONSENT_PAYLOAD_INCOMPLETE')
+        }
+        if (formula.required && value !== ConsentValue.YES) {
+          throw new Error('REQUIRED_CONSENT_REJECTED')
+        }
+
+        return {
+          formulaId: formula.id,
+          formulaVersionId: formula.currentVersionId,
+          value,
+        }
+      })
+    : []
+
+  if ((input.consents?.length ?? 0) !== communicationConsents.length && publishedCommunicationPolicy?.consentFormulas.length) {
+    throw new Error('CONSENT_PAYLOAD_INCOMPLETE')
   }
 
   const token = generateRandomToken()
@@ -103,6 +182,8 @@ export async function startInviteCodeRegistration(input: {
         inviteCodeId: inviteCode.id,
         termsPolicyVersionId: publishedTermsPolicy?.currentVersionId ?? null,
         termsAcceptedAt: publishedTermsPolicy?.currentVersionId ? new Date() : null,
+        communicationPolicyVersionId: publishedCommunicationPolicy?.currentVersionId ?? null,
+        communicationConsents: communicationConsents as Prisma.InputJsonValue,
         email,
         passwordHash,
         firstName,
@@ -273,6 +354,42 @@ export async function completeInviteCodeRegistration(token: string) {
           acceptedAt: registration.termsAcceptedAt ?? now,
           source: 'SELF_SERVICE',
         },
+      })
+    }
+
+    const communicationConsents = parsePendingCommunicationConsents(registration.communicationConsents)
+
+    if (registration.communicationPolicyVersionId && communicationConsents.length) {
+      const contact = await tx.contact.upsert({
+        where: { email: registration.email },
+        update: { status: ContactStatus.ACTIVE, suppressedAt: null, suppressionReason: null },
+        create: { email: registration.email, status: ContactStatus.ACTIVE },
+      })
+
+      await tx.consent.updateMany({
+        where: {
+          contactId: contact.id,
+          consentFormulaId: {
+            in: communicationConsents.map((consent) => consent.formulaId),
+          },
+          invalidatedAt: null,
+        },
+        data: {
+          invalidatedAt: now,
+          invalidationReason: 'replaced_by_registration_completion',
+        },
+      })
+
+      await tx.consent.createMany({
+        data: communicationConsents.map((consent) => ({
+          contactId: contact.id,
+          consentFormulaId: consent.formulaId,
+          consentFormulaVersionId: consent.formulaVersionId,
+          policyVersionId: registration.communicationPolicyVersionId!,
+          value: consent.value,
+          status: ConsentRecordStatus.CONFIRMED,
+          source: ConsentSource.SUBSCRIBE,
+        })),
       })
     }
 

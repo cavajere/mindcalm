@@ -18,6 +18,15 @@ const legalDocuments = ref<{
   privacy: { versionId: string; title: string; url: string } | null
   terms: { versionId: string; title: string; url: string; requiredForRegistration: boolean } | null
 } | null>(null)
+const communicationConsentLoading = ref(false)
+const communicationConsentError = ref('')
+const communicationConsentFormulas = ref<Array<{
+  id: string
+  code: string
+  required: boolean
+  title: string
+  text: string
+}>>([])
 
 const form = ref({
   firstName: '',
@@ -28,6 +37,7 @@ const form = ref({
   confirmPassword: '',
   code: '',
   acceptTerms: false,
+  communicationConsents: {} as Record<string, 'YES' | 'NO' | null>,
 })
 
 function normalizeInviteCode(code: string) {
@@ -51,6 +61,7 @@ function formatDuration(days: number) {
 const normalizedCode = computed(() => normalizeInviteCode(form.value.code))
 const privacyDocument = computed(() => legalDocuments.value?.privacy ?? null)
 const termsDocument = computed(() => legalDocuments.value?.terms ?? null)
+const hasCommunicationConsents = computed(() => communicationConsentFormulas.value.length > 0)
 
 function isPhoneValid(phone: string) {
   const normalized = phone.trim()
@@ -102,12 +113,44 @@ async function fetchLegalDocuments() {
   legalLoading.value = true
 
   try {
-    const { data } = await axios.get('/public-api/legal-documents?lang=it')
+    const { data } = await axios.get('/public-api/legal-documents')
     legalDocuments.value = data
   } catch {
     legalDocuments.value = null
   } finally {
     legalLoading.value = false
+  }
+}
+
+async function fetchCommunicationConsentFormulas() {
+  communicationConsentLoading.value = true
+  communicationConsentError.value = ''
+
+  try {
+    const { data } = await axios.get('/public-api/consent-formulas')
+    const formulas = Array.isArray(data?.consentFormulas) ? data.consentFormulas : []
+
+    communicationConsentFormulas.value = formulas.map((formula: any) => {
+      return {
+        id: String(formula.id),
+        code: String(formula.code || ''),
+        required: Boolean(formula.required),
+        title: String(formula.currentVersion?.title || formula.code || 'Consenso comunicazione'),
+        text: String(formula.currentVersion?.text || ''),
+      }
+    })
+
+    form.value.communicationConsents = communicationConsentFormulas.value.reduce<Record<string, 'YES' | 'NO' | null>>((acc, formula) => {
+      acc[formula.id] = form.value.communicationConsents[formula.id] ?? null
+      return acc
+    }, {})
+  } catch (apiError) {
+    communicationConsentFormulas.value = []
+    communicationConsentError.value = axios.isAxiosError(apiError) && apiError.response?.status === 404
+      ? ''
+      : 'Consensi comunicazione non disponibili al momento'
+  } finally {
+    communicationConsentLoading.value = false
   }
 }
 
@@ -130,6 +173,14 @@ async function handleSubmit() {
     return
   }
 
+  if (hasCommunicationConsents.value) {
+    const missingChoice = communicationConsentFormulas.value.find((formula) => !form.value.communicationConsents[formula.id])
+    if (missingChoice) {
+      error.value = 'Seleziona una preferenza per ogni consenso comunicazione'
+      return
+    }
+  }
+
   const isCodeValid = await lookupInviteCode()
   if (!isCodeValid) {
     error.value = inviteCodeError.value || 'Codice invito non valido'
@@ -148,6 +199,10 @@ async function handleSubmit() {
       password: form.value.password,
       acceptTerms: form.value.acceptTerms,
       termsVersionId: termsDocument.value?.versionId,
+      consents: communicationConsentFormulas.value.map((formula) => ({
+        formulaId: formula.id,
+        value: form.value.communicationConsents[formula.id],
+      })),
     })
 
     success.value = getApiSuccessMessage(data, 'Controlla la tua email per completare la registrazione')
@@ -160,6 +215,7 @@ async function handleSubmit() {
 
 onMounted(() => {
   fetchLegalDocuments()
+  fetchCommunicationConsentFormulas()
 })
 </script>
 
@@ -255,7 +311,63 @@ onMounted(() => {
           </label>
         </div>
 
-        <button type="submit" :disabled="loading || validatingCode" class="btn-primary w-full">
+        <div v-if="communicationConsentLoading || hasCommunicationConsents || communicationConsentError" class="rounded-2xl border border-gray-200 bg-slate-50 px-4 py-4">
+          <p class="text-sm font-medium text-text-primary">Consensi comunicazione</p>
+          <p class="mt-1 text-sm text-text-secondary">
+            Indica se desideri ricevere comunicazioni informative e promozionali.
+          </p>
+
+          <p v-if="communicationConsentLoading" class="mt-3 text-sm text-text-secondary">
+            Caricamento consensi...
+          </p>
+          <p v-else-if="communicationConsentError" class="mt-3 text-sm text-red-600">
+            {{ communicationConsentError }}
+          </p>
+
+          <div v-else class="mt-4 space-y-4">
+            <div
+              v-for="formula in communicationConsentFormulas"
+              :key="formula.id"
+              class="rounded-2xl border border-gray-200 bg-white px-4 py-4"
+            >
+              <div class="flex items-start justify-between gap-4">
+                <div>
+                  <p class="text-sm font-medium text-text-primary">{{ formula.title }}</p>
+                  <p v-if="formula.text" class="mt-1 text-sm text-text-secondary">{{ formula.text }}</p>
+                </div>
+                <span v-if="formula.required" class="rounded-full bg-amber-100 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-800">
+                  Obbligatorio
+                </span>
+              </div>
+
+              <div class="mt-4 grid gap-3 md:grid-cols-2">
+                <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 px-3 py-3 text-sm text-text-primary">
+                  <input
+                    v-model="form.communicationConsents[formula.id]"
+                    :name="`communication-consent-${formula.id}`"
+                    type="radio"
+                    value="YES"
+                    class="mt-1 h-4 w-4 border-gray-300"
+                  />
+                  <span>Acconsento a ricevere queste comunicazioni</span>
+                </label>
+
+                <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 px-3 py-3 text-sm text-text-primary">
+                  <input
+                    v-model="form.communicationConsents[formula.id]"
+                    :name="`communication-consent-${formula.id}`"
+                    type="radio"
+                    value="NO"
+                    class="mt-1 h-4 w-4 border-gray-300"
+                  />
+                  <span>Non acconsento</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" :disabled="loading || validatingCode || communicationConsentLoading" class="btn-primary w-full">
           {{ loading ? 'Registrazione...' : 'Registrati' }}
         </button>
 

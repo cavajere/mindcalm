@@ -6,8 +6,8 @@ import { adminAuthMiddleware, requireAdmin } from '../../middleware/auth'
 import {
   campaignSendValidation,
   consentFormulaCreateValidation,
-  subscriptionTranslationValidation,
-  formulaTranslationValidation,
+  subscriptionContentValidation,
+  formulaContentValidation,
 } from '../../utils/validators'
 import { getSingleString } from '../../utils/request'
 import {
@@ -20,8 +20,8 @@ import {
   publishPolicyVersion,
   sendCampaign,
   updateConsentFormula,
-  upsertFormulaTranslations,
-  upsertPolicyTranslations,
+  upsertFormulaContent,
+  upsertPolicyContent,
 } from '../../services/subscriptionService'
 import { getAuditActorFromRequest, logAuditEventSafe } from '../../services/auditLogService'
 
@@ -41,27 +41,32 @@ router.post('/:id/versions', async (req: Request, res: Response) => {
   res.status(201).json(version)
 })
 
-router.put('/:id/versions/:versionId/translations', subscriptionTranslationValidation, async (req: Request, res: Response) => {
+router.put('/:id/versions/:versionId/content', subscriptionContentValidation, async (req: Request, res: Response) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) return res.status(400).json({ error: 'Payload non valido', details: errors.array() })
 
   const versionId = getSingleString(req.params.versionId)
   if (!versionId) return res.status(400).json({ error: 'versionId non valido' })
 
-  const translations = Array.isArray(req.body.translations) ? req.body.translations : []
-  const result = await upsertPolicyTranslations(versionId, translations)
+  const result = await upsertPolicyContent(versionId, {
+    title: typeof req.body.title === 'string' ? req.body.title : undefined,
+    html: String(req.body.html ?? ''),
+    buttonLabel: typeof req.body.buttonLabel === 'string' ? req.body.buttonLabel : undefined,
+  })
   res.json(result)
 })
 
-router.put('/formulas/:formulaVersionId/translations', formulaTranslationValidation, async (req: Request, res: Response) => {
+router.put('/formulas/:formulaVersionId/content', formulaContentValidation, async (req: Request, res: Response) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) return res.status(400).json({ error: 'Payload non valido', details: errors.array() })
 
   const formulaVersionId = getSingleString(req.params.formulaVersionId)
   if (!formulaVersionId) return res.status(400).json({ error: 'formulaVersionId non valido' })
 
-  const translations = Array.isArray(req.body.translations) ? req.body.translations : []
-  const result = await upsertFormulaTranslations(formulaVersionId, translations)
+  const result = await upsertFormulaContent(formulaVersionId, {
+    title: String(req.body.title ?? ''),
+    text: String(req.body.text ?? ''),
+  })
   res.json(result)
 })
 

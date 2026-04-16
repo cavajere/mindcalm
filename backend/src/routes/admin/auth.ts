@@ -2,6 +2,7 @@ import { Request, Response } from 'express'
 import { createAsyncRouter } from '../../utils/asyncRouter'
 import { validationResult } from 'express-validator'
 import { AuditAction, AuditEntityType, AuditOutcome, UserRole } from '@prisma/client'
+import { ConsentValue } from '@prisma/client'
 import {
   acceptInviteValidation,
   bootstrapAdminSetupValidation,
@@ -703,6 +704,12 @@ router.post('/register-with-invite-code', registrationRateLimiter, registerWithI
   const password = getSingleString(req.body.password)
   const acceptTerms = getBoolean(req.body.acceptTerms) ?? false
   const termsVersionId = getSingleString(req.body.termsVersionId)
+  const consents = Array.isArray(req.body.consents)
+    ? req.body.consents.map((entry: any) => ({
+        formulaId: String(entry.formulaId),
+        value: entry.value === 'YES' ? ConsentValue.YES : ConsentValue.NO,
+      }))
+    : []
   let verificationBaseUrl: string
 
   try {
@@ -723,6 +730,7 @@ router.post('/register-with-invite-code', registrationRateLimiter, registerWithI
       verificationBaseUrl,
       acceptTerms,
       termsVersionId: termsVersionId || undefined,
+      consents,
     })
 
     await logAuditEventSafe({
@@ -756,6 +764,10 @@ router.post('/register-with-invite-code', registrationRateLimiter, registerWithI
       ? 'Devi accettare i termini e le condizioni per continuare'
       : errorMessage === 'TERMS_VERSION_OUTDATED'
         ? 'I termini e le condizioni sono stati aggiornati. Aprili di nuovo e conferma l’accettazione.'
+        : errorMessage === 'CONSENT_PAYLOAD_INCOMPLETE'
+          ? 'Completa la scelta dei consensi comunicazione per continuare'
+          : errorMessage === 'REQUIRED_CONSENT_REJECTED'
+            ? 'È necessario accettare i consensi obbligatori per continuare'
         : errorMessage
 
     await logAuditEventSafe({

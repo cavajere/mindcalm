@@ -20,14 +20,14 @@ const pageConfig = computed(() => props.documentType === 'privacy'
   ? {
       title: 'Privacy policy',
       eyebrow: 'Documento legale',
-      fallbackUrl: '/public-api/privacy?lang=it',
+      fallbackUrl: '/public-api/privacy',
       emptyTitle: 'Privacy policy non disponibile',
       emptyBody: 'La privacy policy pubblicata non e al momento disponibile. Riprova piu tardi.',
     }
   : {
       title: 'Termini e condizioni',
       eyebrow: 'Documento legale',
-      fallbackUrl: '/public-api/terms?lang=it',
+      fallbackUrl: '/public-api/terms',
       emptyTitle: 'Termini e condizioni non disponibili',
       emptyBody: 'I termini e condizioni pubblicati non sono al momento disponibili. Riprova piu tardi.',
     },
@@ -55,7 +55,7 @@ async function loadDocument() {
   loading.value = true
 
   try {
-    const { data } = await axios.get<LegalDocumentsResponse>('/public-api/legal-documents?lang=it')
+    const { data } = await axios.get<LegalDocumentsResponse>('/public-api/legal-documents')
     documentData.value = data
     documentHtml.value = ''
 

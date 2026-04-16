@@ -47,10 +47,7 @@ type ContactDetail = {
     invalidationReason: string | null
     consentFormulaVersion: {
       versionNumber: number
-      translations: Array<{
-        lang: string
-        title: string
-      }>
+      title?: string | null
     }
   }>
 }
@@ -352,8 +349,7 @@ onMounted(fetchDetail)
               <div>
                 <p class="text-sm font-semibold text-text-primary">
                   {{
-                    row.consentFormulaVersion.translations.find((translation) => translation.lang === 'it')?.title
-                    || row.consentFormulaVersion.translations[0]?.title
+                    row.consentFormulaVersion.title
                     || 'Formula'
                   }}
                 </p>

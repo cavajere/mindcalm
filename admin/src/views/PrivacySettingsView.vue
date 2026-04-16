@@ -8,25 +8,14 @@ import { useConfirm } from '../composables/useConfirm'
 import { getApiErrorMessage } from '../utils/apiMessages'
 import { getPublicAppUrl } from '../utils/appUrls'
 
-type DocumentTranslation = {
-  lang: string
-  title?: string | null
-  html: string
-  buttonLabel?: string | null
-}
-
 type PolicyVersion = {
   id: string
   versionNumber: number
   status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
   publishedAt: string | null
-  translations: DocumentTranslation[]
-}
-
-type FormulaTranslation = {
-  lang: string
   title: string
-  text: string
+  html: string
+  buttonLabel: string
 }
 
 type FormulaVersion = {
@@ -34,7 +23,8 @@ type FormulaVersion = {
   versionNumber: number
   status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
   subscriptionPolicyVersionId: string
-  translations: FormulaTranslation[]
+  title: string
+  text: string
 }
 
 type ConsentFormula = {
@@ -64,7 +54,7 @@ const success = ref('')
 const privacyPolicy = ref<PrivacyPolicy | null>(null)
 const selectedPrivacyVersionId = ref('')
 
-const savingPrivacyTranslations = ref(false)
+const savingPrivacyContent = ref(false)
 const creatingPrivacyDraft = ref(false)
 const publishingPrivacy = ref(false)
 const creatingFormula = ref(false)
@@ -79,7 +69,7 @@ const selectedPrivacyVersion = computed(() => (
   privacyPolicy.value?.versions.find((version) => version.id === selectedPrivacyVersionId.value) ?? null
 ))
 
-const privacyPublicUrl = computed(() => `${publicBaseUrl}/public-api/privacy?lang=it`)
+const privacyPublicUrl = computed(() => `${publicBaseUrl}/public-api/privacy`)
 const privacyCurrentVersionNumber = computed(() => (
   privacyPolicy.value?.currentVersionId
     ? privacyPolicy.value.versions.find((version) => version.id === privacyPolicy.value?.currentVersionId)?.versionNumber ?? null
@@ -98,60 +88,19 @@ function resetFlashMessages() {
   success.value = ''
 }
 
-function normalizeDocumentTranslations(version: PolicyVersion) {
-  if (!version.translations.length) {
-    version.translations.push({
-      lang: 'it',
-      title: '',
-      html: '',
-      buttonLabel: '',
-    })
-  }
+function normalizePolicyVersion(version: PolicyVersion) {
+  version.title = version.title ?? ''
+  version.html = version.html ?? ''
+  version.buttonLabel = version.buttonLabel ?? ''
 }
 
-function normalizeFormulaTranslations(version: FormulaVersion) {
-  if (!version.translations.length) {
-    version.translations.push({
-      lang: 'it',
-      title: '',
-      text: '',
-    })
-  }
-}
-
-function addDocumentTranslation(version: PolicyVersion) {
-  version.translations.push({
-    lang: '',
-    title: '',
-    html: '',
-    buttonLabel: '',
-  })
-}
-
-function removeDocumentTranslation(version: PolicyVersion, index: number) {
-  version.translations.splice(index, 1)
-  normalizeDocumentTranslations(version)
-}
-
-function addFormulaTranslation(version: FormulaVersion) {
-  version.translations.push({
-    lang: '',
-    title: '',
-    text: '',
-  })
-}
-
-function removeFormulaTranslation(version: FormulaVersion, index: number) {
-  version.translations.splice(index, 1)
-  normalizeFormulaTranslations(version)
+function normalizeFormulaVersion(version: FormulaVersion) {
+  version.title = version.title ?? ''
+  version.text = version.text ?? ''
 }
 
 function getFormulaVersionForSelectedPolicy(formula: ConsentFormula) {
   return formula.versions.find((version) => version.subscriptionPolicyVersionId === selectedPrivacyVersionId.value) ?? null
-}
-
-function getSelectedFormulaTranslations(formula: ConsentFormula) {
-  return getFormulaVersionForSelectedPolicy(formula)?.translations ?? []
 }
 
 function canEditSelectedFormulaVersion(formula: ConsentFormula) {
@@ -183,14 +132,12 @@ async function fetchPolicy(background = false) {
 
   try {
     const { data } = await axios.get<PrivacyPolicy>('/api/subscriptions/mine')
-    privacyPolicy.value = data
-
-    privacyPolicy.value.versions.forEach(normalizeDocumentTranslations)
-    privacyPolicy.value.consentFormulas.forEach((formula) => {
-      formula.versions.forEach(normalizeFormulaTranslations)
+    data.versions.forEach(normalizePolicyVersion)
+    data.consentFormulas.forEach((formula) => {
+      formula.versions.forEach(normalizeFormulaVersion)
     })
-
-    selectedPrivacyVersionId.value = getPreferredVersionId(privacyPolicy.value.versions, privacyPolicy.value.currentVersionId)
+    privacyPolicy.value = data
+    selectedPrivacyVersionId.value = getPreferredVersionId(data.versions, data.currentVersionId)
   } catch (apiError) {
     error.value = getApiErrorMessage(apiError, 'Caricamento sezione privacy fallito')
   } finally {
@@ -216,24 +163,26 @@ async function createPrivacyDraft() {
   }
 }
 
-async function savePrivacyTranslations() {
+async function savePrivacyContent() {
   const version = selectedPrivacyVersion.value
   const policy = privacyPolicy.value
   if (!version || !policy) return
 
   resetFlashMessages()
-  savingPrivacyTranslations.value = true
+  savingPrivacyContent.value = true
 
   try {
-    await axios.put(`/api/subscriptions/${policy.id}/versions/${version.id}/translations`, {
-      translations: version.translations,
+    await axios.put(`/api/subscriptions/${policy.id}/versions/${version.id}/content`, {
+      title: version.title,
+      html: version.html,
+      buttonLabel: version.buttonLabel,
     })
     await fetchPolicy(true)
-    success.value = 'Traduzioni privacy salvate'
+    success.value = 'Contenuti privacy salvati'
   } catch (apiError) {
     error.value = getApiErrorMessage(apiError, 'Salvataggio privacy fallito')
   } finally {
-    savingPrivacyTranslations.value = false
+    savingPrivacyContent.value = false
   }
 }
 
@@ -270,7 +219,7 @@ async function createConsentFormula() {
     newFormula.code = ''
     newFormula.required = false
     await fetchPolicy(true)
-    success.value = 'Formula di consenso creata'
+    success.value = 'Nuova formula creata'
   } catch (apiError) {
     error.value = getApiErrorMessage(apiError, 'Creazione formula fallita')
   } finally {
@@ -278,7 +227,7 @@ async function createConsentFormula() {
   }
 }
 
-async function saveConsentFormula(formula: ConsentFormula) {
+async function updateFormula(formula: ConsentFormula) {
   if (!privacyPolicy.value) return
 
   resetFlashMessages()
@@ -297,9 +246,14 @@ async function saveConsentFormula(formula: ConsentFormula) {
   }
 }
 
-async function archiveConsentFormula(formula: ConsentFormula) {
+async function deleteFormula(formula: ConsentFormula) {
   if (!privacyPolicy.value) return
-  if (!await confirm({ message: `Archiviare la formula ${formula.code}?`, variant: 'warning' })) return
+
+  const accepted = await confirm({
+    message: `Vuoi archiviare la formula ${formula.code}?`,
+    confirmLabel: 'Archivia',
+  })
+  if (!accepted) return
 
   resetFlashMessages()
   busyFormulaId.value = formula.id
@@ -315,7 +269,7 @@ async function archiveConsentFormula(formula: ConsentFormula) {
   }
 }
 
-async function saveFormulaTranslations(formula: ConsentFormula) {
+async function saveFormulaContent(formula: ConsentFormula) {
   const formulaVersion = getFormulaVersionForSelectedPolicy(formula)
   if (!formulaVersion) {
     error.value = 'Nessuna versione formula disponibile per la versione privacy selezionata'
@@ -326,33 +280,20 @@ async function saveFormulaTranslations(formula: ConsentFormula) {
   busyFormulaId.value = formula.id
 
   try {
-    await axios.put(`/api/subscriptions/formulas/${formulaVersion.id}/translations`, {
-      translations: formulaVersion.translations,
+    await axios.put(`/api/subscriptions/formulas/${formulaVersion.id}/content`, {
+      title: formulaVersion.title,
+      text: formulaVersion.text,
     })
     await fetchPolicy(true)
-    success.value = `Traduzioni formula ${formula.code} salvate`
+    success.value = `Contenuti formula ${formula.code} salvati`
   } catch (apiError) {
-    error.value = getApiErrorMessage(apiError, 'Salvataggio traduzioni formula fallito')
+    error.value = getApiErrorMessage(apiError, 'Salvataggio formula fallito')
   } finally {
     busyFormulaId.value = ''
   }
 }
 
-function addSelectedFormulaTranslation(formula: ConsentFormula) {
-  const version = getFormulaVersionForSelectedPolicy(formula)
-  if (!version) return
-  addFormulaTranslation(version)
-}
-
-function removeSelectedFormulaTranslation(formula: ConsentFormula, index: number) {
-  const version = getFormulaVersionForSelectedPolicy(formula)
-  if (!version) return
-  removeFormulaTranslation(version, index)
-}
-
-onMounted(() => {
-  fetchPolicy()
-})
+onMounted(fetchPolicy)
 </script>
 
 <template>
@@ -386,8 +327,8 @@ onMounted(() => {
         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p class="text-lg font-semibold text-text-primary">Informativa privacy</p>
-              <p class="mt-1 text-sm text-text-secondary">
-              Versiona il testo privacy pubblico e le etichette usate per i consensi comunicazione.
+            <p class="mt-1 text-sm text-text-secondary">
+              Informativa e consensi hanno una sola lingua: quella usata dall’app pubblica.
             </p>
           </div>
 
@@ -444,51 +385,26 @@ onMounted(() => {
             </span>
           </div>
 
-          <div
-            v-for="(translation, index) in selectedPrivacyVersion.translations"
-            :key="`${selectedPrivacyVersion.id}-${index}`"
-            class="rounded-2xl border border-ui-border p-4"
-          >
-            <div class="mb-4 flex items-center justify-between">
-              <p class="text-sm font-semibold text-text-primary">Traduzione {{ index + 1 }}</p>
-              <button
-                type="button"
-                class="text-sm text-red-600 disabled:text-slate-400"
-                :disabled="selectedPrivacyVersion.translations.length === 1 || !isDraftVersion(selectedPrivacyVersion)"
-                @click="removeDocumentTranslation(selectedPrivacyVersion, index)"
-              >
-                Rimuovi
-              </button>
+          <div class="rounded-2xl border border-ui-border p-4 space-y-4">
+            <div>
+              <label class="label">Titolo</label>
+              <input v-model="selectedPrivacyVersion.title" :disabled="!isDraftVersion(selectedPrivacyVersion)" class="input-field" placeholder="Informativa privacy" />
             </div>
 
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div>
-                <label class="label">Lingua</label>
-                <input v-model="translation.lang" :disabled="!isDraftVersion(selectedPrivacyVersion)" class="input-field" placeholder="it" />
-              </div>
-              <div>
-                <label class="label">Titolo</label>
-                <input v-model="translation.title" :disabled="!isDraftVersion(selectedPrivacyVersion)" class="input-field" placeholder="Informativa privacy" />
-              </div>
-            </div>
-
-            <div class="mt-4">
+            <div>
               <label class="label">Etichetta pulsante</label>
-              <input v-model="translation.buttonLabel" :disabled="!isDraftVersion(selectedPrivacyVersion)" class="input-field" placeholder="Iscriviti" />
+              <input v-model="selectedPrivacyVersion.buttonLabel" :disabled="!isDraftVersion(selectedPrivacyVersion)" class="input-field" placeholder="Iscriviti" />
             </div>
 
-            <div class="mt-4">
-              <label class="label">HTML documento</label>
-              <TiptapEditor v-model="translation.html" :disabled="!isDraftVersion(selectedPrivacyVersion)" placeholder="Scrivi l'informativa privacy..." />
+            <div>
+              <label class="label">HTML informativa</label>
+              <TiptapEditor v-model="selectedPrivacyVersion.html" :disabled="!isDraftVersion(selectedPrivacyVersion)" placeholder="Scrivi l'informativa privacy..." />
             </div>
           </div>
 
           <div class="flex flex-wrap gap-3">
-            <button type="button" class="btn-secondary" :disabled="!isDraftVersion(selectedPrivacyVersion)" @click="addDocumentTranslation(selectedPrivacyVersion)">
-              Aggiungi traduzione
-            </button>
-            <button type="button" class="btn-primary" :disabled="savingPrivacyTranslations || !isDraftVersion(selectedPrivacyVersion)" @click="savePrivacyTranslations">
-              {{ savingPrivacyTranslations ? 'Salvataggio...' : 'Salva privacy' }}
+            <button type="button" class="btn-primary" :disabled="savingPrivacyContent || !isDraftVersion(selectedPrivacyVersion)" @click="savePrivacyContent">
+              {{ savingPrivacyContent ? 'Salvataggio...' : 'Salva privacy' }}
             </button>
             <button type="button" class="btn-secondary" :disabled="publishingPrivacy || !isDraftVersion(selectedPrivacyVersion)" @click="publishPrivacyVersion">
               {{ publishingPrivacy ? 'Pubblicazione...' : 'Pubblica versione' }}
@@ -502,118 +418,90 @@ onMounted(() => {
           <div>
             <p class="text-lg font-semibold text-text-primary">Consensi comunicazione</p>
             <p class="mt-1 text-sm text-text-secondary">
-              Le traduzioni delle formule seguono la versione privacy selezionata. Le modifiche sono consentite solo su una bozza.
+              Le etichette delle formule seguono la versione privacy selezionata.
             </p>
           </div>
-
-          <div class="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-text-secondary">
-            Versione privacy attiva per l’editor:
-            <span class="font-semibold text-text-primary">
-              {{ selectedPrivacyVersion ? `v${selectedPrivacyVersion.versionNumber}` : 'Nessuna' }}
-            </span>
-          </div>
         </div>
 
-        <form class="grid grid-cols-1 gap-4 rounded-2xl border border-dashed border-ui-border p-4 md:grid-cols-[minmax(0,1fr)_180px_auto]" @submit.prevent="createConsentFormula">
-          <div>
-            <label class="label">Codice formula</label>
-            <input v-model="newFormula.code" class="input-field" placeholder="newsletter_comunicazioni" />
+        <div class="rounded-2xl border border-ui-border p-4">
+          <p class="text-sm font-semibold text-text-primary">Nuova formula</p>
+          <div class="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-end">
+            <div>
+              <label class="label">Code</label>
+              <input v-model="newFormula.code" class="input-field" placeholder="marketing" />
+            </div>
+            <label class="flex items-center gap-3 text-sm text-text-primary">
+              <input v-model="newFormula.required" type="checkbox" class="h-4 w-4 rounded border-gray-300" />
+              <span>Obbligatorio</span>
+            </label>
+            <button type="button" class="btn-primary" :disabled="creatingFormula" @click="createConsentFormula">
+              {{ creatingFormula ? 'Creazione...' : 'Aggiungi formula' }}
+            </button>
           </div>
-          <label class="flex items-center gap-3 rounded-xl border border-ui-border px-4 py-3 text-sm text-text-primary">
-            <input v-model="newFormula.required" type="checkbox" class="h-4 w-4 rounded border-ui-border" />
-            Consenso obbligatorio
-          </label>
-          <button type="submit" class="btn-primary" :disabled="creatingFormula || !newFormula.code.trim()">
-            {{ creatingFormula ? 'Creazione...' : 'Aggiungi formula' }}
-          </button>
-        </form>
+        </div>
 
         <div v-if="!privacyPolicy.consentFormulas.length" class="rounded-2xl border border-dashed border-ui-border px-4 py-8 text-center text-sm text-text-secondary">
-          Nessuna formula di consenso configurata.
+          Nessuna formula configurata.
         </div>
 
-        <div v-else class="space-y-4">
-          <article
-            v-for="formula in privacyPolicy.consentFormulas"
-            :key="formula.id"
-            class="rounded-2xl border border-ui-border p-5"
-          >
-            <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div v-for="formula in privacyPolicy.consentFormulas" :key="formula.id" class="rounded-2xl border border-ui-border p-4 space-y-4">
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p class="text-sm font-semibold text-text-primary">{{ formula.code }}</p>
+              <p class="mt-1 text-sm text-text-secondary">
+                Versione selezionata:
+                {{ getFormulaVersionForSelectedPolicy(formula) ? `v${getFormulaVersionForSelectedPolicy(formula)?.versionNumber}` : 'nessuna' }}
+              </p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+              <label class="flex items-center gap-3 text-sm text-text-primary">
+                <input v-model="formula.required" type="checkbox" class="h-4 w-4 rounded border-gray-300" />
+                <span>Obbligatorio</span>
+              </label>
+              <button type="button" class="btn-secondary" :disabled="busyFormulaId === formula.id" @click="updateFormula(formula)">
+                Salva opzioni
+              </button>
+              <button type="button" class="btn-secondary text-red-700" :disabled="busyFormulaId === formula.id" @click="deleteFormula(formula)">
+                Archivia
+              </button>
+            </div>
+          </div>
+
+          <template v-if="getFormulaVersionForSelectedPolicy(formula)">
+            <div class="grid gap-4">
               <div>
-                <div class="flex flex-wrap items-center gap-2">
-                  <p class="text-base font-semibold text-text-primary">{{ formula.code }}</p>
-                  <span :class="['inline-flex rounded-full px-3 py-1 text-xs font-semibold', formula.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700']">
-                    {{ formula.status }}
-                  </span>
-                </div>
-                <p class="mt-1 text-sm text-text-secondary">
-                  Versione formula collegata: {{ getFormulaVersionForSelectedPolicy(formula)?.versionNumber ? `v${getFormulaVersionForSelectedPolicy(formula)?.versionNumber}` : 'non disponibile' }}
-                </p>
+                <label class="label">Titolo</label>
+                <input
+                  v-model="getFormulaVersionForSelectedPolicy(formula)!.title"
+                  :disabled="!canEditSelectedFormulaVersion(formula)"
+                  class="input-field"
+                  placeholder="Comunicazioni promozionali"
+                />
               </div>
 
-              <div class="flex flex-wrap gap-2">
-                <label class="flex items-center gap-3 rounded-xl border border-ui-border px-4 py-2 text-sm text-text-primary">
-                  <input v-model="formula.required" type="checkbox" class="h-4 w-4 rounded border-ui-border" />
-                  Richiesto
-                </label>
-                <button type="button" class="btn-secondary" :disabled="busyFormulaId === formula.id" @click="saveConsentFormula(formula)">
-                  Salva formula
-                </button>
-                <button type="button" class="btn-secondary" :disabled="busyFormulaId === formula.id" @click="archiveConsentFormula(formula)">
-                  Archivia
-                </button>
+              <div>
+                <label class="label">Testo</label>
+                <textarea
+                  v-model="getFormulaVersionForSelectedPolicy(formula)!.text"
+                  :disabled="!canEditSelectedFormulaVersion(formula)"
+                  rows="4"
+                  class="input-field min-h-[120px]"
+                  placeholder="Descrizione mostrata nel form pubblico."
+                />
               </div>
             </div>
 
-            <div v-if="getFormulaVersionForSelectedPolicy(formula)" class="mt-5 space-y-4">
-              <div
-                v-for="(translation, index) in getSelectedFormulaTranslations(formula)"
-                :key="`${formula.id}-${selectedPrivacyVersionId}-${index}`"
-                class="rounded-2xl bg-slate-50 p-4"
-              >
-                <div class="mb-4 flex items-center justify-between">
-                  <p class="text-sm font-semibold text-text-primary">Traduzione {{ index + 1 }}</p>
-                  <button
-                    type="button"
-                    class="text-sm text-red-600 disabled:text-slate-400"
-                    :disabled="getSelectedFormulaTranslations(formula).length === 1 || !canEditSelectedFormulaVersion(formula)"
-                    @click="removeSelectedFormulaTranslation(formula, index)"
-                  >
-                    Rimuovi
-                  </button>
-                </div>
-
-                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div>
-                    <label class="label">Lingua</label>
-                    <input v-model="translation.lang" :disabled="!canEditSelectedFormulaVersion(formula)" class="input-field" placeholder="it" />
-                  </div>
-                  <div>
-                    <label class="label">Titolo</label>
-                    <input v-model="translation.title" :disabled="!canEditSelectedFormulaVersion(formula)" class="input-field" placeholder="Acconsento a ricevere comunicazioni" />
-                  </div>
-                </div>
-
-                <div class="mt-4">
-                  <label class="label">Testo</label>
-                  <textarea v-model="translation.text" :disabled="!canEditSelectedFormulaVersion(formula)" rows="4" class="input-field" placeholder="Descrizione del consenso..." />
-                </div>
-              </div>
-
-              <div class="flex flex-wrap gap-3">
-                <button type="button" class="btn-secondary" :disabled="!canEditSelectedFormulaVersion(formula)" @click="addSelectedFormulaTranslation(formula)">
-                  Aggiungi traduzione
-                </button>
-                <button type="button" class="btn-primary" :disabled="busyFormulaId === formula.id || !canEditSelectedFormulaVersion(formula)" @click="saveFormulaTranslations(formula)">
-                  {{ busyFormulaId === formula.id ? 'Salvataggio...' : 'Salva traduzioni formula' }}
-                </button>
-              </div>
+            <div class="flex flex-wrap gap-3">
+              <button type="button" class="btn-primary" :disabled="busyFormulaId === formula.id || !canEditSelectedFormulaVersion(formula)" @click="saveFormulaContent(formula)">
+                {{ busyFormulaId === formula.id ? 'Salvataggio...' : 'Salva formula' }}
+              </button>
             </div>
+          </template>
 
-            <div v-else class="mt-5 rounded-2xl border border-dashed border-ui-border px-4 py-5 text-sm text-text-secondary">
-              Nessuna versione formula disponibile per la versione privacy selezionata.
-            </div>
-          </article>
+          <div v-else class="rounded-2xl border border-dashed border-ui-border px-4 py-6 text-sm text-text-secondary">
+            Nessuna versione formula disponibile per la versione privacy selezionata.
+          </div>
         </div>
       </section>
     </template>

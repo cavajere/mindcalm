@@ -34,8 +34,7 @@ function getRequestOrigin(req: Request) {
 }
 
 router.get('/consent-formulas', async (req: Request, res: Response) => {
-  const lang = typeof req.query.lang === 'string' ? req.query.lang : 'it'
-  const result = await getPublicConsentFormulas(lang)
+  const result = await getPublicConsentFormulas()
   if (!result) {
     res.status(404).json({ error: 'CONSENT_POLICY_NOT_PUBLISHED' })
     return
@@ -45,10 +44,9 @@ router.get('/consent-formulas', async (req: Request, res: Response) => {
 })
 
 router.get('/legal-documents', async (req: Request, res: Response) => {
-  const lang = typeof req.query.lang === 'string' ? req.query.lang : 'it'
   const [privacyPolicy, termsPolicy] = await Promise.all([
-    getPublicConsentFormulas(lang),
-    getPublicTermsPolicy(lang),
+    getPublicConsentFormulas(),
+    getPublicTermsPolicy(),
   ])
   const origin = getRequestOrigin(req)
 
@@ -56,17 +54,17 @@ router.get('/legal-documents', async (req: Request, res: Response) => {
     privacy: privacyPolicy?.currentVersion
       ? {
           versionId: privacyPolicy.currentVersion.id,
-          title: privacyPolicy.currentVersion.translations[0]?.title || 'Informativa privacy',
+          title: privacyPolicy.currentVersion.title || 'Informativa privacy',
           publishedAt: privacyPolicy.currentVersion.publishedAt,
-          url: `${origin}/public-api/privacy?lang=${encodeURIComponent(lang)}`,
+          url: `${origin}/public-api/privacy`,
         }
       : null,
     terms: termsPolicy?.currentVersion
       ? {
           versionId: termsPolicy.currentVersion.id,
-          title: termsPolicy.currentVersion.translations[0]?.title || 'Termini e condizioni',
+          title: termsPolicy.currentVersion.title || 'Termini e condizioni',
           publishedAt: termsPolicy.currentVersion.publishedAt,
-          url: `${origin}/public-api/terms?lang=${encodeURIComponent(lang)}`,
+          url: `${origin}/public-api/terms`,
           requiredForRegistration: true,
         }
       : null,
@@ -74,35 +72,31 @@ router.get('/legal-documents', async (req: Request, res: Response) => {
 })
 
 router.get('/privacy', async (req: Request, res: Response) => {
-  const lang = typeof req.query.lang === 'string' ? req.query.lang : 'it'
-  const policy = await getPublicConsentFormulas(lang)
+  const policy = await getPublicConsentFormulas()
 
   if (!policy?.currentVersion) {
     res.status(404).send('Informativa non disponibile')
     return
   }
 
-  const translation = policy.currentVersion.translations[0]
-  const html = getLegalDocumentHtml(translation?.html || '')
+  const html = getLegalDocumentHtml(policy.currentVersion.html || '')
 
   res.setHeader('Content-Type', 'text/html; charset=utf-8')
-  res.send(`<!doctype html><html lang="${lang}"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Privacy MindCalm</title></head><body><main><h1>${translation?.title || 'Informativa privacy'}</h1>${html}</main></body></html>`)
+  res.send(`<!doctype html><html lang="it"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Privacy MindCalm</title></head><body><main><h1>${policy.currentVersion.title || 'Informativa privacy'}</h1>${html}</main></body></html>`)
 })
 
 router.get('/terms', async (req: Request, res: Response) => {
-  const lang = typeof req.query.lang === 'string' ? req.query.lang : 'it'
-  const policy = await getPublicTermsPolicy(lang)
+  const policy = await getPublicTermsPolicy()
 
   if (!policy?.currentVersion) {
     res.status(404).send('Termini non disponibili')
     return
   }
 
-  const translation = policy.currentVersion.translations[0]
-  const html = getLegalDocumentHtml(translation?.html || '')
+  const html = getLegalDocumentHtml(policy.currentVersion.html || '')
 
   res.setHeader('Content-Type', 'text/html; charset=utf-8')
-  res.send(`<!doctype html><html lang="${lang}"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Termini MindCalm</title></head><body><main><h1>${translation?.title || 'Termini e condizioni'}</h1>${html}</main></body></html>`)
+  res.send(`<!doctype html><html lang="it"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Termini MindCalm</title></head><body><main><h1>${policy.currentVersion.title || 'Termini e condizioni'}</h1>${html}</main></body></html>`)
 })
 
 router.post('/subscribe', publicSubscribeValidation, async (req: Request, res: Response) => {

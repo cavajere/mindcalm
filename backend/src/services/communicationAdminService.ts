@@ -44,10 +44,8 @@ function buildContactSearchWhere(search?: string) {
   }
 }
 
-function resolveTranslationTitle(translations: Array<{ lang: string; title: string }> | undefined, fallback: string) {
-  return translations?.find((translation) => translation.lang === 'it')?.title
-    || translations?.[0]?.title
-    || fallback
+function resolveFormulaTitle(title: string | null | undefined, fallback: string) {
+  return title || fallback
 }
 
 async function getActiveCommunicationPolicy() {
@@ -263,11 +261,7 @@ export async function getCommunicationContactDetail(contactId: string) {
       orderBy: { createdAt: 'desc' },
       include: {
         consentFormula: true,
-        consentFormulaVersion: {
-          include: {
-            translations: true,
-          },
-        },
+        consentFormulaVersion: true,
       },
     }),
     getActiveCommunicationPolicy(),
@@ -290,7 +284,7 @@ export async function getCommunicationContactDetail(contactId: string) {
     return {
       formulaId: formula.id,
       formulaCode: formula.code,
-      formulaTitle: resolveTranslationTitle(formula.currentVersion?.translations, formula.code),
+      formulaTitle: resolveFormulaTitle(formula.currentVersion?.title, formula.code),
       required: formula.required,
       currentVersionId: formula.currentVersionId,
       value: consent?.value ?? null,
@@ -304,7 +298,7 @@ export async function getCommunicationContactDetail(contactId: string) {
     .filter((consent) => !currentVersionIds.has(consent.consentFormulaVersionId))
     .map((consent) => ({
       formulaId: consent.consentFormulaId,
-      formulaTitle: resolveTranslationTitle(consent.consentFormulaVersion.translations, consent.consentFormula.code),
+      formulaTitle: resolveFormulaTitle(consent.consentFormulaVersion.title, consent.consentFormula.code),
       value: consent.value,
       consentDate: consent.createdAt,
       versionNumber: consent.consentFormulaVersion.versionNumber,
@@ -331,7 +325,8 @@ export async function getCommunicationContactDetail(contactId: string) {
       consentFormulaVersion: {
         id: consent.consentFormulaVersion.id,
         versionNumber: consent.consentFormulaVersion.versionNumber,
-        translations: consent.consentFormulaVersion.translations,
+        title: consent.consentFormulaVersion.title,
+        text: consent.consentFormulaVersion.text,
       },
     })),
   }
@@ -437,7 +432,8 @@ export async function getCommunicationConsentStats() {
     return {
       formulaId: formula.id,
       code: formula.code,
-      translations: formula.currentVersion?.translations ?? [],
+      title: formula.currentVersion?.title ?? null,
+      text: formula.currentVersion?.text ?? null,
       total: accepted + rejected,
       accepted,
       rejected,
@@ -521,8 +517,11 @@ export async function listCommunicationConsents(input: {
           },
         },
         consentFormulaVersion: {
-          include: {
-            translations: true,
+          select: {
+            id: true,
+            versionNumber: true,
+            title: true,
+            text: true,
           },
         },
       },

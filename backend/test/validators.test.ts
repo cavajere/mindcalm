@@ -88,4 +88,23 @@ describe('validators', () => {
 
     expect(errors).toEqual([])
   })
+
+  it('accetta la registrazione con consensi comunicazione espliciti', async () => {
+    const errors = await getValidationErrors(registerWithInviteCodeValidation, {
+      code: 'ABC1234',
+      email: 'utente@example.com',
+      firstName: 'Mario',
+      lastName: 'Rossi',
+      phone: '+39 333 123 4567',
+      password: 'Password123',
+      consents: [
+        {
+          formulaId: '123e4567-e89b-12d3-a456-426614174000',
+          value: 'YES',
+        },
+      ],
+    })
+
+    expect(errors).toEqual([])
+  })
 })

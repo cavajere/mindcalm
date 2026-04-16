@@ -18,10 +18,7 @@ type ConsentStats = {
   byFormula: Array<{
     formulaId: string
     code: string
-    translations: Array<{
-      lang: string
-      title: string
-    }>
+    title?: string | null
     total: number
     accepted: number
     rejected: number
@@ -44,10 +41,7 @@ type ConsentListItem = {
   }
   consentFormulaVersion: {
     versionNumber: number
-    translations: Array<{
-      lang: string
-      title: string
-    }>
+    title?: string | null
   }
 }
 
@@ -96,10 +90,8 @@ function formatDateTime(value: string | null) {
   })
 }
 
-function getFormulaTitle(translations: Array<{ lang: string; title: string }>, fallback: string) {
-  return translations.find((translation) => translation.lang === 'it')?.title
-    || translations[0]?.title
-    || fallback
+function getFormulaTitle(title: string | null | undefined, fallback: string) {
+  return title || fallback
 }
 
 function resetMessages() {
@@ -245,7 +237,7 @@ async function exportCsv() {
         rows.push([
           formatDateTime(item.createdAt),
           item.contact?.email ?? '',
-          getFormulaTitle(item.consentFormulaVersion?.translations ?? [], item.consentFormula?.code ?? 'Formula'),
+          getFormulaTitle(item.consentFormulaVersion?.title, item.consentFormula?.code ?? 'Formula'),
           item.consentFormulaVersion?.versionNumber ?? '',
           item.value,
           item.status,
@@ -338,7 +330,7 @@ onMounted(async () => {
           <select v-model="filters.formulaId" class="input-field">
             <option value="">Tutte</option>
             <option v-for="formula in stats.byFormula" :key="formula.formulaId" :value="formula.formulaId">
-              {{ getFormulaTitle(formula.translations, formula.code) }}
+              {{ getFormulaTitle(formula.title, formula.code) }}
             </option>
           </select>
         </div>
@@ -385,7 +377,7 @@ onMounted(async () => {
               <td class="px-4 py-4 text-sm text-text-secondary">{{ formatDateTime(item.createdAt) }}</td>
               <td class="px-4 py-4 text-sm font-medium text-text-primary">{{ item.contact.email }}</td>
               <td class="px-4 py-4 text-sm text-text-primary">
-                {{ getFormulaTitle(item.consentFormulaVersion.translations, item.consentFormula.code) }}
+                {{ getFormulaTitle(item.consentFormulaVersion.title, item.consentFormula.code) }}
                 <span class="mt-1 block text-xs text-text-secondary">v{{ item.consentFormulaVersion.versionNumber }}</span>
               </td>
               <td class="px-4 py-4">
@@ -418,7 +410,7 @@ onMounted(async () => {
             :key="formula.formulaId"
             class="rounded-2xl border border-ui-border px-4 py-4"
           >
-            <p class="text-sm font-semibold text-text-primary">{{ getFormulaTitle(formula.translations, formula.code) }}</p>
+            <p class="text-sm font-semibold text-text-primary">{{ getFormulaTitle(formula.title, formula.code) }}</p>
             <p class="mt-1 text-xs text-text-secondary">{{ formula.code }}</p>
             <div class="mt-4 flex flex-wrap gap-2 text-xs">
               <span class="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-700">{{ formula.total }} totali</span>
@@ -476,7 +468,7 @@ onMounted(async () => {
             >
               <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <p class="text-sm font-semibold text-text-primary">{{ getFormulaTitle(formula.translations, formula.code) }}</p>
+                  <p class="text-sm font-semibold text-text-primary">{{ getFormulaTitle(formula.title, formula.code) }}</p>
                   <p class="mt-1 text-xs text-text-secondary">{{ formula.code }}</p>
                 </div>
                 <div class="flex gap-2">

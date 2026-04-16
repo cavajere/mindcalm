@@ -633,16 +633,9 @@ async function seedTermsPolicy() {
       versionNumber: 1,
       status: 'PUBLISHED',
       publishedAt: new Date('2026-04-14T12:00:00Z'),
-    },
-  })
-
-  await prisma.termsPolicyVersionTranslation.create({
-    data: {
-      versionId: version.id,
-      lang: 'it',
       title: 'Termini e condizioni MindCalm',
       buttonLabel: 'Accetto i termini',
-      html: '<p>Usando MindCalm accetti i termini di utilizzo del servizio, inclusi accesso personale, corretto uso dei contenuti e rispetto delle credenziali fornite.</p><p>L\'accesso ai contenuti richiede una licenza valida e puo essere sospeso in caso di abuso o violazione delle regole d\'uso.</p>',
+      html: '<p>Usando MindCalm accetti i termini di utilizzo del servizio, inclusi accesso personale, corretto uso dei contenuti e rispetto delle credenziali fornite.</p><p>L\\'accesso ai contenuti richiede una licenza valida e puo essere sospeso in caso di abuso o violazione delle regole d\\'uso.</p>',
     },
   })
 
@@ -785,15 +778,8 @@ async function seedSubscriptionPolicy() {
       versionNumber: 1,
       status: 'PUBLISHED',
       publishedAt: new Date('2026-04-14T12:00:00Z'),
-    },
-  })
-
-  await prisma.subscriptionPolicyVersionTranslation.create({
-    data: {
-      versionId: policyVersion.id,
-      lang: 'it',
       title: 'Informativa sulla privacy',
-      html: '<p>I tuoi dati verranno trattati nel rispetto del GDPR per l\'invio di comunicazioni relative ai servizi MindCalm.</p>',
+      html: '<p>I tuoi dati verranno trattati nel rispetto del GDPR per l\\'invio di comunicazioni relative ai servizi MindCalm.</p>',
       buttonLabel: 'Iscriviti alla newsletter',
     },
   })
@@ -820,13 +806,6 @@ async function seedSubscriptionPolicy() {
       versionNumber: 1,
       status: 'PUBLISHED',
       publishedAt: new Date('2026-04-14T12:00:00Z'),
-    },
-  })
-
-  await prisma.consentFormulaVersionTranslation.create({
-    data: {
-      consentVersionId: newsletterVersion.id,
-      lang: 'it',
       title: 'Newsletter',
       text: 'Desidero ricevere la newsletter di MindCalm con consigli sulla mindfulness, nuovi contenuti e aggiornamenti.',
     },
@@ -854,13 +833,6 @@ async function seedSubscriptionPolicy() {
       versionNumber: 1,
       status: 'PUBLISHED',
       publishedAt: new Date('2026-04-14T12:00:00Z'),
-    },
-  })
-
-  await prisma.consentFormulaVersionTranslation.create({
-    data: {
-      consentVersionId: marketingVersion.id,
-      lang: 'it',
       title: 'Comunicazioni promozionali',
       text: 'Acconsento a ricevere comunicazioni promozionali relative a eventi, ritiri e iniziative MindCalm.',
     },

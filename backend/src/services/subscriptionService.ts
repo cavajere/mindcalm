@@ -22,14 +22,12 @@ const CONFIRM_TOKEN_HOURS = 48
 const UNSUBSCRIBE_TOKEN_DAYS = 30
 
 type LanguagePayload = {
-  lang: string
   title?: string | null
   html: string
   buttonLabel?: string | null
 }
 
-type FormulaTranslationPayload = {
-  lang: string
+type FormulaContentPayload = {
   title: string
   text: string
 }
@@ -61,28 +59,16 @@ const COMMUNICATION_HTML_SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
 export async function getOrCreateSubscriptionPolicy() {
   const existing = await prisma.subscriptionPolicy.findFirst({
     include: {
-      currentVersion: {
-        include: {
-          translations: true,
-        },
-      },
+      currentVersion: true,
       versions: {
         orderBy: { versionNumber: 'desc' },
-        include: { translations: true },
       },
       consentFormulas: {
         orderBy: { code: 'asc' },
         include: {
-          currentVersion: {
-            include: {
-              translations: true,
-            },
-          },
+          currentVersion: true,
           versions: {
             orderBy: { versionNumber: 'desc' },
-            include: {
-              translations: true,
-            },
           },
         },
       },
@@ -115,13 +101,13 @@ export async function getOrCreateSubscriptionPolicy() {
     return tx.subscriptionPolicy.findUniqueOrThrow({
       where: { id: policy.id },
       include: {
-        currentVersion: { include: { translations: true } },
-        versions: { orderBy: { versionNumber: 'desc' }, include: { translations: true } },
+        currentVersion: true,
+        versions: { orderBy: { versionNumber: 'desc' } },
         consentFormulas: {
           orderBy: { code: 'asc' },
           include: {
-            currentVersion: { include: { translations: true } },
-            versions: { orderBy: { versionNumber: 'desc' }, include: { translations: true } },
+            currentVersion: true,
+            versions: { orderBy: { versionNumber: 'desc' } },
           },
         },
       },
@@ -137,15 +123,10 @@ export async function createDraftVersion(policyId: string) {
         versions: {
           orderBy: { versionNumber: 'desc' },
           take: 1,
-          include: {
-            translations: true,
-          },
         },
         consentFormulas: {
           include: {
-            currentVersion: {
-              include: { translations: true },
-            },
+            currentVersion: true,
           },
         },
       },
@@ -165,20 +146,11 @@ export async function createDraftVersion(policyId: string) {
         versionNumber: latestVersion.versionNumber + 1,
         previousVersionId: latestVersion.id,
         status: SubscriptionPolicyVersionStatus.DRAFT,
+        title: latestVersion.title,
+        html: latestVersion.html,
+        buttonLabel: latestVersion.buttonLabel,
       },
     })
-
-    if (latestVersion.translations.length) {
-      await tx.subscriptionPolicyVersionTranslation.createMany({
-        data: latestVersion.translations.map((translation) => ({
-          versionId: draft.id,
-          lang: translation.lang,
-          title: translation.title,
-          html: translation.html,
-          buttonLabel: translation.buttonLabel,
-        })),
-      })
-    }
 
     for (const formula of policy.consentFormulas) {
       const previousVersion = formula.currentVersion
@@ -189,95 +161,49 @@ export async function createDraftVersion(policyId: string) {
           subscriptionPolicyVersionId: draft.id,
           versionNumber,
           previousVersionId: previousVersion?.id,
+          title: previousVersion?.title,
+          text: previousVersion?.text,
         },
       })
-
-      if (previousVersion?.translations.length) {
-        await tx.consentFormulaVersionTranslation.createMany({
-          data: previousVersion.translations.map((translation) => ({
-            consentVersionId: created.id,
-            lang: translation.lang,
-            title: translation.title,
-            text: translation.text,
-          })),
-        })
-      }
     }
 
     return draft
   })
 }
 
-export async function upsertPolicyTranslations(versionId: string, translations: LanguagePayload[]) {
+export async function upsertPolicyContent(versionId: string, content: LanguagePayload) {
   return prisma.$transaction(async (tx) => {
     const version = await tx.subscriptionPolicyVersion.findUniqueOrThrow({ where: { id: versionId } })
 
     if (version.status !== SubscriptionPolicyVersionStatus.DRAFT) {
-      throw new Error('Puoi modificare solo traduzioni di versioni DRAFT')
+      throw new Error('Puoi modificare solo versioni DRAFT')
     }
 
-    for (const translation of translations) {
-      await tx.subscriptionPolicyVersionTranslation.upsert({
-        where: {
-          versionId_lang: {
-            versionId,
-            lang: translation.lang,
-          },
-        },
-        create: {
-          versionId,
-          lang: translation.lang,
-          title: translation.title ?? null,
-          html: translation.html,
-          buttonLabel: translation.buttonLabel ?? null,
-        },
-        update: {
-          title: translation.title ?? null,
-          html: translation.html,
-          buttonLabel: translation.buttonLabel ?? null,
-        },
-      })
-    }
-
-    return tx.subscriptionPolicyVersion.findUniqueOrThrow({
+    return tx.subscriptionPolicyVersion.update({
       where: { id: versionId },
-      include: { translations: true },
+      data: {
+        title: content.title ?? null,
+        html: content.html,
+        buttonLabel: content.buttonLabel ?? null,
+      },
     })
   })
 }
 
-export async function upsertFormulaTranslations(formulaVersionId: string, translations: FormulaTranslationPayload[]) {
+export async function upsertFormulaContent(formulaVersionId: string, content: FormulaContentPayload) {
   return prisma.$transaction(async (tx) => {
     const formulaVersion = await tx.consentFormulaVersion.findUniqueOrThrow({ where: { id: formulaVersionId } })
 
     if (formulaVersion.status !== 'DRAFT') {
-      throw new Error('Puoi modificare solo traduzioni di formule DRAFT')
+      throw new Error('Puoi modificare solo formule DRAFT')
     }
 
-    for (const translation of translations) {
-      await tx.consentFormulaVersionTranslation.upsert({
-        where: {
-          consentVersionId_lang: {
-            consentVersionId: formulaVersionId,
-            lang: translation.lang,
-          },
-        },
-        create: {
-          consentVersionId: formulaVersionId,
-          lang: translation.lang,
-          title: translation.title,
-          text: translation.text,
-        },
-        update: {
-          title: translation.title,
-          text: translation.text,
-        },
-      })
-    }
-
-    return tx.consentFormulaVersion.findUniqueOrThrow({
+    return tx.consentFormulaVersion.update({
       where: { id: formulaVersionId },
-      include: { translations: true },
+      data: {
+        title: content.title,
+        text: content.text,
+      },
     })
   })
 }
@@ -287,7 +213,6 @@ export async function publishPolicyVersion(policyId: string, versionId: string) 
     const targetVersion = await tx.subscriptionPolicyVersion.findFirst({
       where: { id: versionId, subscriptionPolicyId: policyId },
       include: {
-        translations: true,
         consentFormulaVersions: true,
       },
     })
@@ -297,8 +222,8 @@ export async function publishPolicyVersion(policyId: string, versionId: string) 
       throw new Error('Solo una versione DRAFT puo essere pubblicata')
     }
 
-    if (!targetVersion.translations.length) {
-      throw new Error('Aggiungi almeno una traduzione informativa prima del publish')
+    if (!targetVersion.html?.trim()) {
+      throw new Error('Compila l informativa prima del publish')
     }
 
     const now = new Date()
@@ -382,14 +307,14 @@ export async function publishPolicyVersion(policyId: string, versionId: string) 
     return tx.subscriptionPolicy.findUniqueOrThrow({
       where: { id: policyId },
       include: {
-        currentVersion: { include: { translations: true } },
+        currentVersion: true,
         consentFormulas: {
           include: {
-            currentVersion: { include: { translations: true } },
-            versions: { orderBy: { versionNumber: 'desc' }, include: { translations: true } },
+            currentVersion: true,
+            versions: { orderBy: { versionNumber: 'desc' } },
           },
         },
-        versions: { orderBy: { versionNumber: 'desc' }, include: { translations: true } },
+        versions: { orderBy: { versionNumber: 'desc' } },
       },
     })
   })
@@ -480,30 +405,16 @@ function hashIpAddress(value?: string) {
   return hashToken(value)
 }
 
-export async function getPublicConsentFormulas(lang = 'it') {
+export async function getPublicConsentFormulas() {
   const policy = await prisma.subscriptionPolicy.findFirst({
     where: { status: SubscriptionPolicyStatus.PUBLISHED },
     include: {
-      currentVersion: {
-        include: {
-          translations: {
-            where: { lang },
-            take: 1,
-          },
-        },
-      },
+      currentVersion: true,
       consentFormulas: {
         where: { status: 'ACTIVE', currentVersionId: { not: null } },
         orderBy: { code: 'asc' },
         include: {
-          currentVersion: {
-            include: {
-              translations: {
-                where: { lang },
-                take: 1,
-              },
-            },
-          },
+          currentVersion: true,
         },
       },
     },
@@ -681,8 +592,11 @@ export async function getUnsubscribePreferences(rawToken: string) {
     include: {
       consentFormula: true,
       consentFormulaVersion: {
-        include: {
-          translations: true,
+        select: {
+          id: true,
+          versionNumber: true,
+          title: true,
+          text: true,
         },
       },
     },
@@ -811,7 +725,8 @@ export async function getCampaignAudienceOptions() {
         versionNumber: version.versionNumber,
         status: version.status,
         subscriptionPolicyVersionId: version.subscriptionPolicyVersionId,
-        translations: version.translations,
+        title: version.title,
+        text: version.text,
       })),
     })),
   }
@@ -1058,8 +973,8 @@ export async function searchCampaignContacts(input: {
           consentFormula: {
             include: {
               currentVersion: {
-                include: {
-                  translations: true,
+                select: {
+                  title: true,
                 },
               },
             },
@@ -1076,9 +991,7 @@ export async function searchCampaignContacts(input: {
         {
           id: consent.consentFormula.id,
           code: consent.consentFormula.code,
-          title: consent.consentFormula.currentVersion?.translations.find((translation) => translation.lang === 'it')?.title
-            || consent.consentFormula.currentVersion?.translations[0]?.title
-            || consent.consentFormula.code,
+          title: consent.consentFormula.currentVersion?.title || consent.consentFormula.code,
         },
       ]),
     ).values())

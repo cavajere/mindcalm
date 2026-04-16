@@ -16,6 +16,7 @@ const {
   prismaInviteCodeUpdateMany,
   prismaInviteCodeUpdate,
   prismaTermsPolicyFindFirst,
+  prismaSubscriptionPolicyFindFirst,
   prismaTransaction,
   sendMail,
   hashPassword,
@@ -30,6 +31,7 @@ const {
   prismaInviteCodeUpdateMany: vi.fn(),
   prismaInviteCodeUpdate: vi.fn(),
   prismaTermsPolicyFindFirst: vi.fn(),
+  prismaSubscriptionPolicyFindFirst: vi.fn(),
   prismaTransaction: vi.fn(),
   sendMail: vi.fn(),
   hashPassword: vi.fn(),
@@ -43,6 +45,9 @@ vi.mock('../src/lib/prisma', () => ({
     },
     termsPolicy: {
       findFirst: prismaTermsPolicyFindFirst,
+    },
+    subscriptionPolicy: {
+      findFirst: prismaSubscriptionPolicyFindFirst,
     },
     userTermsAcceptance: {
       create: prismaUserTermsAcceptanceCreate,
@@ -95,6 +100,7 @@ describe('registrationService', () => {
     prismaInviteCodeUpdateMany.mockReset()
     prismaInviteCodeUpdate.mockReset()
     prismaTermsPolicyFindFirst.mockReset()
+    prismaSubscriptionPolicyFindFirst.mockReset()
     prismaTransaction.mockReset()
     sendMail.mockReset()
     hashPassword.mockReset()
@@ -120,6 +126,7 @@ describe('registrationService', () => {
     }))
 
     prismaTermsPolicyFindFirst.mockResolvedValue(null)
+    prismaSubscriptionPolicyFindFirst.mockResolvedValue(null)
   })
 
   it('avvia una registrazione pendente e invia la mail di verifica', async () => {

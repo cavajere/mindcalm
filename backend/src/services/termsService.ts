@@ -1,26 +1,24 @@
 import { TermsPolicyStatus, TermsPolicyVersionStatus } from '@prisma/client'
 import { prisma } from '../lib/prisma'
 
-type TermsTranslationPayload = {
-  lang: string
+type TermsContentPayload = {
   title?: string | null
   html: string
   buttonLabel?: string | null
 }
 
+function includeTermsPolicy() {
+  return {
+    currentVersion: true,
+    versions: {
+      orderBy: { versionNumber: 'desc' as const },
+    },
+  }
+}
+
 export async function getOrCreateTermsPolicy() {
   const existing = await prisma.termsPolicy.findFirst({
-    include: {
-      currentVersion: {
-        include: {
-          translations: true,
-        },
-      },
-      versions: {
-        orderBy: { versionNumber: 'desc' },
-        include: { translations: true },
-      },
-    },
+    include: includeTermsPolicy(),
   })
 
   if (existing) return existing
@@ -47,10 +45,7 @@ export async function getOrCreateTermsPolicy() {
 
     return tx.termsPolicy.findUniqueOrThrow({
       where: { id: policy.id },
-      include: {
-        currentVersion: { include: { translations: true } },
-        versions: { orderBy: { versionNumber: 'desc' }, include: { translations: true } },
-      },
+      include: includeTermsPolicy(),
     })
   })
 }
@@ -63,9 +58,6 @@ export async function createTermsDraftVersion(policyId: string) {
         versions: {
           orderBy: { versionNumber: 'desc' },
           take: 1,
-          include: {
-            translations: true,
-          },
         },
       },
     })
@@ -78,65 +70,35 @@ export async function createTermsDraftVersion(policyId: string) {
     const latestVersion = policy.versions[0]
     if (!latestVersion) throw new Error('Versione termini corrente non trovata')
 
-    const draft = await tx.termsPolicyVersion.create({
+    return tx.termsPolicyVersion.create({
       data: {
         termsPolicyId: policy.id,
         versionNumber: latestVersion.versionNumber + 1,
         previousVersionId: latestVersion.id,
         status: TermsPolicyVersionStatus.DRAFT,
+        title: latestVersion.title,
+        html: latestVersion.html,
+        buttonLabel: latestVersion.buttonLabel,
       },
     })
-
-    if (latestVersion.translations.length) {
-      await tx.termsPolicyVersionTranslation.createMany({
-        data: latestVersion.translations.map((translation) => ({
-          versionId: draft.id,
-          lang: translation.lang,
-          title: translation.title,
-          html: translation.html,
-          buttonLabel: translation.buttonLabel,
-        })),
-      })
-    }
-
-    return draft
   })
 }
 
-export async function upsertTermsTranslations(versionId: string, translations: TermsTranslationPayload[]) {
+export async function upsertTermsContent(versionId: string, content: TermsContentPayload) {
   return prisma.$transaction(async (tx) => {
     const version = await tx.termsPolicyVersion.findUniqueOrThrow({ where: { id: versionId } })
 
     if (version.status !== TermsPolicyVersionStatus.DRAFT) {
-      throw new Error('Puoi modificare solo traduzioni di versioni DRAFT')
+      throw new Error('Puoi modificare solo versioni DRAFT')
     }
 
-    for (const translation of translations) {
-      await tx.termsPolicyVersionTranslation.upsert({
-        where: {
-          versionId_lang: {
-            versionId,
-            lang: translation.lang,
-          },
-        },
-        create: {
-          versionId,
-          lang: translation.lang,
-          title: translation.title ?? null,
-          html: translation.html,
-          buttonLabel: translation.buttonLabel ?? null,
-        },
-        update: {
-          title: translation.title ?? null,
-          html: translation.html,
-          buttonLabel: translation.buttonLabel ?? null,
-        },
-      })
-    }
-
-    return tx.termsPolicyVersion.findUniqueOrThrow({
+    return tx.termsPolicyVersion.update({
       where: { id: versionId },
-      include: { translations: true },
+      data: {
+        title: content.title ?? null,
+        html: content.html,
+        buttonLabel: content.buttonLabel ?? null,
+      },
     })
   })
 }
@@ -145,17 +107,14 @@ export async function publishTermsVersion(policyId: string, versionId: string) {
   return prisma.$transaction(async (tx) => {
     const targetVersion = await tx.termsPolicyVersion.findFirst({
       where: { id: versionId, termsPolicyId: policyId },
-      include: {
-        translations: true,
-      },
     })
 
     if (!targetVersion) throw new Error('Versione termini non trovata')
     if (targetVersion.status !== TermsPolicyVersionStatus.DRAFT) {
       throw new Error('Solo una versione DRAFT puo essere pubblicata')
     }
-    if (!targetVersion.translations.length) {
-      throw new Error('Aggiungi almeno una traduzione termini prima del publish')
+    if (!targetVersion.html?.trim()) {
+      throw new Error('Compila i contenuti dei termini prima del publish')
     }
 
     const now = new Date()
@@ -186,26 +145,16 @@ export async function publishTermsVersion(policyId: string, versionId: string) {
 
     return tx.termsPolicy.findUniqueOrThrow({
       where: { id: policyId },
-      include: {
-        currentVersion: { include: { translations: true } },
-        versions: { orderBy: { versionNumber: 'desc' }, include: { translations: true } },
-      },
+      include: includeTermsPolicy(),
     })
   })
 }
 
-export async function getPublicTermsPolicy(lang = 'it') {
+export async function getPublicTermsPolicy() {
   return prisma.termsPolicy.findFirst({
     where: { status: TermsPolicyStatus.PUBLISHED },
     include: {
-      currentVersion: {
-        include: {
-          translations: {
-            where: { lang },
-            take: 1,
-          },
-        },
-      },
+      currentVersion: true,
     },
   })
 }

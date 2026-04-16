@@ -128,6 +128,9 @@ export const registerWithInviteCodeValidation = [
     .withMessage('Password minima 8 caratteri'),
   body('acceptTerms').optional().isBoolean().withMessage('acceptTerms non valido'),
   body('termsVersionId').optional({ values: 'falsy' }).isUUID().withMessage('termsVersionId non valido'),
+  body('consents').optional().isArray().withMessage('consents non validi'),
+  body('consents.*.formulaId').optional().isUUID().withMessage('formulaId non valido'),
+  body('consents.*.value').optional().isIn(['YES', 'NO']).withMessage('value non valido'),
   body('verificationBaseUrl')
     .optional({ values: 'falsy' })
     .isURL(appUrlValidationOptions)
@@ -433,19 +436,15 @@ export const tagFilterQuery = [
   query('search').optional().trim().isLength({ max: 100 }).withMessage('search troppo lunga'),
 ]
 
-export const subscriptionTranslationValidation = [
-  body('translations').isArray({ min: 1 }).withMessage('translations obbligatorie'),
-  body('translations.*.lang').trim().isLength({ min: 2, max: 8 }).withMessage('lang non valido'),
-  body('translations.*.html').trim().notEmpty().withMessage('html obbligatorio'),
-  body('translations.*.title').optional({ values: 'falsy' }).isString(),
-  body('translations.*.buttonLabel').optional({ values: 'falsy' }).isString(),
+export const subscriptionContentValidation = [
+  body('html').trim().notEmpty().withMessage('html obbligatorio'),
+  body('title').optional({ values: 'falsy' }).isString(),
+  body('buttonLabel').optional({ values: 'falsy' }).isString(),
 ]
 
-export const formulaTranslationValidation = [
-  body('translations').isArray({ min: 1 }).withMessage('translations obbligatorie'),
-  body('translations.*.lang').trim().isLength({ min: 2, max: 8 }).withMessage('lang non valido'),
-  body('translations.*.title').trim().notEmpty().withMessage('title obbligatorio'),
-  body('translations.*.text').trim().notEmpty().withMessage('text obbligatorio'),
+export const formulaContentValidation = [
+  body('title').trim().notEmpty().withMessage('title obbligatorio'),
+  body('text').trim().notEmpty().withMessage('text obbligatorio'),
 ]
 
 export const consentFormulaCreateValidation = [

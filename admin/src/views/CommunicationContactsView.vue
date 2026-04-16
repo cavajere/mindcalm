@@ -15,10 +15,7 @@ type ConsentValue = 'YES' | 'NO'
 type AudienceFormulaVersion = {
   id: string
   versionNumber: number
-  translations: Array<{
-    lang: string
-    title: string
-  }>
+  title?: string | null
 }
 
 type AudienceFormula = {
@@ -85,9 +82,7 @@ function formatDateTime(value: string | null) {
 
 function getFormulaTitle(formula: AudienceFormula) {
   const currentVersion = formula.versions.find((version) => version.id === formula.currentVersionId) ?? formula.versions[0]
-  return currentVersion?.translations.find((translation) => translation.lang === 'it')?.title
-    || currentVersion?.translations[0]?.title
-    || formula.code
+  return currentVersion?.title || formula.code
 }
 
 function getStatusBadge(status: ContactStatus) {

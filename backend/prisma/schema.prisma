@@ -61,11 +61,13 @@ model TermsPolicyVersion {
   currentForPolicy    TermsPolicy?                    @relation("TermsPolicyCurrentVersion")
   versionNumber       Int
   status              TermsPolicyVersionStatus        @default(DRAFT)
+  title               String?
+  html                String?
+  buttonLabel         String?
   publishedAt         DateTime?
   previousVersionId   String?
   previousVersion     TermsPolicyVersion?             @relation("TermsPolicyVersionPrevious", fields: [previousVersionId], references: [id], onDelete: SetNull)
   nextVersions        TermsPolicyVersion[]            @relation("TermsPolicyVersionPrevious")
-  translations        TermsPolicyVersionTranslation[]
   pendingRegistrations PendingRegistration[]
   acceptances         UserTermsAcceptance[]
   createdAt           DateTime                        @default(now())
@@ -74,22 +76,6 @@ model TermsPolicyVersion {
   @@unique([termsPolicyId, versionNumber])
   @@index([termsPolicyId, status])
   @@map("terms_policy_versions")
-}
-
-model TermsPolicyVersionTranslation {
-  id          String             @id @default(uuid())
-  versionId    String
-  version      TermsPolicyVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
-  lang         String
-  title        String?
-  html         String
-  buttonLabel  String?
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
-
-  @@unique([versionId, lang])
-  @@index([lang])
-  @@map("terms_policy_version_translations")
 }
 
 model UserTermsAcceptance {
@@ -132,11 +118,13 @@ model SubscriptionPolicyVersion {
   currentForPolicy     SubscriptionPolicy?                   @relation("SubscriptionPolicyCurrentVersion")
   versionNumber        Int
   status               SubscriptionPolicyVersionStatus       @default(DRAFT)
+  title                String?
+  html                 String?
+  buttonLabel          String?
   publishedAt          DateTime?
   previousVersionId    String?
   previousVersion      SubscriptionPolicyVersion?            @relation("SubscriptionPolicyVersionPrevious", fields: [previousVersionId], references: [id], onDelete: SetNull)
   nextVersions         SubscriptionPolicyVersion[]           @relation("SubscriptionPolicyVersionPrevious")
-  translations         SubscriptionPolicyVersionTranslation[]
   consentFormulaVersions ConsentFormulaVersion[]
   consents             Consent[]
   createdAt            DateTime                              @default(now())
@@ -145,22 +133,6 @@ model SubscriptionPolicyVersion {
   @@unique([subscriptionPolicyId, versionNumber])
   @@index([subscriptionPolicyId, status])
   @@map("subscription_policy_versions")
-}
-
-model SubscriptionPolicyVersionTranslation {
-  id          String                    @id @default(uuid())
-  versionId   String
-  version     SubscriptionPolicyVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
-  lang        String
-  title       String?
-  html        String
-  buttonLabel String?
-  createdAt   DateTime                  @default(now())
-  updatedAt   DateTime                  @updatedAt
-
-  @@unique([versionId, lang])
-  @@index([lang])
-  @@map("subscription_policy_version_translations")
 }
 
 model ConsentFormula {
@@ -192,11 +164,12 @@ model ConsentFormulaVersion {
   subscriptionPolicyVersion   SubscriptionPolicyVersion       @relation(fields: [subscriptionPolicyVersionId], references: [id], onDelete: Cascade)
   versionNumber               Int
   status                      ConsentFormulaVersionStatus     @default(DRAFT)
+  title                       String?
+  text                        String?
   publishedAt                 DateTime?
   previousVersionId           String?
   previousVersion             ConsentFormulaVersion?          @relation("ConsentFormulaVersionPrevious", fields: [previousVersionId], references: [id], onDelete: SetNull)
   nextVersions                ConsentFormulaVersion[]         @relation("ConsentFormulaVersionPrevious")
-  translations                ConsentFormulaVersionTranslation[]
   consents                    Consent[]
   createdAt                   DateTime                        @default(now())
   updatedAt                   DateTime                        @updatedAt
@@ -205,21 +178,6 @@ model ConsentFormulaVersion {
   @@index([subscriptionPolicyVersionId])
   @@index([consentFormulaId, status])
   @@map("consent_formula_versions")
-}
-
-model ConsentFormulaVersionTranslation {
-  id               String                @id @default(uuid())
-  consentVersionId String
-  consentVersion   ConsentFormulaVersion @relation(fields: [consentVersionId], references: [id], onDelete: Cascade)
-  lang             String
-  title            String
-  text             String
-  createdAt        DateTime              @default(now())
-  updatedAt        DateTime              @updatedAt
-
-  @@unique([consentVersionId, lang])
-  @@index([lang])
-  @@map("consent_formula_version_translations")
 }
 
 model Contact {
@@ -571,6 +529,8 @@ model PendingRegistration {
   termsPolicyVersionId  String?
   termsPolicyVersion    TermsPolicyVersion?       @relation(fields: [termsPolicyVersionId], references: [id], onDelete: SetNull)
   termsAcceptedAt       DateTime?
+  communicationPolicyVersionId String?
+  communicationConsents Json?
   email                 String
   passwordHash          String
   firstName             String
