@@ -19,7 +19,7 @@ interface EventItem {
   coverImage: string | null
   cancelledAt: string | null
   cancellationMessage: string | null
-  bookingEnabled: boolean
+  bookingRequired: boolean
   bookingAvailable: boolean
   participationMode: 'FREE' | 'PAID'
   participationPriceCents: number | null
@@ -132,18 +132,21 @@ const locationLabel = computed(() => {
 })
 
 const bookingStatusLabel = computed(() => {
-  if (!eventItem.value?.bookingEnabled) return ''
+  if (!eventItem.value?.bookingRequired) return ''
   if (eventItem.value.cancelledAt) return 'Evento annullato'
   return eventItem.value.bookingAvailable ? 'Prenotazioni aperte' : 'Prenotazioni chiuse'
 })
 
 const participationLabel = computed(() => {
   if (!eventItem.value) return ''
-  if (eventItem.value.participationMode !== 'PAID' || eventItem.value.participationPriceCents == null) {
-    return 'Partecipazione gratuita'
-  }
 
-  return `Partecipazione a pagamento · € ${(eventItem.value.participationPriceCents / 100).toFixed(2)}`
+  const pricePart = eventItem.value.participationMode === 'PAID' && eventItem.value.participationPriceCents != null
+    ? `A pagamento · € ${(eventItem.value.participationPriceCents / 100).toFixed(2)}`
+    : 'Gratuita'
+
+  const bookingPart = eventItem.value.bookingRequired ? 'con prenotazione' : 'senza prenotazione'
+
+  return `${pricePart} · ${bookingPart}`
 })
 
 function addParticipant() {
@@ -342,7 +345,7 @@ watch(
               <span v-if="isCancelled" class="badge surface-pill bg-red-100 text-red-700">
                 Evento annullato
               </span>
-              <span v-else-if="eventItem.bookingEnabled && eventItem.bookingAvailable" class="badge surface-pill bg-emerald-100 text-emerald-700">
+              <span v-else-if="eventItem.bookingRequired && eventItem.bookingAvailable" class="badge surface-pill bg-emerald-100 text-emerald-700">
                 {{ bookingStatusLabel }}
               </span>
             </div>
@@ -430,7 +433,7 @@ watch(
             </div>
           </div>
 
-          <div v-if="eventItem.bookingEnabled && !isCancelled" class="surface-card p-6">
+          <div v-if="eventItem.bookingRequired && !isCancelled" class="surface-card p-6">
             <p class="text-xs font-semibold uppercase tracking-[0.24em] text-text-secondary">Prenotazione</p>
             <p class="mt-3 text-lg font-semibold text-text-primary">{{ bookingStatusLabel }}</p>
             <p class="mt-2 text-sm leading-7 text-text-secondary">

@@ -189,7 +189,7 @@ export const eventValidation = [
   body('endsAt').optional({ values: 'falsy' }).isISO8601().withMessage('Data fine non valida'),
   body('excerpt').optional().trim().isLength({ max: 300 }).withMessage('Excerpt max 300 caratteri'),
   body('visibility').optional().isIn(['PUBLIC', 'REGISTERED']).withMessage('Visibilità non valida'),
-  body('bookingEnabled').optional().isBoolean().withMessage('bookingEnabled non valido'),
+  body('bookingRequired').optional().isBoolean().withMessage('bookingRequired non valido'),
   body('bookingCapacity').optional({ values: 'falsy' }).isInt({ min: 1, max: 10000 }).withMessage('Capienza prenotazioni non valida'),
   body('bookingOpensAt').optional({ values: 'falsy' }).isISO8601().withMessage('Data apertura prenotazioni non valida'),
   body('bookingClosesAt').optional({ values: 'falsy' }).isISO8601().withMessage('Data chiusura prenotazioni non valida'),
@@ -327,6 +327,23 @@ export const smtpSettingsValidation = [
   body('password').optional({ values: 'falsy' }).isString(),
   body('fromEmail').isEmail().withMessage('Email mittente non valida'),
   body('fromName').optional({ values: 'falsy' }).isString(),
+]
+
+export const publicContactSettingsValidation = [
+  body('title').optional({ values: 'falsy' }).trim().isLength({ max: 120 }).withMessage('Titolo max 120 caratteri'),
+  body('description').optional({ values: 'falsy' }).trim().isLength({ max: 1000 }).withMessage('Descrizione max 1000 caratteri'),
+  body('email').optional({ values: 'falsy' }).isEmail().withMessage('Email contatti non valida'),
+  body('phone')
+    .optional({ values: 'falsy' })
+    .trim()
+    .custom(isValidPhoneNumber)
+    .withMessage('Telefono contatti non valido'),
+  body('whatsappNumber')
+    .optional({ values: 'falsy' })
+    .trim()
+    .custom(isValidPhoneNumber)
+    .withMessage('Numero WhatsApp non valido'),
+  body('whatsappEnabled').isBoolean().withMessage('whatsappEnabled non valido'),
 ]
 
 export const analyticsEventValidation = [

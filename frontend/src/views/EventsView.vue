@@ -14,7 +14,7 @@ interface EventItem {
   startsAt: string
   coverImage: string | null
   cancelledAt: string | null
-  bookingEnabled: boolean
+  bookingRequired: boolean
   bookingAvailable: boolean
   participationMode: 'FREE' | 'PAID'
   participationPriceCents: number | null
@@ -168,11 +168,12 @@ watch(search, () => {
               <p v-if="eventItem.cancelledAt" class="mt-2 text-xs font-semibold uppercase tracking-[0.16em] text-red-700">
                 Evento annullato
               </p>
-              <p v-else-if="eventItem.bookingEnabled && eventItem.bookingAvailable" class="mt-2 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">
+              <p v-else-if="eventItem.bookingRequired && eventItem.bookingAvailable" class="mt-2 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">
                 Prenotazioni aperte
               </p>
               <p class="mt-2 text-xs font-semibold uppercase tracking-[0.16em]" :class="eventItem.participationMode === 'PAID' ? 'text-amber-700' : 'text-sky-700'">
                 {{ eventItem.participationMode === 'PAID' && eventItem.participationPriceCents != null ? `A pagamento · € ${(eventItem.participationPriceCents / 100).toFixed(2)}` : 'Partecipazione gratuita' }}
+                · {{ eventItem.bookingRequired ? 'con prenotazione' : 'senza prenotazione' }}
               </p>
               <h2 class="mt-2 text-xl font-semibold leading-tight text-text-primary">{{ eventItem.title }}</h2>
               <p class="mt-2 text-sm font-medium text-primary">{{ eventItem.organizer }}</p>

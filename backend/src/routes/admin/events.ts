@@ -79,7 +79,7 @@ function serializeEvent(event: {
   publishedAt: Date | null
   createdAt: Date
   updatedAt: Date
-  bookingEnabled: boolean
+  bookingRequired: boolean
   bookingCapacity: number | null
   bookingReservedSeats: number
   bookingOpensAt: Date | null
@@ -109,7 +109,7 @@ function serializeEvent(event: {
     title: event.title,
     startsAt: event.startsAt,
     cancelledAt: event.cancelledAt,
-    bookingEnabled: event.bookingEnabled,
+    bookingRequired: event.bookingRequired,
     bookingCapacity: event.bookingCapacity,
     bookingReservedSeats: event.bookingReservedSeats,
     bookingOpensAt: event.bookingOpensAt,
@@ -142,7 +142,7 @@ function serializeEvent(event: {
     cancellationMessage: event.cancellationMessage,
     createdAt: event.createdAt,
     updatedAt: event.updatedAt,
-    bookingEnabled: event.bookingEnabled,
+    bookingRequired: event.bookingRequired,
     bookingCapacity: event.bookingCapacity,
     bookingReservedSeats: event.bookingReservedSeats,
     bookingRemainingSeats: availability.seatsRemaining,
@@ -168,7 +168,7 @@ function buildParticipantNotificationSignature(event: {
   endsAt: Date | null
   visibility: ContentVisibility
   status: Status
-  bookingEnabled: boolean
+  bookingRequired: boolean
   bookingCapacity: number | null
   bookingReservedSeats: number
   bookingOpensAt: Date | null
@@ -194,7 +194,7 @@ function buildParticipantNotificationSignature(event: {
     endsAt: event.endsAt?.toISOString() ?? null,
     visibility: event.visibility,
     status: event.status,
-    bookingEnabled: event.bookingEnabled,
+    bookingRequired: event.bookingRequired,
     bookingCapacity: event.bookingCapacity ?? null,
     bookingReservedSeats: event.bookingReservedSeats,
     bookingOpensAt: event.bookingOpensAt?.toISOString() ?? null,
@@ -211,7 +211,7 @@ function buildParticipantNotificationSignature(event: {
 }
 
 function parseBookingSettings(body: Request['body']) {
-  const bookingEnabled = getBoolean(body.bookingEnabled) === true
+  const bookingRequired = getBoolean(body.bookingRequired) === true
   const bookingCapacityRaw = getSingleString(body.bookingCapacity)
   const bookingOpensAtRaw = getSingleString(body.bookingOpensAt)
   const bookingClosesAtRaw = getSingleString(body.bookingClosesAt)
@@ -220,7 +220,7 @@ function parseBookingSettings(body: Request['body']) {
   const bookingClosesAt = bookingClosesAtRaw ? new Date(bookingClosesAtRaw) : null
 
   return {
-    bookingEnabled,
+    bookingRequired,
     bookingCapacity,
     bookingOpensAt,
     bookingClosesAt,
@@ -343,7 +343,7 @@ router.post('/', uploadImage.single('coverImage'), eventValidation, async (req: 
     return
   }
 
-  if (bookingSettings.bookingEnabled && (!bookingSettings.bookingCapacity || bookingSettings.bookingCapacity < 1)) {
+  if (bookingSettings.bookingRequired && (!bookingSettings.bookingCapacity || bookingSettings.bookingCapacity < 1)) {
     deleteDirectCoverImage(req.file ? `images/${req.file.filename}` : null)
     res.status(400).json({ error: 'Imposta una capienza valida per attivare le prenotazioni online' })
     return
@@ -376,11 +376,11 @@ router.post('/', uploadImage.single('coverImage'), eventValidation, async (req: 
         venue: null,
         startsAt: new Date(startsAt!),
         endsAt: endsAt ? new Date(endsAt) : null,
-        bookingEnabled: bookingSettings.bookingEnabled,
-        bookingCapacity: bookingSettings.bookingEnabled ? bookingSettings.bookingCapacity : null,
+        bookingRequired: bookingSettings.bookingRequired,
+        bookingCapacity: bookingSettings.bookingRequired ? bookingSettings.bookingCapacity : null,
         bookingReservedSeats: 0,
-        bookingOpensAt: bookingSettings.bookingEnabled ? bookingSettings.bookingOpensAt : null,
-        bookingClosesAt: bookingSettings.bookingEnabled ? bookingSettings.bookingClosesAt : null,
+        bookingOpensAt: bookingSettings.bookingRequired ? bookingSettings.bookingOpensAt : null,
+        bookingClosesAt: bookingSettings.bookingRequired ? bookingSettings.bookingClosesAt : null,
         participationMode: participationSettings.participationMode,
         participationPriceCents: participationSettings.participationPriceCents,
         visibility: visibility === 'PUBLIC' ? 'PUBLIC' : 'REGISTERED',
@@ -411,7 +411,7 @@ router.post('/', uploadImage.single('coverImage'), eventValidation, async (req: 
       visibility: event.visibility,
       startsAt: event.startsAt.toISOString(),
       city: event.city,
-      bookingEnabled: event.bookingEnabled,
+      bookingRequired: event.bookingRequired,
       bookingCapacity: event.bookingCapacity,
       participationMode: event.participationMode,
       participationPriceCents: event.participationPriceCents,
@@ -475,7 +475,7 @@ router.put('/:id', uploadImage.single('coverImage'), eventValidation, async (req
     return
   }
 
-  if (bookingSettings.bookingEnabled && (!bookingSettings.bookingCapacity || bookingSettings.bookingCapacity < existing.bookingReservedSeats)) {
+  if (bookingSettings.bookingRequired && (!bookingSettings.bookingCapacity || bookingSettings.bookingCapacity < existing.bookingReservedSeats)) {
     deleteDirectCoverImage(req.file ? `images/${req.file.filename}` : null)
     res.status(400).json({ error: 'La capienza non può essere inferiore ai posti già prenotati' })
     return
@@ -530,10 +530,10 @@ router.put('/:id', uploadImage.single('coverImage'), eventValidation, async (req
         venue: null,
         startsAt: new Date(startsAt!),
         endsAt: endsAt ? new Date(endsAt) : null,
-        bookingEnabled: bookingSettings.bookingEnabled,
-        bookingCapacity: bookingSettings.bookingEnabled ? bookingSettings.bookingCapacity : null,
-        bookingOpensAt: bookingSettings.bookingEnabled ? bookingSettings.bookingOpensAt : null,
-        bookingClosesAt: bookingSettings.bookingEnabled ? bookingSettings.bookingClosesAt : null,
+        bookingRequired: bookingSettings.bookingRequired,
+        bookingCapacity: bookingSettings.bookingRequired ? bookingSettings.bookingCapacity : null,
+        bookingOpensAt: bookingSettings.bookingRequired ? bookingSettings.bookingOpensAt : null,
+        bookingClosesAt: bookingSettings.bookingRequired ? bookingSettings.bookingClosesAt : null,
         participationMode: participationSettings.participationMode,
         participationPriceCents: participationSettings.participationPriceCents,
         visibility: visibility === 'PUBLIC' ? 'PUBLIC' : 'REGISTERED',
@@ -601,7 +601,7 @@ router.put('/:id', uploadImage.single('coverImage'), eventValidation, async (req
       visibility: updated.visibility,
       startsAt: updated.startsAt.toISOString(),
       city: updated.city,
-      bookingEnabled: updated.bookingEnabled,
+      bookingRequired: updated.bookingRequired,
       bookingCapacity: updated.bookingCapacity,
       participationMode: updated.participationMode,
       participationPriceCents: updated.participationPriceCents,

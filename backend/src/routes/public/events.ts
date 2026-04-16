@@ -56,7 +56,7 @@ function mapEventListItem(event: {
     size: number
   } | null
   publishedAt: Date | null
-  bookingEnabled: boolean
+  bookingRequired: boolean
   bookingCapacity: number | null
   bookingReservedSeats: number
   bookingOpensAt: Date | null
@@ -79,7 +79,7 @@ function mapEventListItem(event: {
     title: event.title,
     startsAt: event.startsAt,
     cancelledAt: event.cancelledAt,
-    bookingEnabled: event.bookingEnabled,
+    bookingRequired: event.bookingRequired,
     bookingCapacity: event.bookingCapacity,
     bookingReservedSeats: event.bookingReservedSeats,
     bookingOpensAt: event.bookingOpensAt,
@@ -99,7 +99,7 @@ function mapEventListItem(event: {
     endsAt: event.endsAt,
     ...cover,
     publishedAt: event.publishedAt,
-    bookingEnabled: event.bookingEnabled,
+    bookingRequired: event.bookingRequired,
     bookingAvailable: availability.bookingAvailable,
     cancelledAt: event.cancelledAt,
     participationMode: event.participationMode,
@@ -178,7 +178,7 @@ router.get('/', paginationQuery, async (req: Request, res: Response) => {
           },
         },
         publishedAt: true,
-        bookingEnabled: true,
+        bookingRequired: true,
         bookingCapacity: true,
         bookingReservedSeats: true,
         bookingOpensAt: true,
@@ -245,7 +245,7 @@ router.post('/:slug/booking-request', eventBookingRequestRateLimiter, publicEven
       city: true,
       venue: true,
       startsAt: true,
-      bookingEnabled: true,
+      bookingRequired: true,
       bookingCapacity: true,
       bookingReservedSeats: true,
       bookingOpensAt: true,
@@ -261,8 +261,8 @@ router.post('/:slug/booking-request', eventBookingRequestRateLimiter, publicEven
   }
 
   const availability = getEventBookingAvailability(event)
-  if (!event.bookingEnabled) {
-    res.status(400).json({ error: 'Le prenotazioni online non sono attive per questo evento' })
+  if (!event.bookingRequired) {
+    res.status(400).json({ error: 'Questo evento non prevede prenotazione' })
     return
   }
 
@@ -389,7 +389,7 @@ router.get('/:slug', async (req: Request, res: Response) => {
       coverImageOriginalName: true,
       coverImageDisplayName: true,
       publishedAt: true,
-      bookingEnabled: true,
+      bookingRequired: true,
       bookingCapacity: true,
       bookingReservedSeats: true,
       bookingOpensAt: true,
@@ -432,7 +432,7 @@ router.get('/:slug', async (req: Request, res: Response) => {
     title: event.title,
     startsAt: event.startsAt,
     cancelledAt: event.cancelledAt,
-    bookingEnabled: event.bookingEnabled,
+    bookingRequired: event.bookingRequired,
     bookingCapacity: event.bookingCapacity,
     bookingReservedSeats: event.bookingReservedSeats,
     bookingOpensAt: event.bookingOpensAt,
@@ -453,7 +453,7 @@ router.get('/:slug', async (req: Request, res: Response) => {
     endsAt: event.endsAt,
     ...cover,
     publishedAt: event.publishedAt,
-    bookingEnabled: event.bookingEnabled,
+    bookingRequired: event.bookingRequired,
     bookingAvailable: availability.bookingAvailable,
     cancelledAt: event.cancelledAt,
     cancellationMessage: event.cancellationMessage,

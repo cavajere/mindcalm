@@ -93,7 +93,7 @@ onMounted(loadBookings)
         <div class="card">
           <p class="text-xs uppercase tracking-[0.18em] text-text-secondary">Stato</p>
           <p class="mt-2 text-sm font-medium text-text-primary">
-            {{ summary.event.bookingEnabled ? (summary.event.bookingAvailable ? 'Aperte' : 'Chiuse o complete') : 'Disattive' }}
+            {{ summary.event.bookingRequired ? (summary.event.bookingAvailable ? 'Aperte' : 'Chiuse o complete') : 'Senza prenotazione' }}
           </p>
         </div>
         <div class="card">

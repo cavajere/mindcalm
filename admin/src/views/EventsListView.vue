@@ -100,14 +100,14 @@ onMounted(fetchEvents)
               </span>
             </td>
             <td class="px-4 py-3 text-sm text-text-secondary">
-              <div v-if="eventItem.bookingEnabled" class="space-y-1">
+              <div v-if="eventItem.bookingRequired" class="space-y-1">
                 <span :class="['inline-flex rounded-full px-2.5 py-1 text-xs font-medium', eventItem.cancelledAt ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700']">
-                  {{ eventItem.cancelledAt ? 'Evento annullato' : 'Prenotazioni attive' }}
+                  {{ eventItem.cancelledAt ? 'Evento annullato' : 'Con prenotazione' }}
                 </span>
                 <p>{{ eventItem.bookingReservedSeats }}/{{ eventItem.bookingCapacity || 0 }} occupati</p>
               </div>
               <span v-else class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
-                Disattive
+                Senza prenotazione
               </span>
             </td>
             <td class="table-actions-cell">

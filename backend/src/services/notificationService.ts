@@ -299,10 +299,10 @@ function toEventItem(item: { slug: string; title: string; publishedAt: Date | nu
 }
 
 async function toEventItemForUser(
-  item: { id: string; slug: string; title: string; publishedAt: Date | null; bookingEnabled: boolean },
+  item: { id: string; slug: string; title: string; publishedAt: Date | null; bookingRequired: boolean },
   user: { id: string; email: string; name: string },
 ): Promise<ContentNotificationItem> {
-  if (!item.bookingEnabled) {
+  if (!item.bookingRequired) {
     return toEventItem(item)
   }
 
@@ -321,7 +321,7 @@ async function toEventItemForUser(
       url: invitation.url,
     }
   } catch (error) {
-    if (error instanceof EventBookingError && error.code === 'BOOKING_DISABLED') {
+    if (error instanceof EventBookingError && error.code === 'BOOKING_NOT_REQUIRED') {
       return toEventItem(item)
     }
 
@@ -527,7 +527,7 @@ async function buildNotificationItemForUser(input: {
       title: true,
       publishedAt: true,
       status: true,
-      bookingEnabled: true,
+      bookingRequired: true,
     },
   })
 
@@ -540,7 +540,7 @@ async function buildNotificationItemForUser(input: {
     slug: event.slug,
     title: input.title,
     publishedAt: input.publishedAt,
-    bookingEnabled: event.bookingEnabled,
+    bookingRequired: event.bookingRequired,
   }, user)
 }
 
@@ -1438,7 +1438,7 @@ export async function enqueueDueNotifications(now = new Date()) {
               slug: true,
               title: true,
               publishedAt: true,
-              bookingEnabled: true,
+              bookingRequired: true,
             },
             orderBy: {
               publishedAt: 'desc',

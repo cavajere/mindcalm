@@ -12,7 +12,7 @@ type EventBookingStateRecord = {
   title: string
   startsAt: Date
   cancelledAt?: Date | null
-  bookingEnabled: boolean
+  bookingRequired: boolean
   bookingCapacity: number | null
   bookingReservedSeats: number
   bookingOpensAt: Date | null
@@ -101,19 +101,19 @@ export function getEventBookingAvailability(event: EventBookingStateRecord, now 
   const closesAt = getEffectiveBookingCloseAt(event)
   const opensAtPassed = !event.bookingOpensAt || event.bookingOpensAt <= now
   const closesAtFuture = closesAt > now
-  const bookingOpen = !event.cancelledAt && event.bookingEnabled && opensAtPassed && closesAtFuture
+  const bookingOpen = !event.cancelledAt && event.bookingRequired && opensAtPassed && closesAtFuture
   const seatsRemaining = Math.max(0, capacity - event.bookingReservedSeats)
   const bookingAvailable = (
     !event.cancelledAt
     && event.status === 'PUBLISHED'
-    && event.bookingEnabled
+    && event.bookingRequired
     && capacity > 0
     && bookingOpen
     && seatsRemaining > 0
   )
 
   return {
-    bookingEnabled: event.bookingEnabled,
+    bookingRequired: event.bookingRequired,
     bookingOpen,
     bookingAvailable,
     seatsRemaining,
@@ -227,8 +227,8 @@ function assertInvitationIsUsable(invitation: EventBookingInvitationRecord, now:
 function assertBookingIsOpen(event: EventBookingStateRecord, now: Date) {
   const availability = getEventBookingAvailability(event, now)
 
-  if (!event.bookingEnabled) {
-    throw new EventBookingError('BOOKING_DISABLED', 'Le prenotazioni online non sono attive per questo evento', 400)
+  if (!event.bookingRequired) {
+    throw new EventBookingError('BOOKING_NOT_REQUIRED', 'Questo evento non prevede prenotazione', 400)
   }
 
   if (event.status !== 'PUBLISHED' || !availability.bookingOpen) {
@@ -264,7 +264,7 @@ export async function upsertInvitationForEventRecipient(input: {
       venue: true,
       startsAt: true,
       bookingClosesAt: true,
-      bookingEnabled: true,
+      bookingRequired: true,
       status: true,
     },
   })
@@ -273,8 +273,8 @@ export async function upsertInvitationForEventRecipient(input: {
     throw new EventBookingError('EVENT_NOT_FOUND', 'Evento non trovato', 404)
   }
 
-  if (!event.bookingEnabled || event.status !== 'PUBLISHED') {
-    throw new EventBookingError('BOOKING_DISABLED', 'Le prenotazioni online non sono attive per questo evento', 400)
+  if (!event.bookingRequired || event.status !== 'PUBLISHED') {
+    throw new EventBookingError('BOOKING_NOT_REQUIRED', 'Questo evento non prevede prenotazione', 400)
   }
 
   const token = generateRandomToken()
@@ -442,7 +442,7 @@ export async function getPublicBookingAccess(input: {
     }
   }
 
-  if (!invitation.event.bookingEnabled || invitation.event.status !== 'PUBLISHED' || !availability.bookingOpen) {
+  if (!invitation.event.bookingRequired || invitation.event.status !== 'PUBLISHED' || !availability.bookingOpen) {
     return {
       accessStatus: 'BOOKING_CLOSED' as PublicBookingAccessStatus,
       canBook: false,
@@ -796,7 +796,7 @@ export async function getEventBookingAdminSummary(eventId: string) {
       slug: true,
       startsAt: true,
       cancelledAt: true,
-      bookingEnabled: true,
+      bookingRequired: true,
       bookingCapacity: true,
       bookingReservedSeats: true,
       bookingOpensAt: true,
@@ -830,7 +830,7 @@ export async function getEventBookingAdminSummary(eventId: string) {
       slug: event.slug,
       startsAt: event.startsAt,
       status: event.status,
-      bookingEnabled: event.bookingEnabled,
+      bookingRequired: event.bookingRequired,
       bookingCapacity: event.bookingCapacity,
       bookingReservedSeats: event.bookingReservedSeats,
       bookingRemainingSeats: availability.seatsRemaining,

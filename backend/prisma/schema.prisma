@@ -447,7 +447,7 @@ model Event {
   venue       String?
   startsAt    DateTime
   endsAt      DateTime?
-  bookingEnabled Boolean @default(false)
+  bookingRequired Boolean @default(false)
   bookingCapacity Int?
   bookingReservedSeats Int @default(0)
   bookingOpensAt DateTime?
@@ -470,7 +470,7 @@ model Event {
   bookings    EventBooking[]
 
   @@index([coverAlbumImageId])
-  @@index([bookingEnabled])
+  @@index([bookingRequired])
   @@index([status, visibility])
   @@index([slug])
   @@index([startsAt])
@@ -601,6 +601,20 @@ model SmtpSettings {
   updatedAt         DateTime @updatedAt
 
   @@map("smtp_settings")
+}
+
+model PublicContactSettings {
+  id              Int      @id
+  title           String?
+  description     String?
+  email           String?
+  phone           String?
+  whatsappNumber  String?
+  whatsappEnabled Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("public_contact_settings")
 }
 
 model Category {

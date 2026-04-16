@@ -29,7 +29,7 @@ const form = ref({
   endsAt: '',
   status: 'DRAFT',
   visibility: 'REGISTERED',
-  bookingEnabled: false,
+  bookingRequired: false,
   bookingCapacity: '',
   bookingOpensAt: '',
   bookingClosesAt: '',
@@ -139,7 +139,7 @@ async function save() {
     appendOptionalField(fd, 'endsAt', form.value.endsAt)
     fd.append('status', form.value.status)
     fd.append('visibility', form.value.visibility)
-    fd.append('bookingEnabled', String(form.value.bookingEnabled))
+    fd.append('bookingRequired', String(form.value.bookingRequired))
     appendOptionalField(fd, 'bookingCapacity', form.value.bookingCapacity)
     appendOptionalField(fd, 'bookingOpensAt', form.value.bookingOpensAt)
     appendOptionalField(fd, 'bookingClosesAt', form.value.bookingClosesAt)
@@ -223,7 +223,7 @@ onMounted(async () => {
       endsAt: toLocalDateTimeInput(eventItem.endsAt),
       status: eventItem.status,
       visibility: eventItem.visibility,
-      bookingEnabled: Boolean(eventItem.bookingEnabled),
+      bookingRequired: Boolean(eventItem.bookingRequired),
       bookingCapacity: eventItem.bookingCapacity ? String(eventItem.bookingCapacity) : '',
       bookingOpensAt: toLocalDateTimeInput(eventItem.bookingOpensAt),
       bookingClosesAt: toLocalDateTimeInput(eventItem.bookingClosesAt),
@@ -308,27 +308,27 @@ watch(
         <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5 space-y-4">
           <div class="flex items-start justify-between gap-4">
             <div>
-              <label class="label mb-0">Prenotazioni online</label>
-              <p class="mt-1 text-xs text-text-secondary">Mostra la disponibilità sul portale pubblico senza esporre il numero di posti residui.</p>
+              <label class="label mb-0">Prenotazione</label>
+              <p class="mt-1 text-xs text-text-secondary">Se attiva, i partecipanti devono prenotarsi online prima dell'evento.</p>
             </div>
             <label class="inline-flex items-center gap-3 text-sm font-medium text-text-primary">
-              <input v-model="form.bookingEnabled" type="checkbox" class="rounded border-gray-300 text-primary focus:ring-primary/30" />
-              Attive
+              <input v-model="form.bookingRequired" type="checkbox" class="rounded border-gray-300 text-primary focus:ring-primary/30" />
+              Con prenotazione
             </label>
           </div>
 
-          <div class="grid grid-cols-1 gap-4 md:grid-cols-3" :class="{ 'opacity-60': !form.bookingEnabled }">
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-3" :class="{ 'opacity-60': !form.bookingRequired }">
             <div>
               <label class="label">Capienza</label>
-              <input v-model="form.bookingCapacity" type="number" min="1" class="input-field" :disabled="!form.bookingEnabled" />
+              <input v-model="form.bookingCapacity" type="number" min="1" class="input-field" :disabled="!form.bookingRequired" />
             </div>
             <div>
               <label class="label">Apertura prenotazioni</label>
-              <input v-model="form.bookingOpensAt" type="datetime-local" class="input-field" :disabled="!form.bookingEnabled" />
+              <input v-model="form.bookingOpensAt" type="datetime-local" class="input-field" :disabled="!form.bookingRequired" />
             </div>
             <div>
               <label class="label">Chiusura prenotazioni</label>
-              <input v-model="form.bookingClosesAt" type="datetime-local" class="input-field" :disabled="!form.bookingEnabled" />
+              <input v-model="form.bookingClosesAt" type="datetime-local" class="input-field" :disabled="!form.bookingRequired" />
             </div>
           </div>
 
