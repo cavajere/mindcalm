@@ -5,8 +5,11 @@ import axios from 'axios'
 import PageHeader from '../components/PageHeader.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import { getPublicAppUrl } from '../utils/appUrls'
+import { useToast } from '../composables/useToast'
+import { getApiErrorMessage } from '../utils/apiMessages'
 
 const router = useRouter()
+const toast = useToast()
 const events = ref<any[]>([])
 const loading = ref(true)
 
@@ -32,14 +35,24 @@ async function fetchEvents() {
 
 async function toggleStatus(eventItem: any) {
   const newStatus = eventItem.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED'
-  await axios.patch(`/api/admin/events/${eventItem.id}/status`, { status: newStatus, publicBaseUrl: getPublicAppUrl() })
-  eventItem.status = newStatus
+  try {
+    await axios.patch(`/api/admin/events/${eventItem.id}/status`, { status: newStatus, publicBaseUrl: getPublicAppUrl() })
+    eventItem.status = newStatus
+    toast.success(newStatus === 'PUBLISHED' ? 'Evento pubblicato' : 'Evento riportato in bozza')
+  } catch (e: unknown) {
+    toast.error(getApiErrorMessage(e, 'Errore aggiornamento stato'))
+  }
 }
 
 async function deleteEvent(eventItem: any) {
   if (!confirm(`Eliminare l'evento "${eventItem.title}"?`)) return
-  await axios.delete(`/api/admin/events/${eventItem.id}`)
-  events.value = events.value.filter((item) => item.id !== eventItem.id)
+  try {
+    await axios.delete(`/api/admin/events/${eventItem.id}`)
+    events.value = events.value.filter((item) => item.id !== eventItem.id)
+    toast.success('Evento eliminato')
+  } catch (e: unknown) {
+    toast.error(getApiErrorMessage(e, 'Errore durante l\'eliminazione'))
+  }
 }
 
 onMounted(fetchEvents)

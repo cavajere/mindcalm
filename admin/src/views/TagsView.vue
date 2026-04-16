@@ -3,6 +3,8 @@ import { computed, onMounted, ref } from 'vue'
 import axios from 'axios'
 import AdminModal from '../components/AdminModal.vue'
 import PageHeader from '../components/PageHeader.vue'
+import { useToast } from '../composables/useToast'
+import { getApiErrorMessage } from '../utils/apiMessages'
 
 interface Tag {
   id: string
@@ -16,6 +18,7 @@ interface Tag {
   postCount: number
 }
 
+const toast = useToast()
 const tags = ref<Tag[]>([])
 const loading = ref(true)
 const showModal = ref(false)
@@ -99,21 +102,32 @@ async function save() {
     }
 
     showModal.value = false
+    toast.success(editingId.value ? 'Tag aggiornato' : 'Tag creato')
     await fetchTags()
-  } catch (e: any) {
-    error.value = e.response?.data?.error || 'Errore nel salvataggio'
+  } catch (e: unknown) {
+    error.value = getApiErrorMessage(e, 'Errore nel salvataggio')
   }
 }
 
 async function toggleStatus(tag: Tag) {
-  await axios.patch(`/api/admin/tags/${tag.id}/status`, { isActive: !tag.isActive })
-  tag.isActive = !tag.isActive
+  try {
+    await axios.patch(`/api/admin/tags/${tag.id}/status`, { isActive: !tag.isActive })
+    tag.isActive = !tag.isActive
+    toast.success(tag.isActive ? 'Tag attivato' : 'Tag disattivato')
+  } catch (e: unknown) {
+    toast.error(getApiErrorMessage(e, 'Errore aggiornamento stato'))
+  }
 }
 
 async function deleteTag(tag: Tag) {
   if (!confirm(`Eliminare il tag "${tag.label}"?`)) return
-  await axios.delete(`/api/admin/tags/${tag.id}`)
-  await fetchTags()
+  try {
+    await axios.delete(`/api/admin/tags/${tag.id}`)
+    toast.success('Tag eliminato')
+    await fetchTags()
+  } catch (e: unknown) {
+    toast.error(getApiErrorMessage(e, 'Errore durante l\'eliminazione'))
+  }
 }
 
 onMounted(fetchTags)

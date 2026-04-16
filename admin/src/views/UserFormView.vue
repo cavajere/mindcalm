@@ -4,11 +4,13 @@ import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import PageHeader from '../components/PageHeader.vue'
 import { getApiErrorMessage } from '../utils/apiMessages'
+import { useToast } from '../composables/useToast'
 
 const PHONE_REGEX = /^\+?[0-9\s().-]{7,20}$/
 const MAX_NOTES_LENGTH = 5000
 const route = useRoute()
 const router = useRouter()
+const toast = useToast()
 
 const isEdit = computed(() => !!route.params.id)
 const loading = ref(false)
@@ -100,16 +102,13 @@ async function fetchUser() {
 }
 
 async function handleSubmit() {
-  error.value = ''
-  success.value = ''
-
   if (form.value.phone.trim() && !isPhoneValid(form.value.phone)) {
-    error.value = 'Numero di telefono non valido'
+    toast.warning('Numero di telefono non valido')
     return
   }
 
   if (form.value.notes.length > MAX_NOTES_LENGTH) {
-    error.value = 'Le note possono contenere al massimo 5000 caratteri'
+    toast.warning('Le note possono contenere al massimo 5000 caratteri')
     return
   }
 
@@ -141,9 +140,10 @@ async function handleSubmit() {
       await axios.post('/api/admin/users', payload)
     }
 
+    toast.success(isEdit.value ? 'Utente aggiornato' : 'Utente creato')
     router.push('/users')
-  } catch (e: any) {
-    error.value = getApiErrorMessage(e, 'Errore di salvataggio')
+  } catch (e: unknown) {
+    toast.error(getApiErrorMessage(e, 'Errore di salvataggio'))
   } finally {
     loading.value = false
   }
@@ -152,18 +152,16 @@ async function handleSubmit() {
 async function resendInvite() {
   if (!isEdit.value) return
 
-  error.value = ''
-  success.value = ''
   resendingInvite.value = true
 
   try {
     const { data } = await axios.post(`/api/admin/users/${route.params.id}/resend-invite`)
 
-    success.value = data.message || 'Invito inviato'
+    toast.success(data.message || 'Invito inviato')
     userMeta.value.hasPendingInvite = data.user?.hasPendingInvite ?? true
     userMeta.value.invitedAt = data.user?.invitedAt || new Date().toISOString()
-  } catch (e: any) {
-    error.value = getApiErrorMessage(e, 'Invio invito non riuscito')
+  } catch (e: unknown) {
+    toast.error(getApiErrorMessage(e, 'Invio invito non riuscito'))
   } finally {
     resendingInvite.value = false
   }

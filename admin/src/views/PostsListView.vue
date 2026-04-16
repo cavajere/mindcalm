@@ -5,8 +5,11 @@ import axios from 'axios'
 import PageHeader from '../components/PageHeader.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import { getPublicAppUrl } from '../utils/appUrls'
+import { useToast } from '../composables/useToast'
+import { getApiErrorMessage } from '../utils/apiMessages'
 
 const router = useRouter()
+const toast = useToast()
 const posts = ref<any[]>([])
 const loading = ref(true)
 
@@ -32,17 +35,27 @@ async function fetchPosts() {
 
 async function toggleStatus(post: any) {
   const newStatus = post.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED'
-  await axios.patch(`/api/admin/posts/${post.id}/status`, {
-    status: newStatus,
-    publicBaseUrl: getPublicAppUrl(),
-  })
-  post.status = newStatus
+  try {
+    await axios.patch(`/api/admin/posts/${post.id}/status`, {
+      status: newStatus,
+      publicBaseUrl: getPublicAppUrl(),
+    })
+    post.status = newStatus
+    toast.success(newStatus === 'PUBLISHED' ? 'Post pubblicato' : 'Post riportato in bozza')
+  } catch (e: unknown) {
+    toast.error(getApiErrorMessage(e, 'Errore aggiornamento stato'))
+  }
 }
 
 async function deletePost(post: any) {
   if (!confirm(`Eliminare il post "${post.title}"?`)) return
-  await axios.delete(`/api/admin/posts/${post.id}`)
-  posts.value = posts.value.filter((entry) => entry.id !== post.id)
+  try {
+    await axios.delete(`/api/admin/posts/${post.id}`)
+    posts.value = posts.value.filter((entry) => entry.id !== post.id)
+    toast.success('Post eliminato')
+  } catch (e: unknown) {
+    toast.error(getApiErrorMessage(e, 'Errore durante l\'eliminazione'))
+  }
 }
 
 onMounted(fetchPosts)

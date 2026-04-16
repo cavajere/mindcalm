@@ -119,3 +119,22 @@
   height: 0;
   pointer-events: none;
 }
+
+@keyframes loading-bar-slide {
+  0% { transform: translateX(-100%); width: 40%; }
+  50% { transform: translateX(100%); width: 60%; }
+  100% { transform: translateX(300%); width: 40%; }
+}
+
+@keyframes toast-countdown {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+
+.animate-loading-bar {
+  animation: loading-bar-slide 1.5s ease-in-out infinite;
+}
+
+.animate-toast-countdown {
+  animation: toast-countdown linear forwards;
+}

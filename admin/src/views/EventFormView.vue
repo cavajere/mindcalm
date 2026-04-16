@@ -8,16 +8,18 @@ import AlbumImagePicker from '../components/AlbumImagePicker.vue'
 import FileUploader, { type ExistingFileMeta, type UploadFileItem } from '../components/FileUploader.vue'
 import type { AlbumImage } from '../types/album'
 import { getPublicAppUrl } from '../utils/appUrls'
+import { useToast } from '../composables/useToast'
+import { getApiErrorMessage } from '../utils/apiMessages'
 
 const route = useRoute()
 const router = useRouter()
+const toast = useToast()
 
 const isEdit = computed(() => !!route.params.id)
 const loading = ref(false)
 const saving = ref(false)
 const cancelling = ref(false)
 const uploadProgress = ref(0)
-const error = ref('')
 
 const form = ref({
   title: '',
@@ -124,7 +126,6 @@ function handleCoverFilesUpdate(files: UploadFileItem[]) {
 }
 
 async function save() {
-  error.value = ''
   saving.value = true
   uploadProgress.value = 0
 
@@ -167,11 +168,10 @@ async function save() {
       await axios.post('/api/admin/events', fd, config)
     }
 
+    toast.success(isEdit.value ? 'Evento aggiornato' : 'Evento creato')
     router.push('/events')
-  } catch (e: any) {
-    const details = e.response?.data?.details
-    const firstDetail = Array.isArray(details) ? details[0]?.msg : null
-    error.value = firstDetail || e.response?.data?.error || 'Errore nel salvataggio'
+  } catch (e: unknown) {
+    toast.error(getApiErrorMessage(e, 'Errore nel salvataggio'))
   } finally {
     saving.value = false
     uploadProgress.value = 0
@@ -183,15 +183,14 @@ async function cancelEvent() {
 
   const cancellationMessage = form.value.cancellationMessage.trim()
   if (!cancellationMessage) {
-    error.value = 'Inserisci il messaggio di annullamento da inviare ai partecipanti registrati'
+    toast.warning('Inserisci il messaggio di annullamento da inviare ai partecipanti registrati')
     return
   }
 
-  if (!confirm('Annullare l’evento e inviare la notifica a tutti i partecipanti registrati?')) {
+  if (!confirm("Annullare l'evento e inviare la notifica a tutti i partecipanti registrati?")) {
     return
   }
 
-  error.value = ''
   cancelling.value = true
 
   try {
@@ -199,9 +198,10 @@ async function cancelEvent() {
       cancellationMessage,
       publicBaseUrl: getPublicAppUrl(),
     })
+    toast.success('Evento annullato e partecipanti notificati')
     router.push('/events')
-  } catch (e: any) {
-    error.value = e.response?.data?.error || 'Errore durante l’annullamento dell’evento'
+  } catch (e: unknown) {
+    toast.error(getApiErrorMessage(e, "Errore durante l'annullamento dell'evento"))
   } finally {
     cancelling.value = false
   }
@@ -273,8 +273,6 @@ watch(
     </PageHeader>
 
     <form @submit.prevent="save" class="card w-full space-y-5">
-      <div v-if="error" class="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg">{{ error }}</div>
-
       <div v-if="loading" class="text-sm text-text-secondary">Caricamento evento...</div>
 
       <template v-else>
@@ -386,7 +384,7 @@ watch(
         <div v-if="isEdit" class="rounded-2xl border border-sky-200 bg-sky-50 p-5 space-y-3">
           <div>
             <label class="label mb-0">Messaggio per i partecipanti</label>
-            <p class="mt-1 text-xs text-text-secondary">Se salvi modifiche, questo testo verrà incluso nella notifica inviata ai partecipanti registrati. Lascia vuoto per inviare solo l’aggiornamento standard.</p>
+            <p class="mt-1 text-xs text-text-secondary">Se salvi modifiche, questo testo verrà incluso nella notifica inviata ai partecipanti registrati. Lascia vuoto per inviare solo l'aggiornamento standard.</p>
           </div>
           <textarea v-model="form.participantNotificationMessage" rows="3" class="input-field" placeholder="Es. abbiamo aggiornato orario di ritrovo e indicazioni logistiche." />
         </div>
@@ -413,7 +411,7 @@ watch(
           <div class="mt-4 rounded-2xl border border-gray-100 bg-white p-4">
             <div>
               <p class="text-sm font-medium text-text-primary">Upload diretto</p>
-              <p class="mt-1 text-xs text-text-secondary">Usalo se la copertina non deve entrare nell’album condiviso.</p>
+              <p class="mt-1 text-xs text-text-secondary">Usalo se la copertina non deve entrare nell'album condiviso.</p>
             </div>
 
             <div class="mt-4">
@@ -445,7 +443,7 @@ watch(
         <div v-if="isEdit" class="rounded-2xl border border-red-200 bg-red-50 p-5 space-y-4">
           <div>
             <label class="label mb-0 text-red-700">Annullamento evento</label>
-            <p class="mt-1 text-xs text-red-600">L’annullamento chiude le prenotazioni online e invia il messaggio qui sotto a tutti i partecipanti registrati.</p>
+            <p class="mt-1 text-xs text-red-600">L'annullamento chiude le prenotazioni online e invia il messaggio qui sotto a tutti i partecipanti registrati.</p>
           </div>
 
           <div v-if="route.params.id && form.cancellationMessage" class="rounded-xl border border-red-200 bg-white/70 px-3 py-2 text-sm text-red-700">
@@ -456,7 +454,7 @@ watch(
             v-model="form.cancellationMessage"
             rows="4"
             class="input-field border-red-200 focus:border-red-300"
-            placeholder="Es. per motivi organizzativi l’incontro non si terrà nella data prevista."
+            placeholder="Es. per motivi organizzativi l'incontro non si terrà nella data prevista."
           />
 
           <div class="flex justify-end">

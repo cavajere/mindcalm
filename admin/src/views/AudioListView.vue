@@ -6,8 +6,11 @@ import PageHeader from '../components/PageHeader.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import { getAudioLevelLabel } from '../utils/audioLevels'
 import { getPublicAppUrl } from '../utils/appUrls'
+import { useToast } from '../composables/useToast'
+import { getApiErrorMessage } from '../utils/apiMessages'
 
 const router = useRouter()
+const toast = useToast()
 const audioItems = ref<any[]>([])
 const loading = ref(true)
 const pagination = ref({ page: 1, limit: 20, total: 0, totalPages: 0 })
@@ -25,17 +28,27 @@ async function fetchAudio() {
 
 async function toggleStatus(audio: any) {
   const newStatus = audio.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED'
-  await axios.patch(`/api/admin/audio/${audio.id}/status`, {
-    status: newStatus,
-    publicBaseUrl: getPublicAppUrl(),
-  })
-  audio.status = newStatus
+  try {
+    await axios.patch(`/api/admin/audio/${audio.id}/status`, {
+      status: newStatus,
+      publicBaseUrl: getPublicAppUrl(),
+    })
+    audio.status = newStatus
+    toast.success(newStatus === 'PUBLISHED' ? 'Audio pubblicato' : 'Audio riportato in bozza')
+  } catch (e: unknown) {
+    toast.error(getApiErrorMessage(e, 'Errore aggiornamento stato'))
+  }
 }
 
 async function deleteAudio(audio: any) {
   if (!confirm(`Eliminare l'audio "${audio.title}"?`)) return
-  await axios.delete(`/api/admin/audio/${audio.id}`)
-  audioItems.value = audioItems.value.filter((item) => item.id !== audio.id)
+  try {
+    await axios.delete(`/api/admin/audio/${audio.id}`)
+    audioItems.value = audioItems.value.filter((item) => item.id !== audio.id)
+    toast.success('Audio eliminato')
+  } catch (e: unknown) {
+    toast.error(getApiErrorMessage(e, 'Errore durante l\'eliminazione'))
+  }
 }
 
 function formatDuration(sec: number) {

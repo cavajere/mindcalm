@@ -9,15 +9,17 @@ import AlbumImagePicker from '../components/AlbumImagePicker.vue'
 import FileUploader, { type UploadFileItem, type ExistingFileMeta } from '../components/FileUploader.vue'
 import type { AlbumImage } from '../types/album'
 import { getPublicAppUrl } from '../utils/appUrls'
+import { useToast } from '../composables/useToast'
+import { getApiErrorMessage } from '../utils/apiMessages'
 
 const route = useRoute()
 const router = useRouter()
 
+const toast = useToast()
 const isEdit = computed(() => !!route.params.id)
 const loading = ref(false)
 const saving = ref(false)
 const uploadProgress = ref(0)
-const error = ref('')
 const tags = ref<SelectableTag[]>([])
 
 const form = ref({
@@ -96,7 +98,6 @@ function handleCoverFilesUpdate(files: UploadFileItem[]) {
 }
 
 async function save() {
-  error.value = ''
   saving.value = true
   uploadProgress.value = 0
 
@@ -128,9 +129,10 @@ async function save() {
       await axios.post('/api/admin/posts', fd, config)
     }
 
+    toast.success(isEdit.value ? 'Post aggiornato' : 'Post creato')
     router.push('/posts')
-  } catch (e: any) {
-    error.value = e.response?.data?.error || 'Errore nel salvataggio'
+  } catch (e: unknown) {
+    toast.error(getApiErrorMessage(e, 'Errore nel salvataggio'))
   } finally {
     saving.value = false
     uploadProgress.value = 0
@@ -186,8 +188,6 @@ onMounted(async () => {
     </PageHeader>
 
     <form @submit.prevent="save" class="card w-full space-y-5">
-      <div v-if="error" class="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg">{{ error }}</div>
-
       <div>
         <label class="label">Titolo *</label>
         <input v-model="form.title" type="text" required class="input-field" />

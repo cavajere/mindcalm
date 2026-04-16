@@ -3,6 +3,8 @@ import { onMounted, ref } from 'vue'
 import axios from 'axios'
 import AdminModal from '../components/AdminModal.vue'
 import PageHeader from '../components/PageHeader.vue'
+import { useToast } from '../composables/useToast'
+import { getApiErrorMessage } from '../utils/apiMessages'
 
 interface Category {
   id: string
@@ -14,6 +16,7 @@ interface Category {
   audioCount: number
 }
 
+const toast = useToast()
 const categories = ref<Category[]>([])
 const loading = ref(true)
 const showModal = ref(false)
@@ -62,9 +65,10 @@ async function save() {
       await axios.post('/api/admin/categories', form.value)
     }
     showModal.value = false
+    toast.success(editingId.value ? 'Categoria aggiornata' : 'Categoria creata')
     await fetchCategories()
-  } catch (e: any) {
-    error.value = e.response?.data?.error || 'Errore nel salvataggio'
+  } catch (e: unknown) {
+    error.value = getApiErrorMessage(e, 'Errore nel salvataggio')
   }
 }
 
@@ -72,9 +76,10 @@ async function deleteCategory(cat: Category) {
   if (!confirm(`Eliminare la categoria "${cat.name}"?`)) return
   try {
     await axios.delete(`/api/admin/categories/${cat.id}`)
+    toast.success('Categoria eliminata')
     await fetchCategories()
-  } catch (e: any) {
-    alert(e.response?.data?.error || 'Errore')
+  } catch (e: unknown) {
+    toast.error(getApiErrorMessage(e, 'Errore durante l\'eliminazione'))
   }
 }
 

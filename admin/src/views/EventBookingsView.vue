@@ -3,11 +3,13 @@ import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import PageHeader from '../components/PageHeader.vue'
+import { useToast } from '../composables/useToast'
+import { getApiErrorMessage } from '../utils/apiMessages'
 
 const route = useRoute()
 const router = useRouter()
+const toast = useToast()
 const loading = ref(true)
-const error = ref('')
 const reconciling = ref(false)
 const summary = ref<any>(null)
 
@@ -22,13 +24,11 @@ function formatDateTime(value?: string | null) {
 
 async function loadBookings() {
   loading.value = true
-  error.value = ''
-
   try {
     const { data } = await axios.get(`/api/admin/events/${route.params.id}/bookings`)
     summary.value = data
-  } catch (apiError: any) {
-    error.value = apiError.response?.data?.error || 'Errore caricamento prenotazioni'
+  } catch (e: unknown) {
+    toast.error(getApiErrorMessage(e, 'Errore caricamento prenotazioni'))
   } finally {
     loading.value = false
   }
@@ -36,21 +36,34 @@ async function loadBookings() {
 
 async function cancelBooking(booking: any) {
   if (!confirm(`Annullare la prenotazione di ${booking.bookerFirstName} ${booking.bookerLastName}?`)) return
-  await axios.post(`/api/admin/events/${route.params.id}/bookings/${booking.id}/cancel`)
-  await loadBookings()
+  try {
+    await axios.post(`/api/admin/events/${route.params.id}/bookings/${booking.id}/cancel`)
+    toast.success('Prenotazione annullata')
+    await loadBookings()
+  } catch (e: unknown) {
+    toast.error(getApiErrorMessage(e, 'Errore annullamento prenotazione'))
+  }
 }
 
 async function restoreBooking(booking: any) {
   if (!confirm(`Ripristinare la prenotazione di ${booking.bookerFirstName} ${booking.bookerLastName}?`)) return
-  await axios.post(`/api/admin/events/${route.params.id}/bookings/${booking.id}/restore`)
-  await loadBookings()
+  try {
+    await axios.post(`/api/admin/events/${route.params.id}/bookings/${booking.id}/restore`)
+    toast.success('Prenotazione ripristinata')
+    await loadBookings()
+  } catch (e: unknown) {
+    toast.error(getApiErrorMessage(e, 'Errore ripristino prenotazione'))
+  }
 }
 
 async function reconcileBookings() {
   reconciling.value = true
   try {
     await axios.post(`/api/admin/events/${route.params.id}/bookings/reconcile`)
+    toast.success('Posti riallineati')
     await loadBookings()
+  } catch (e: unknown) {
+    toast.error(getApiErrorMessage(e, 'Errore riallineamento posti'))
   } finally {
     reconciling.value = false
   }
@@ -73,7 +86,6 @@ onMounted(loadBookings)
       </template>
     </PageHeader>
 
-    <div v-if="error" class="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{{ error }}</div>
     <div v-if="loading" class="text-sm text-text-secondary">Caricamento prenotazioni...</div>
 
     <template v-else-if="summary">

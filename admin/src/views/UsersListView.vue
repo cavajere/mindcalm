@@ -4,8 +4,11 @@ import { useRouter } from 'vue-router'
 import axios from 'axios'
 import PageHeader from '../components/PageHeader.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
+import { useToast } from '../composables/useToast'
+import { getApiErrorMessage } from '../utils/apiMessages'
 
 const router = useRouter()
+const toast = useToast()
 const users = ref<any[]>([])
 const loading = ref(true)
 const pagination = ref({ page: 1, limit: 20, total: 0, totalPages: 0 })
@@ -30,15 +33,26 @@ function confirmDelete(user: any) {
 
 async function deleteUser() {
   if (!userToDelete.value) return
-  await axios.delete(`/api/admin/users/${userToDelete.value.id}`)
-  confirmDeleteOpen.value = false
-  userToDelete.value = null
-  await fetchUsers()
+  try {
+    await axios.delete(`/api/admin/users/${userToDelete.value.id}`)
+    confirmDeleteOpen.value = false
+    userToDelete.value = null
+    toast.success('Utente eliminato')
+    await fetchUsers()
+  } catch (e: unknown) {
+    confirmDeleteOpen.value = false
+    toast.error(getApiErrorMessage(e, 'Errore durante l\'eliminazione'))
+  }
 }
 
 async function resendInvite(user: any) {
-  await axios.post(`/api/admin/users/${user.id}/resend-invite`)
-  await fetchUsers()
+  try {
+    await axios.post(`/api/admin/users/${user.id}/resend-invite`)
+    toast.success('Invito reinviato')
+    await fetchUsers()
+  } catch (e: unknown) {
+    toast.error(getApiErrorMessage(e, 'Errore reinvio invito'))
+  }
 }
 
 function formatDate(value: string) {

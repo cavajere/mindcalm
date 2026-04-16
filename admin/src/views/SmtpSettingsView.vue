@@ -3,7 +3,10 @@ import { computed, onMounted, ref } from 'vue'
 import axios from 'axios'
 import PageHeader from '../components/PageHeader.vue'
 import { useAuthStore } from '../stores/authStore'
+import { useToast } from '../composables/useToast'
+import { getApiErrorMessage } from '../utils/apiMessages'
 
+const toast = useToast()
 const SMTP_MASKED_PASSWORD = '••••••••'
 
 interface AltavoloTenantSmtpConfigFile {
@@ -70,9 +73,9 @@ async function saveSettings() {
 
     form.value.hasPassword = data.hasPassword
     form.value.password = ''
-    success.value = 'Configurazione SMTP salvata'
-  } catch (e: any) {
-    error.value = e.response?.data?.error || 'Errore di salvataggio'
+    toast.success('Configurazione SMTP salvata')
+  } catch (e: unknown) {
+    toast.error(getApiErrorMessage(e, 'Errore di salvataggio'))
   } finally {
     loading.value = false
   }

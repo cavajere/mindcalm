@@ -3,6 +3,8 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useAuthStore } from './stores/authStore'
 import { useRouter, useRoute } from 'vue-router'
 import { getPublicAppUrl } from './utils/appUrls'
+import AppLoadingBar from './components/AppLoadingBar.vue'
+import AppToastContainer from './components/AppToastContainer.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -195,6 +197,9 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
+  <AppLoadingBar />
+  <AppToastContainer />
+
   <div v-if="!auth.initialized" class="flex min-h-screen items-center justify-center bg-background px-6">
     <div class="w-full max-w-sm rounded-3xl border border-slate-200 bg-white px-6 py-8 text-center shadow-sm">
       <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-sm font-semibold text-white">
