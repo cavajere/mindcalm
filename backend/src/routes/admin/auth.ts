@@ -20,6 +20,7 @@ import {
   appAuthMiddleware,
   clearAuthCookie,
   getAuthCookieOptions,
+  optionalAppAuthMiddleware,
   requireAdmin,
   requireBootstrapAdmin,
   resolveAdminRequest,
@@ -308,7 +309,12 @@ router.get('/me', adminAuthMiddleware, requireAdmin, async (req: Request, res: R
 })
 
 // GET /api/auth/app-me
-router.get('/app-me', appAuthMiddleware, async (req: Request, res: Response) => {
+router.get('/app-me', optionalAppAuthMiddleware, async (req: Request, res: Response) => {
+  if (!req.adminUser) {
+    res.status(204).end()
+    return
+  }
+
   const user = await prisma.user.findUnique({
     where: { id: req.adminUser!.id },
     select: { id: true, email: true, name: true, role: true, isActive: true },

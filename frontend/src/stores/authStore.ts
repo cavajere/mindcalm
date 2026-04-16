@@ -110,7 +110,18 @@ export const useAuthStore = defineStore('app-auth', () => {
 
   async function fetchMe() {
     try {
-      const { data } = await axios.get('/api/auth/app-me')
+      const response = await axios.get('/api/auth/app-me', {
+        validateStatus: (status) => status === 200 || status === 204,
+      })
+
+      if (response.status === 204) {
+        clearLicenseExpired()
+        user.value = null
+        await syncProtectedOfflineState(null)
+        return
+      }
+
+      const { data } = response
       clearLicenseExpired()
       user.value = data
       await syncProtectedOfflineState(user.value)
