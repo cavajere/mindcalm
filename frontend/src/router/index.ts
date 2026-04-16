@@ -7,8 +7,8 @@ import { buildAdminUrl } from '../utils/appUrls'
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/login', component: LoginView, meta: { publicOnly: true, hideChrome: true } },
-    { path: '/register', component: () => import('../views/RegisterView.vue'), meta: { publicOnly: true, hideChrome: true } },
+    { path: '/login', component: LoginView, meta: { publicOnly: true, simpleHeader: true } },
+    { path: '/register', component: () => import('../views/RegisterView.vue'), meta: { publicOnly: true, simpleHeader: true } },
     { path: '/forgot-password', component: () => import('../views/ForgotPasswordView.vue'), meta: { hideChrome: true } },
     { path: '/reset-password', component: () => import('../views/ResetPasswordView.vue'), meta: { hideChrome: true } },
     { path: '/verify-registration', component: () => import('../views/VerifyRegistrationView.vue'), meta: { publicOnly: true, hideChrome: true } },
