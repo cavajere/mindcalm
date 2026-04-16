@@ -261,6 +261,101 @@ export function buildRegistrationVerificationEmail(input: {
   return { subject, text, html }
 }
 
+export function buildEventBookingConfirmationEmail(input: {
+  firstName: string
+  eventTitle: string
+  eventStartsAt: Date
+  eventLocation: string
+  confirmationUrl: string
+  expiresAt: Date
+}): EmailTemplate {
+  const subject = `Conferma la registrazione a ${input.eventTitle}`
+  const text = joinTextBlocks([
+    `Ciao ${input.firstName},`,
+    `Abbiamo ricevuto la tua richiesta di registrazione per ${input.eventTitle}.`,
+    `Conferma dal link ricevuto via email:\n${input.confirmationUrl}`,
+    `Quando: ${formatDateTime(input.eventStartsAt)}`,
+    `Luogo: ${input.eventLocation}`,
+    `Scadenza link: ${formatDateTime(input.expiresAt)}`,
+  ])
+  const html = renderEmailLayout({
+    subject,
+    preheader: `Conferma la tua registrazione per ${input.eventTitle}.`,
+    title: 'Conferma la registrazione',
+    bodyHtml:
+      renderParagraph(`Ciao ${input.firstName},`) +
+      renderParagraph(`Abbiamo ricevuto la tua richiesta di registrazione per ${input.eventTitle}. Conferma dal link qui sotto per riservare il tuo posto.`) +
+      renderButton('Conferma registrazione', input.confirmationUrl) +
+      renderLink(input.confirmationUrl) +
+      renderInfoCard([
+        { label: 'Evento', value: input.eventTitle },
+        { label: 'Quando', value: formatDateTime(input.eventStartsAt) },
+        { label: 'Luogo', value: input.eventLocation },
+        { label: 'Scadenza link', value: formatDateTime(input.expiresAt) },
+      ]) +
+      renderMutedNote('Se non vuoi più partecipare, puoi ignorare questa email.'),
+    footerNote: 'Conferma registrazione evento MindCalm.',
+  })
+
+  return { subject, text, html }
+}
+
+export function buildEventParticipantsNotificationEmail(input: {
+  recipientName?: string | null
+  eventTitle: string
+  eventStartsAt: Date
+  eventLocation: string
+  eventUrl?: string | null
+  message?: string | null
+  type: 'UPDATED' | 'CANCELLED'
+}): EmailTemplate {
+  const isCancellation = input.type === 'CANCELLED'
+  const subject = isCancellation
+    ? `Evento annullato: ${input.eventTitle}`
+    : `Aggiornamento evento: ${input.eventTitle}`
+  const greeting = input.recipientName?.trim() ? `Ciao ${input.recipientName.trim()},` : 'Ciao,'
+  const intro = isCancellation
+    ? `Ti informiamo che l'evento ${input.eventTitle} è stato annullato.`
+    : `Ti informiamo che l'evento ${input.eventTitle} è stato aggiornato.`
+  const messageLabel = isCancellation ? 'Messaggio di annullamento' : 'Messaggio organizzazione'
+  const actionLabel = isCancellation ? 'Dettagli evento annullato' : 'Apri evento aggiornato'
+
+  const text = joinTextBlocks([
+    greeting,
+    intro,
+    input.message?.trim() ? `${messageLabel}: ${input.message.trim()}` : '',
+    `Quando: ${formatDateTime(input.eventStartsAt)}`,
+    `Luogo: ${input.eventLocation}`,
+    input.eventUrl ? `Dettagli evento: ${input.eventUrl}` : '',
+  ])
+
+  const html = renderEmailLayout({
+    subject,
+    preheader: intro,
+    title: isCancellation ? 'Evento annullato' : 'Evento aggiornato',
+    bodyHtml:
+      renderParagraph(greeting) +
+      renderParagraph(intro) +
+      (input.message?.trim()
+        ? renderInfoCard([{ label: messageLabel, value: input.message.trim() }])
+        : '') +
+      renderInfoCard([
+        { label: 'Evento', value: input.eventTitle },
+        { label: 'Quando', value: formatDateTime(input.eventStartsAt) },
+        { label: 'Luogo', value: input.eventLocation },
+      ]) +
+      (input.eventUrl
+        ? renderButton(actionLabel, input.eventUrl) + renderLink(input.eventUrl)
+        : '') +
+      renderMutedNote('Questa comunicazione è stata inviata ai partecipanti registrati per l’evento.'),
+    footerNote: isCancellation
+      ? 'Notifica annullamento evento MindCalm.'
+      : 'Notifica modifica evento MindCalm.',
+  })
+
+  return { subject, text, html }
+}
+
 export function buildPasswordResetEmail(input: {
   resetUrl: string
   expiresAt: Date

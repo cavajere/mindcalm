@@ -64,6 +64,7 @@ const actionLabels: Record<string, string> = {
   POST_STATUS_CHANGED: 'Stato post aggiornato',
   EVENT_CREATED: 'Evento creato',
   EVENT_UPDATED: 'Evento aggiornato',
+  EVENT_CANCELLED: 'Evento annullato',
   EVENT_DELETED: 'Evento eliminato',
   EVENT_STATUS_CHANGED: 'Stato evento aggiornato',
   EVENT_BOOKING_CREATED: 'Prenotazione evento creata',

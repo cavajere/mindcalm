@@ -62,6 +62,15 @@ export const eventBookingAccessRateLimiter = rateLimit({
   message: { error: 'Troppi tentativi di accesso prenotazione, riprova tra poco' },
 })
 
+export const eventBookingRequestRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: config.rateLimit.eventBookingRequest,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: getIpKey,
+  message: { error: 'Troppi tentativi di richiesta link, riprova tra poco' },
+})
+
 export const eventBookingCreateRateLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: config.rateLimit.eventBookingCreate,

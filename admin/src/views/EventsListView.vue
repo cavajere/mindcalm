@@ -72,7 +72,14 @@ onMounted(fetchEvents)
         </thead>
         <tbody class="divide-y divide-gray-50">
           <tr v-for="eventItem in events" :key="eventItem.id" class="hover:bg-gray-50/50">
-            <td class="px-4 py-3 text-sm font-medium text-text-primary">{{ eventItem.title }}</td>
+            <td class="px-4 py-3 text-sm font-medium text-text-primary">
+              <div class="space-y-1">
+                <p>{{ eventItem.title }}</p>
+                <span v-if="eventItem.cancelledAt" class="inline-flex rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700">
+                  Evento annullato
+                </span>
+              </div>
+            </td>
             <td class="px-4 py-3 text-sm text-text-secondary">{{ eventItem.city }}</td>
             <td class="px-4 py-3 text-sm text-text-secondary">
               {{ new Date(eventItem.startsAt).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) }}
@@ -94,8 +101,8 @@ onMounted(fetchEvents)
             </td>
             <td class="px-4 py-3 text-sm text-text-secondary">
               <div v-if="eventItem.bookingEnabled" class="space-y-1">
-                <span class="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">
-                  Prenotazioni attive
+                <span :class="['inline-flex rounded-full px-2.5 py-1 text-xs font-medium', eventItem.cancelledAt ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700']">
+                  {{ eventItem.cancelledAt ? 'Evento annullato' : 'Prenotazioni attive' }}
                 </span>
                 <p>{{ eventItem.bookingReservedSeats }}/{{ eventItem.bookingCapacity || 0 }} occupati</p>
               </div>

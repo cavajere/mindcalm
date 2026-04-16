@@ -17,6 +17,8 @@ interface EventItem {
   startsAt: string
   endsAt: string | null
   coverImage: string | null
+  cancelledAt: string | null
+  cancellationMessage: string | null
   bookingEnabled: boolean
   bookingAvailable: boolean
   participationMode: 'FREE' | 'PAID'
@@ -41,12 +43,26 @@ interface BookingSummary {
   participants: BookingParticipant[]
 }
 
+interface BookingInvitationSummary {
+  id: string
+  recipientEmail: string
+  recipientName: string | null
+  recipientFirstName: string | null
+  recipientLastName: string | null
+  recipientPhone: string | null
+  note: string | null
+  createdAt: string
+  lastSentAt: string | null
+}
+
 interface BookingAccess {
   accessStatus: 'VALID' | 'INVALID' | 'EXPIRED' | 'REVOKED' | 'BOOKING_CLOSED' | 'SOLD_OUT' | 'BOOKED'
   canBook: boolean
   bookingAvailable: boolean
   maxParticipants: number
   existingBooking: BookingSummary | null
+  requiresBookingDetails: boolean
+  invitation: BookingInvitationSummary | null
 }
 
 const route = useRoute()
@@ -54,9 +70,19 @@ const eventItem = ref<EventItem | null>(null)
 const loading = ref(true)
 const bookingAccess = ref<BookingAccess | null>(null)
 const bookingLoading = ref(false)
+const bookingRequestSaving = ref(false)
+const bookingRequestError = ref('')
+const bookingRequestSuccess = ref('')
 const bookingSaving = ref(false)
 const bookingError = ref('')
 const bookingSuccess = ref('')
+const bookingRequestForm = ref({
+  firstName: '',
+  lastName: '',
+  email: '',
+  phone: '',
+  note: '',
+})
 const bookingForm = ref({
   bookerFirstName: '',
   bookerLastName: '',
@@ -64,6 +90,7 @@ const bookingForm = ref({
   participants: [] as Array<{ firstName: string; lastName: string }>,
 })
 const bookingToken = computed(() => typeof route.query.bookingToken === 'string' ? route.query.bookingToken : '')
+const isCancelled = computed(() => Boolean(eventItem.value?.cancelledAt))
 
 const formattedDate = computed(() => {
   if (!eventItem.value) return ''
@@ -106,6 +133,7 @@ const locationLabel = computed(() => {
 
 const bookingStatusLabel = computed(() => {
   if (!eventItem.value?.bookingEnabled) return ''
+  if (eventItem.value.cancelledAt) return 'Evento annullato'
   return eventItem.value.bookingAvailable ? 'Prenotazioni aperte' : 'Prenotazioni chiuse'
 })
 
@@ -126,6 +154,20 @@ function addParticipant() {
 
 function removeParticipant(index: number) {
   bookingForm.value.participants.splice(index, 1)
+}
+
+function hydrateBookingFormFromInvitation(invitation: BookingInvitationSummary | null) {
+  if (!invitation) return
+
+  if (!bookingForm.value.bookerFirstName && invitation.recipientFirstName) {
+    bookingForm.value.bookerFirstName = invitation.recipientFirstName
+  }
+  if (!bookingForm.value.bookerLastName && invitation.recipientLastName) {
+    bookingForm.value.bookerLastName = invitation.recipientLastName
+  }
+  if (!bookingForm.value.bookerPhone && invitation.recipientPhone) {
+    bookingForm.value.bookerPhone = invitation.recipientPhone
+  }
 }
 
 function normalizedGuestsPayload() {
@@ -167,11 +209,36 @@ async function loadBookingAccess(slug: string, token: string) {
       params: { token },
     })
     bookingAccess.value = data
+    hydrateBookingFormFromInvitation(data.invitation || null)
   } catch (error: any) {
     bookingAccess.value = null
     bookingError.value = error.response?.data?.error || 'Impossibile verificare il link di prenotazione'
   } finally {
     bookingLoading.value = false
+  }
+}
+
+async function submitBookingRequest() {
+  if (!eventItem.value) return
+
+  bookingRequestSaving.value = true
+  bookingRequestError.value = ''
+  bookingRequestSuccess.value = ''
+
+  try {
+    const { data } = await axios.post(`/api/events/${eventItem.value.slug}/booking-request`, {
+      firstName: bookingRequestForm.value.firstName,
+      lastName: bookingRequestForm.value.lastName,
+      email: bookingRequestForm.value.email,
+      phone: bookingRequestForm.value.phone,
+      note: bookingRequestForm.value.note,
+    })
+
+    bookingRequestSuccess.value = data.message || 'Ti abbiamo inviato un link di conferma via email.'
+  } catch (error: any) {
+    bookingRequestError.value = error.response?.data?.error || 'Errore durante l’invio del link di conferma'
+  } finally {
+    bookingRequestSaving.value = false
   }
 }
 
@@ -185,13 +252,13 @@ async function submitBooking() {
   try {
     await axios.post(`/api/events/${eventItem.value.slug}/bookings`, {
       token: bookingToken.value,
-      bookerFirstName: bookingForm.value.bookerFirstName,
-      bookerLastName: bookingForm.value.bookerLastName,
-      bookerPhone: bookingForm.value.bookerPhone,
+      bookerFirstName: bookingForm.value.bookerFirstName || undefined,
+      bookerLastName: bookingForm.value.bookerLastName || undefined,
+      bookerPhone: bookingForm.value.bookerPhone || undefined,
       participants: normalizedGuestsPayload(),
     })
 
-    bookingSuccess.value = 'Prenotazione registrata correttamente.'
+    bookingSuccess.value = 'Registrazione confermata correttamente.'
     await loadEvent(eventItem.value.slug)
     await loadBookingAccess(eventItem.value.slug, bookingToken.value)
   } catch (error: any) {
@@ -205,6 +272,8 @@ watch(
   () => [route.params.slug, bookingToken.value],
   async ([slug, token]) => {
     if (typeof slug === 'string' && slug) {
+      bookingRequestError.value = ''
+      bookingRequestSuccess.value = ''
       await loadEvent(slug)
       await loadBookingAccess(slug, typeof token === 'string' ? token : '')
     }
@@ -270,7 +339,10 @@ watch(
               <span class="badge surface-pill text-primary">Evento pubblico</span>
               <span class="badge surface-pill text-text-secondary">{{ formattedDate }}</span>
               <span class="badge surface-pill text-text-secondary">{{ formattedTime }}</span>
-              <span v-if="eventItem.bookingEnabled && eventItem.bookingAvailable" class="badge surface-pill bg-emerald-100 text-emerald-700">
+              <span v-if="isCancelled" class="badge surface-pill bg-red-100 text-red-700">
+                Evento annullato
+              </span>
+              <span v-else-if="eventItem.bookingEnabled && eventItem.bookingAvailable" class="badge surface-pill bg-emerald-100 text-emerald-700">
                 {{ bookingStatusLabel }}
               </span>
             </div>
@@ -282,6 +354,11 @@ watch(
             <p v-if="eventItem.excerpt" class="mt-5 max-w-2xl text-base leading-8 text-text-secondary sm:text-lg">
               {{ eventItem.excerpt }}
             </p>
+
+            <div v-if="isCancelled" class="mt-6 max-w-2xl rounded-[24px] border border-red-200 bg-red-50 px-5 py-4 text-sm leading-7 text-red-700">
+              <p class="font-semibold text-red-800">Questo evento è stato annullato.</p>
+              <p v-if="eventItem.cancellationMessage" class="mt-2">{{ eventItem.cancellationMessage }}</p>
+            </div>
 
             <div class="mt-8 flex flex-wrap items-center gap-4">
               <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-text-primary text-sm font-semibold text-background">
@@ -353,12 +430,12 @@ watch(
             </div>
           </div>
 
-          <div v-if="eventItem.bookingEnabled" class="surface-card p-6">
+          <div v-if="eventItem.bookingEnabled && !isCancelled" class="surface-card p-6">
             <p class="text-xs font-semibold uppercase tracking-[0.24em] text-text-secondary">Prenotazione</p>
             <p class="mt-3 text-lg font-semibold text-text-primary">{{ bookingStatusLabel }}</p>
             <p class="mt-2 text-sm leading-7 text-text-secondary">
               {{ eventItem.bookingAvailable
-                ? 'La disponibilita e aperta. Il numero di posti residui non viene mostrato sul portale pubblico.'
+                ? 'La disponibilità è aperta. Il numero di posti residui non viene mostrato sul portale pubblico.'
                 : 'Al momento non ci sono prenotazioni disponibili online per questo evento.' }}
             </p>
 
@@ -368,8 +445,28 @@ watch(
                 <div v-if="bookingError" class="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">{{ bookingError }}</div>
                 <div v-if="bookingSuccess" class="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ bookingSuccess }}</div>
 
+                <div
+                  v-if="bookingAccess.accessStatus === 'VALID' && bookingAccess.canBook && !bookingAccess.requiresBookingDetails && bookingAccess.invitation"
+                  class="space-y-4"
+                >
+                  <div class="rounded-[24px] border border-ui-border bg-surface/90 p-4">
+                    <p class="text-sm font-medium text-text-primary">
+                      {{ bookingAccess.invitation.recipientFirstName }} {{ bookingAccess.invitation.recipientLastName }}
+                    </p>
+                    <p class="mt-1 text-sm text-text-secondary">{{ bookingAccess.invitation.recipientEmail }}</p>
+                    <p class="mt-1 text-sm text-text-secondary">{{ bookingAccess.invitation.recipientPhone }}</p>
+                    <p v-if="bookingAccess.invitation.note" class="mt-3 text-sm leading-7 text-text-secondary">
+                      {{ bookingAccess.invitation.note }}
+                    </p>
+                  </div>
+
+                  <button type="button" class="btn-primary w-full" :disabled="bookingSaving" @click="submitBooking">
+                    {{ bookingSaving ? 'Conferma in corso...' : 'Conferma registrazione' }}
+                  </button>
+                </div>
+
                 <form
-                  v-if="bookingAccess.accessStatus === 'VALID' && bookingAccess.canBook"
+                  v-else-if="bookingAccess.accessStatus === 'VALID' && bookingAccess.canBook"
                   class="space-y-4"
                   @submit.prevent="submitBooking"
                 >
@@ -415,13 +512,13 @@ watch(
                   </div>
 
                   <button type="submit" class="btn-primary w-full" :disabled="bookingSaving">
-                    {{ bookingSaving ? 'Invio in corso...' : 'Conferma prenotazione' }}
+                    {{ bookingSaving ? 'Conferma in corso...' : 'Conferma registrazione' }}
                   </button>
                 </form>
 
                 <div v-else-if="bookingAccess.accessStatus === 'BOOKED' && bookingAccess.existingBooking" class="space-y-3">
                   <div class="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                    Per questo link risulta gia una prenotazione confermata.
+                    Per questo link risulta già una registrazione confermata.
                   </div>
                   <div class="rounded-[24px] border border-ui-border bg-surface/90 p-4">
                     <p class="text-sm font-medium text-text-primary">
@@ -439,21 +536,55 @@ watch(
                 <div v-else class="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
                   {{
                     bookingAccess.accessStatus === 'EXPIRED'
-                      ? 'Il link di prenotazione e scaduto.'
+                      ? 'Il link di prenotazione è scaduto.'
                       : bookingAccess.accessStatus === 'REVOKED'
-                        ? 'Il link di prenotazione non e piu valido.'
+                        ? 'Il link di prenotazione non è più valido.'
                         : bookingAccess.accessStatus === 'SOLD_OUT'
                           ? 'I posti disponibili sono terminati.'
                           : bookingAccess.accessStatus === 'BOOKING_CLOSED'
                             ? 'Le prenotazioni online per questo evento sono chiuse.'
-                            : 'Il link di prenotazione non e valido.'
+                            : 'Il link di prenotazione non è valido.'
                   }}
                 </div>
               </template>
             </div>
 
-            <div v-else-if="eventItem.bookingAvailable" class="mt-5 rounded-2xl bg-primary/5 px-4 py-3 text-sm text-text-secondary">
-              Per prenotare usa il link personale ricevuto via email.
+            <div v-else-if="eventItem.bookingAvailable" class="mt-5 space-y-4">
+              <div v-if="bookingRequestError" class="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">{{ bookingRequestError }}</div>
+              <div v-if="bookingRequestSuccess" class="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ bookingRequestSuccess }}</div>
+
+              <form class="space-y-4" @submit.prevent="submitBookingRequest">
+                <div class="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label class="block text-sm font-medium text-text-primary mb-1">Nome</label>
+                    <input v-model="bookingRequestForm.firstName" type="text" required class="input-field" />
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-text-primary mb-1">Cognome</label>
+                    <input v-model="bookingRequestForm.lastName" type="text" required class="input-field" />
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-text-primary mb-1">Email</label>
+                  <input v-model="bookingRequestForm.email" type="email" required class="input-field" />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-text-primary mb-1">Numero di telefono</label>
+                  <input v-model="bookingRequestForm.phone" type="tel" required class="input-field" />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-text-primary mb-1">Note</label>
+                  <textarea v-model="bookingRequestForm.note" rows="3" class="input-field" placeholder="Informazioni utili per l’organizzazione"></textarea>
+                </div>
+
+                <button type="submit" class="btn-primary w-full" :disabled="bookingRequestSaving">
+                  {{ bookingRequestSaving ? 'Invio in corso...' : 'Richiedi link di conferma' }}
+                </button>
+              </form>
+
+              <p class="rounded-2xl bg-primary/5 px-4 py-3 text-sm text-text-secondary">
+                Ti invieremo un link all’indirizzo email indicato. La registrazione sarà confermata solo dopo l’apertura del link.
+              </p>
             </div>
           </div>
 
@@ -482,7 +613,7 @@ watch(
         </div>
         <h2 class="mt-5 text-2xl font-semibold text-text-primary">Evento non disponibile</h2>
         <p class="mt-3 text-base leading-7 text-text-secondary">
-          Il contenuto potrebbe essere stato rimosso oppure il link non e corretto.
+          Il contenuto potrebbe essere stato rimosso oppure il link non è corretto.
         </p>
         <router-link to="/events" class="btn-primary mt-6 inline-flex items-center gap-2">
           Torna agli eventi

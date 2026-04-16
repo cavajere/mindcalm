@@ -11,6 +11,7 @@ type EventBookingStateRecord = {
   slug: string
   title: string
   startsAt: Date
+  cancelledAt?: Date | null
   bookingEnabled: boolean
   bookingCapacity: number | null
   bookingReservedSeats: number
@@ -63,8 +64,32 @@ function normalizePhone(value: string) {
   return value.trim().replace(/\s+/g, ' ')
 }
 
+function normalizeNote(value: string) {
+  return value.trim()
+}
+
 function addHours(value: Date, hours: number) {
   return new Date(value.getTime() + hours * 60 * 60 * 1000)
+}
+
+function buildRecipientName(input: {
+  recipientName?: string | null
+  recipientFirstName?: string | null
+  recipientLastName?: string | null
+}) {
+  if (input.recipientName?.trim()) {
+    return normalizeName(input.recipientName)
+  }
+
+  const composed = [input.recipientFirstName, input.recipientLastName]
+    .filter((value): value is string => Boolean(value?.trim()))
+    .join(' ')
+
+  return composed ? normalizeName(composed) : null
+}
+
+function buildEventLocationLabel(event: { city: string; venue: string | null }) {
+  return event.venue ? `${event.city} · ${event.venue}` : event.city
 }
 
 function getEffectiveBookingCloseAt(event: Pick<EventBookingStateRecord, 'bookingClosesAt' | 'startsAt'>) {
@@ -76,10 +101,11 @@ export function getEventBookingAvailability(event: EventBookingStateRecord, now 
   const closesAt = getEffectiveBookingCloseAt(event)
   const opensAtPassed = !event.bookingOpensAt || event.bookingOpensAt <= now
   const closesAtFuture = closesAt > now
-  const bookingOpen = event.bookingEnabled && opensAtPassed && closesAtFuture
+  const bookingOpen = !event.cancelledAt && event.bookingEnabled && opensAtPassed && closesAtFuture
   const seatsRemaining = Math.max(0, capacity - event.bookingReservedSeats)
   const bookingAvailable = (
-    event.status === 'PUBLISHED'
+    !event.cancelledAt
+    && event.status === 'PUBLISHED'
     && event.bookingEnabled
     && capacity > 0
     && bookingOpen
@@ -221,6 +247,10 @@ export async function upsertInvitationForEventRecipient(input: {
   userId?: string | null
   recipientEmail: string
   recipientName?: string | null
+  recipientFirstName?: string | null
+  recipientLastName?: string | null
+  recipientPhone?: string | null
+  note?: string | null
   now?: Date
 }) {
   const now = input.now ?? new Date()
@@ -229,6 +259,9 @@ export async function upsertInvitationForEventRecipient(input: {
     select: {
       id: true,
       slug: true,
+      title: true,
+      city: true,
+      venue: true,
       startsAt: true,
       bookingClosesAt: true,
       bookingEnabled: true,
@@ -246,6 +279,11 @@ export async function upsertInvitationForEventRecipient(input: {
 
   const token = generateRandomToken()
   const tokenHash = hashToken(token)
+  const recipientName = buildRecipientName(input)
+  const recipientFirstName = input.recipientFirstName?.trim() ? normalizeName(input.recipientFirstName) : null
+  const recipientLastName = input.recipientLastName?.trim() ? normalizeName(input.recipientLastName) : null
+  const recipientPhone = input.recipientPhone?.trim() ? normalizePhone(input.recipientPhone) : null
+  const note = input.note?.trim() ? normalizeNote(input.note) : null
   const expiresAt = resolveInvitationExpiry({
     bookingClosesAt: event.bookingClosesAt,
     startsAt: event.startsAt,
@@ -260,7 +298,11 @@ export async function upsertInvitationForEventRecipient(input: {
     },
     update: {
       userId: input.userId ?? null,
-      recipientName: input.recipientName ? normalizeName(input.recipientName) : null,
+      recipientName,
+      recipientFirstName,
+      recipientLastName,
+      recipientPhone,
+      note,
       tokenHash,
       expiresAt,
       lastSentAt: now,
@@ -270,7 +312,11 @@ export async function upsertInvitationForEventRecipient(input: {
       eventId: event.id,
       userId: input.userId ?? null,
       recipientEmail: normalizeEmail(input.recipientEmail),
-      recipientName: input.recipientName ? normalizeName(input.recipientName) : null,
+      recipientName,
+      recipientFirstName,
+      recipientLastName,
+      recipientPhone,
+      note,
       tokenHash,
       expiresAt,
       lastSentAt: now,
@@ -281,6 +327,13 @@ export async function upsertInvitationForEventRecipient(input: {
     invitation,
     token,
     url: buildEventBookingUrl(event.slug, token),
+    event: {
+      id: event.id,
+      slug: event.slug,
+      title: event.title,
+      startsAt: event.startsAt,
+      location: buildEventLocationLabel(event),
+    },
   }
 }
 
@@ -311,11 +364,29 @@ export async function getPublicBookingAccess(input: {
       bookingAvailable: false,
       existingBooking: null,
       maxParticipants: MAX_EVENT_BOOKING_PARTICIPANTS,
+      requiresBookingDetails: true,
+      invitation: null,
     }
   }
 
   const availability = getEventBookingAvailability(invitation.event, now)
   const existingBooking = invitation.booking ? serializeBookingSummary(invitation.booking) : null
+  const requiresBookingDetails = !(
+    invitation.recipientFirstName?.trim()
+    && invitation.recipientLastName?.trim()
+    && invitation.recipientPhone?.trim()
+  )
+  const invitationSummary = {
+    id: invitation.id,
+    recipientEmail: invitation.recipientEmail,
+    recipientName: invitation.recipientName,
+    recipientFirstName: invitation.recipientFirstName,
+    recipientLastName: invitation.recipientLastName,
+    recipientPhone: invitation.recipientPhone,
+    note: invitation.note,
+    createdAt: invitation.createdAt,
+    lastSentAt: invitation.lastSentAt,
+  }
 
   if (invitation.booking?.status === EventBookingStatus.CONFIRMED) {
     return {
@@ -324,6 +395,8 @@ export async function getPublicBookingAccess(input: {
       bookingAvailable: availability.bookingAvailable,
       existingBooking,
       maxParticipants: MAX_EVENT_BOOKING_PARTICIPANTS,
+      requiresBookingDetails,
+      invitation: invitationSummary,
       event: {
         id: invitation.event.id,
         slug: invitation.event.slug,
@@ -340,6 +413,8 @@ export async function getPublicBookingAccess(input: {
       bookingAvailable: false,
       existingBooking,
       maxParticipants: MAX_EVENT_BOOKING_PARTICIPANTS,
+      requiresBookingDetails,
+      invitation: invitationSummary,
       event: {
         id: invitation.event.id,
         slug: invitation.event.slug,
@@ -356,6 +431,8 @@ export async function getPublicBookingAccess(input: {
       bookingAvailable: false,
       existingBooking,
       maxParticipants: MAX_EVENT_BOOKING_PARTICIPANTS,
+      requiresBookingDetails,
+      invitation: invitationSummary,
       event: {
         id: invitation.event.id,
         slug: invitation.event.slug,
@@ -372,6 +449,8 @@ export async function getPublicBookingAccess(input: {
       bookingAvailable: false,
       existingBooking,
       maxParticipants: MAX_EVENT_BOOKING_PARTICIPANTS,
+      requiresBookingDetails,
+      invitation: invitationSummary,
       event: {
         id: invitation.event.id,
         slug: invitation.event.slug,
@@ -388,6 +467,8 @@ export async function getPublicBookingAccess(input: {
       bookingAvailable: false,
       existingBooking,
       maxParticipants: MAX_EVENT_BOOKING_PARTICIPANTS,
+      requiresBookingDetails,
+      invitation: invitationSummary,
       event: {
         id: invitation.event.id,
         slug: invitation.event.slug,
@@ -403,6 +484,8 @@ export async function getPublicBookingAccess(input: {
     bookingAvailable: true,
     existingBooking,
     maxParticipants: MAX_EVENT_BOOKING_PARTICIPANTS,
+    requiresBookingDetails,
+    invitation: invitationSummary,
     event: {
       id: invitation.event.id,
       slug: invitation.event.slug,
@@ -415,21 +498,15 @@ export async function getPublicBookingAccess(input: {
 export async function createBooking(input: {
   slug: string
   token: string
-  bookerFirstName: string
-  bookerLastName: string
-  bookerPhone: string
+  bookerFirstName?: string
+  bookerLastName?: string
+  bookerPhone?: string
   guests: Array<{ firstName: string; lastName: string }>
   now?: Date
 }) {
   const now = input.now ?? new Date()
   const tokenHash = hashToken(input.token)
   const seatsReserved = assertGuestsLimit(input.guests.length)
-  const participants = buildBookingParticipantsPayload({
-    bookerFirstName: input.bookerFirstName,
-    bookerLastName: input.bookerLastName,
-    bookerPhone: input.bookerPhone,
-    guests: input.guests,
-  })
 
   return prisma.$transaction(async (tx) => {
     const invitation = await tx.eventBookingInvitation.findUnique({
@@ -450,6 +527,37 @@ export async function createBooking(input: {
 
     assertInvitationIsUsable(invitation, now)
     const availability = assertBookingIsOpen(invitation.event, now)
+
+    const bookerFirstName = input.bookerFirstName?.trim()
+      ? normalizeName(input.bookerFirstName)
+      : invitation.recipientFirstName?.trim()
+        ? normalizeName(invitation.recipientFirstName)
+        : null
+    const bookerLastName = input.bookerLastName?.trim()
+      ? normalizeName(input.bookerLastName)
+      : invitation.recipientLastName?.trim()
+        ? normalizeName(invitation.recipientLastName)
+        : null
+    const bookerPhone = input.bookerPhone?.trim()
+      ? normalizePhone(input.bookerPhone)
+      : invitation.recipientPhone?.trim()
+        ? normalizePhone(invitation.recipientPhone)
+        : null
+
+    if (!bookerFirstName || !bookerLastName || !bookerPhone) {
+      throw new EventBookingError(
+        'BOOKING_DETAILS_REQUIRED',
+        'Completa nome, cognome e numero di telefono per confermare la registrazione',
+        400,
+      )
+    }
+
+    const participants = buildBookingParticipantsPayload({
+      bookerFirstName,
+      bookerLastName,
+      bookerPhone,
+      guests: input.guests,
+    })
 
     if (invitation.booking?.status === EventBookingStatus.CONFIRMED) {
       throw new EventBookingError('BOOKING_ALREADY_EXISTS', 'Per questo link risulta già una prenotazione confermata', 409)
@@ -480,9 +588,9 @@ export async function createBooking(input: {
 
     const bookingData = {
       status: EventBookingStatus.CONFIRMED,
-      bookerFirstName: normalizeName(input.bookerFirstName),
-      bookerLastName: normalizeName(input.bookerLastName),
-      bookerPhone: normalizePhone(input.bookerPhone),
+      bookerFirstName,
+      bookerLastName,
+      bookerPhone,
       seatsReserved,
       cancelledAt: null,
       cancelReason: null,
@@ -525,6 +633,13 @@ export async function createBooking(input: {
     await tx.eventBookingInvitation.update({
       where: { id: invitation.id },
       data: {
+        recipientName: buildRecipientName({
+          recipientFirstName: bookerFirstName,
+          recipientLastName: bookerLastName,
+        }),
+        recipientFirstName: bookerFirstName,
+        recipientLastName: bookerLastName,
+        recipientPhone: bookerPhone,
         usedAt: now,
       },
     })
@@ -680,27 +795,21 @@ export async function getEventBookingAdminSummary(eventId: string) {
       title: true,
       slug: true,
       startsAt: true,
+      cancelledAt: true,
       bookingEnabled: true,
       bookingCapacity: true,
       bookingReservedSeats: true,
       bookingOpensAt: true,
       bookingClosesAt: true,
       status: true,
-      bookings: {
+      bookingInvitations: {
         orderBy: {
           createdAt: 'desc',
         },
         include: {
-          participants: true,
-          invitation: {
-            select: {
-              id: true,
-              recipientEmail: true,
-              recipientName: true,
-              expiresAt: true,
-              usedAt: true,
-              revokedAt: true,
-              lastSentAt: true,
+          booking: {
+            include: {
+              participants: true,
             },
           },
         },
@@ -730,17 +839,26 @@ export async function getEventBookingAdminSummary(eventId: string) {
       bookingAvailable: availability.bookingAvailable,
       bookingOpen: availability.bookingOpen,
     },
-    bookings: event.bookings.map((booking) => ({
-      ...serializeBookingSummary(booking),
-      invitation: {
-        id: booking.invitation.id,
-        recipientEmail: booking.invitation.recipientEmail,
-        recipientName: booking.invitation.recipientName,
-        expiresAt: booking.invitation.expiresAt,
-        usedAt: booking.invitation.usedAt,
-        revokedAt: booking.invitation.revokedAt,
-        lastSentAt: booking.invitation.lastSentAt,
-      },
+    registrations: event.bookingInvitations.map((invitation) => ({
+      id: invitation.id,
+      registrationStatus: invitation.booking
+        ? invitation.booking.status === EventBookingStatus.CONFIRMED
+          ? 'CONFIRMED'
+          : 'CANCELLED'
+        : 'PENDING',
+      recipientEmail: invitation.recipientEmail,
+      recipientName: invitation.recipientName,
+      recipientFirstName: invitation.recipientFirstName,
+      recipientLastName: invitation.recipientLastName,
+      recipientPhone: invitation.recipientPhone,
+      note: invitation.note,
+      expiresAt: invitation.expiresAt,
+      usedAt: invitation.usedAt,
+      revokedAt: invitation.revokedAt,
+      lastSentAt: invitation.lastSentAt,
+      createdAt: invitation.createdAt,
+      updatedAt: invitation.updatedAt,
+      booking: invitation.booking ? serializeBookingSummary(invitation.booking) : null,
     })),
   }
 }

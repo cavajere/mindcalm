@@ -15,6 +15,7 @@ const router = useRouter()
 const isEdit = computed(() => !!route.params.id)
 const loading = ref(false)
 const saving = ref(false)
+const cancelling = ref(false)
 const uploadProgress = ref(0)
 const error = ref('')
 
@@ -22,7 +23,6 @@ const form = ref({
   title: '',
   organizer: '',
   city: '',
-  venue: '',
   excerpt: '',
   body: '',
   startsAt: '',
@@ -35,6 +35,8 @@ const form = ref({
   bookingClosesAt: '',
   participationMode: 'FREE',
   participationPrice: '',
+  participantNotificationMessage: '',
+  cancellationMessage: '',
 })
 
 const coverFiles = ref<UploadFileItem[]>([])
@@ -62,6 +64,17 @@ function toLocalDateTimeInput(value?: string | null) {
   const date = new Date(value)
   const localDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000))
   return localDate.toISOString().slice(0, 16)
+}
+
+function toLocationInput(city?: string | null, venue?: string | null) {
+  return [city, venue].filter((value): value is string => Boolean(value && value.trim())).join(' · ')
+}
+
+function appendOptionalField(fd: FormData, key: string, value: string) {
+  const trimmed = value.trim()
+  if (trimmed) {
+    fd.append(key, trimmed)
+  }
 }
 
 function handleAlbumImageSelect(image: AlbumImage) {
@@ -117,22 +130,22 @@ async function save() {
 
   try {
     const fd = new FormData()
-    fd.append('title', form.value.title)
-    fd.append('organizer', form.value.organizer)
-    fd.append('city', form.value.city)
-    fd.append('venue', form.value.venue)
-    fd.append('excerpt', form.value.excerpt)
+    fd.append('title', form.value.title.trim())
+    appendOptionalField(fd, 'organizer', form.value.organizer)
+    fd.append('city', form.value.city.trim())
+    appendOptionalField(fd, 'excerpt', form.value.excerpt)
     fd.append('body', form.value.body)
     fd.append('startsAt', form.value.startsAt)
-    fd.append('endsAt', form.value.endsAt)
+    appendOptionalField(fd, 'endsAt', form.value.endsAt)
     fd.append('status', form.value.status)
     fd.append('visibility', form.value.visibility)
     fd.append('bookingEnabled', String(form.value.bookingEnabled))
-    fd.append('bookingCapacity', form.value.bookingCapacity)
-    fd.append('bookingOpensAt', form.value.bookingOpensAt)
-    fd.append('bookingClosesAt', form.value.bookingClosesAt)
+    appendOptionalField(fd, 'bookingCapacity', form.value.bookingCapacity)
+    appendOptionalField(fd, 'bookingOpensAt', form.value.bookingOpensAt)
+    appendOptionalField(fd, 'bookingClosesAt', form.value.bookingClosesAt)
     fd.append('participationMode', form.value.participationMode)
-    fd.append('participationPrice', form.value.participationPrice)
+    appendOptionalField(fd, 'participationPrice', form.value.participationPrice)
+    appendOptionalField(fd, 'participantNotificationMessage', form.value.participantNotificationMessage)
     fd.append('publicBaseUrl', getPublicAppUrl())
     fd.append('coverImageDisplayName', coverFiles.value.length ? coverFiles.value[0].displayName : coverImageDisplayName.value)
 
@@ -156,10 +169,41 @@ async function save() {
 
     router.push('/events')
   } catch (e: any) {
-    error.value = e.response?.data?.error || 'Errore nel salvataggio'
+    const details = e.response?.data?.details
+    const firstDetail = Array.isArray(details) ? details[0]?.msg : null
+    error.value = firstDetail || e.response?.data?.error || 'Errore nel salvataggio'
   } finally {
     saving.value = false
     uploadProgress.value = 0
+  }
+}
+
+async function cancelEvent() {
+  if (!isEdit.value) return
+
+  const cancellationMessage = form.value.cancellationMessage.trim()
+  if (!cancellationMessage) {
+    error.value = 'Inserisci il messaggio di annullamento da inviare ai partecipanti registrati'
+    return
+  }
+
+  if (!confirm('Annullare l’evento e inviare la notifica a tutti i partecipanti registrati?')) {
+    return
+  }
+
+  error.value = ''
+  cancelling.value = true
+
+  try {
+    await axios.post(`/api/admin/events/${route.params.id}/cancel`, {
+      cancellationMessage,
+      publicBaseUrl: getPublicAppUrl(),
+    })
+    router.push('/events')
+  } catch (e: any) {
+    error.value = e.response?.data?.error || 'Errore durante l’annullamento dell’evento'
+  } finally {
+    cancelling.value = false
   }
 }
 
@@ -172,8 +216,7 @@ onMounted(async () => {
     form.value = {
       title: eventItem.title,
       organizer: eventItem.organizer,
-      city: eventItem.city,
-      venue: eventItem.venue || '',
+      city: toLocationInput(eventItem.city, eventItem.venue),
       excerpt: eventItem.excerpt || '',
       body: eventItem.body,
       startsAt: toLocalDateTimeInput(eventItem.startsAt),
@@ -186,6 +229,8 @@ onMounted(async () => {
       bookingClosesAt: toLocalDateTimeInput(eventItem.bookingClosesAt),
       participationMode: eventItem.participationMode || 'FREE',
       participationPrice: eventItem.participationPriceCents != null ? (eventItem.participationPriceCents / 100).toFixed(2) : '',
+      participantNotificationMessage: '',
+      cancellationMessage: eventItem.cancellationMessage || '',
     }
     existingAlbumCover.value = eventItem.coverAlbumImage || null
     existingCover.value = eventItem.coverAlbumImage
@@ -219,7 +264,7 @@ watch(
   <div class="mx-auto w-full max-w-3xl">
     <PageHeader
       :title="isEdit ? 'Modifica evento' : 'Nuovo evento'"
-      :description="isEdit ? 'Aggiorna programma, visibilita e metadata.' : 'Crea un nuovo evento per il portale utente.'"
+      :description="isEdit ? 'Aggiorna programma, visibilità e metadata.' : 'Crea un nuovo evento per il portale utente.'"
     >
       <template #actions>
         <button v-if="isEdit" type="button" @click="router.push(`/events/${route.params.id}/bookings`)" class="btn-secondary">Prenotazioni</button>
@@ -238,18 +283,14 @@ watch(
           <input v-model="form.title" type="text" required class="input-field" />
         </div>
 
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
-            <label class="label">Organizzatore *</label>
-            <input v-model="form.organizer" type="text" required class="input-field" />
+            <label class="label">Organizzatore</label>
+            <input v-model="form.organizer" type="text" class="input-field" />
           </div>
           <div>
-            <label class="label">Citta' *</label>
+            <label class="label">Luogo *</label>
             <input v-model="form.city" type="text" required class="input-field" />
-          </div>
-          <div>
-            <label class="label">Venue</label>
-            <input v-model="form.venue" type="text" class="input-field" />
           </div>
         </div>
 
@@ -268,7 +309,7 @@ watch(
           <div class="flex items-start justify-between gap-4">
             <div>
               <label class="label mb-0">Prenotazioni online</label>
-              <p class="mt-1 text-xs text-text-secondary">Mostra la disponibilita sul portale pubblico senza esporre il numero di posti residui.</p>
+              <p class="mt-1 text-xs text-text-secondary">Mostra la disponibilità sul portale pubblico senza esporre il numero di posti residui.</p>
             </div>
             <label class="inline-flex items-center gap-3 text-sm font-medium text-text-primary">
               <input v-model="form.bookingEnabled" type="checkbox" class="rounded border-gray-300 text-primary focus:ring-primary/30" />
@@ -292,19 +333,19 @@ watch(
           </div>
 
           <p class="text-xs text-text-secondary">
-            Se la chiusura non e specificata, le prenotazioni si chiudono all'inizio dell'evento. Ogni prenotazione puo includere fino a 5 persone.
+            Se la chiusura non è specificata, le prenotazioni si chiudono all'inizio dell'evento. Ogni prenotazione può includere fino a 5 persone.
           </p>
         </div>
 
         <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5 space-y-4">
           <div>
             <label class="label mb-0">Partecipazione</label>
-            <p class="mt-1 text-xs text-text-secondary">Indica se l'evento e gratuito o a pagamento e, in quel caso, il costo.</p>
+            <p class="mt-1 text-xs text-text-secondary">Indica se l'evento è gratuito o a pagamento e, in quel caso, il costo.</p>
           </div>
 
           <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <label class="label">Modalita'</label>
+              <label class="label">Modalità</label>
               <select v-model="form.participationMode" class="input-field">
                 <option value="FREE">Gratuita</option>
                 <option value="PAID">A pagamento</option>
@@ -334,12 +375,20 @@ watch(
             </select>
           </div>
           <div>
-            <label class="label">Visibilita'</label>
+            <label class="label">Visibilità</label>
             <select v-model="form.visibility" class="input-field">
               <option value="REGISTERED">Solo utenti registrati</option>
               <option value="PUBLIC">Pubblico</option>
             </select>
           </div>
+        </div>
+
+        <div v-if="isEdit" class="rounded-2xl border border-sky-200 bg-sky-50 p-5 space-y-3">
+          <div>
+            <label class="label mb-0">Messaggio per i partecipanti</label>
+            <p class="mt-1 text-xs text-text-secondary">Se salvi modifiche, questo testo verrà incluso nella notifica inviata ai partecipanti registrati. Lascia vuoto per inviare solo l’aggiornamento standard.</p>
+          </div>
+          <textarea v-model="form.participantNotificationMessage" rows="3" class="input-field" placeholder="Es. abbiamo aggiornato orario di ritrovo e indicazioni logistiche." />
         </div>
 
         <div>
@@ -364,7 +413,7 @@ watch(
           <div class="mt-4 rounded-2xl border border-gray-100 bg-white p-4">
             <div>
               <p class="text-sm font-medium text-text-primary">Upload diretto</p>
-              <p class="mt-1 text-xs text-text-secondary">Usalo se la copertina non deve entrare nell'album condiviso.</p>
+              <p class="mt-1 text-xs text-text-secondary">Usalo se la copertina non deve entrare nell’album condiviso.</p>
             </div>
 
             <div class="mt-4">
@@ -390,6 +439,30 @@ watch(
             <div v-else-if="removeExistingCover" class="mt-3 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-sm text-amber-800">
               La copertina verrà rimossa al salvataggio.
             </div>
+          </div>
+        </div>
+
+        <div v-if="isEdit" class="rounded-2xl border border-red-200 bg-red-50 p-5 space-y-4">
+          <div>
+            <label class="label mb-0 text-red-700">Annullamento evento</label>
+            <p class="mt-1 text-xs text-red-600">L’annullamento chiude le prenotazioni online e invia il messaggio qui sotto a tutti i partecipanti registrati.</p>
+          </div>
+
+          <div v-if="route.params.id && form.cancellationMessage" class="rounded-xl border border-red-200 bg-white/70 px-3 py-2 text-sm text-red-700">
+            <span class="font-medium">Messaggio corrente:</span> {{ form.cancellationMessage }}
+          </div>
+
+          <textarea
+            v-model="form.cancellationMessage"
+            rows="4"
+            class="input-field border-red-200 focus:border-red-300"
+            placeholder="Es. per motivi organizzativi l’incontro non si terrà nella data prevista."
+          />
+
+          <div class="flex justify-end">
+            <button type="button" class="btn-secondary border-red-200 text-red-700 hover:bg-red-100" :disabled="cancelling" @click="cancelEvent">
+              {{ cancelling ? 'Annullamento...' : 'Annulla evento e notifica partecipanti' }}
+            </button>
           </div>
         </div>
 

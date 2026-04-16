@@ -11,6 +11,10 @@ const error = ref('')
 const reconciling = ref(false)
 const summary = ref<any>(null)
 
+function countRegistrations(status: 'PENDING' | 'CONFIRMED' | 'CANCELLED') {
+  return summary.value?.registrations?.filter((registration: any) => registration.registrationStatus === status).length || 0
+}
+
 function formatDateTime(value?: string | null) {
   if (!value) return 'Non disponibile'
   return new Date(value).toLocaleString('it-IT')
@@ -59,7 +63,7 @@ onMounted(loadBookings)
   <div>
     <PageHeader
       :title="summary?.event?.title || 'Prenotazioni evento'"
-      description="Controlla capienza, invitati e prenotazioni confermate o annullate."
+      description="Controlla capienza, richieste ricevute e registrazioni confermate."
     >
       <template #actions>
         <button type="button" class="btn-secondary" :disabled="reconciling" @click="reconcileBookings">
@@ -73,7 +77,7 @@ onMounted(loadBookings)
     <div v-if="loading" class="text-sm text-text-secondary">Caricamento prenotazioni...</div>
 
     <template v-else-if="summary">
-      <div class="grid gap-4 md:grid-cols-4">
+      <div class="grid gap-4 md:grid-cols-5">
         <div class="card">
           <p class="text-xs uppercase tracking-[0.18em] text-text-secondary">Capienza</p>
           <p class="mt-2 text-2xl font-semibold text-text-primary">{{ summary.event.bookingCapacity || 0 }}</p>
@@ -92,66 +96,94 @@ onMounted(loadBookings)
             {{ summary.event.bookingEnabled ? (summary.event.bookingAvailable ? 'Aperte' : 'Chiuse o complete') : 'Disattive' }}
           </p>
         </div>
+        <div class="card">
+          <p class="text-xs uppercase tracking-[0.18em] text-text-secondary">Richieste</p>
+          <p class="mt-2 text-sm font-medium text-text-primary">
+            {{ countRegistrations('PENDING') }} non confermate · {{ countRegistrations('CONFIRMED') }} confermate
+          </p>
+        </div>
       </div>
 
       <div class="mt-6 table-container">
         <table class="w-full">
           <thead class="bg-gray-50">
             <tr>
-              <th class="px-4 py-3 text-left text-xs font-medium uppercase text-text-secondary">Prenotante</th>
-              <th class="px-4 py-3 text-left text-xs font-medium uppercase text-text-secondary">Telefono</th>
-              <th class="px-4 py-3 text-left text-xs font-medium uppercase text-text-secondary">Posti</th>
-              <th class="px-4 py-3 text-left text-xs font-medium uppercase text-text-secondary">Partecipanti</th>
-              <th class="px-4 py-3 text-left text-xs font-medium uppercase text-text-secondary">Stato</th>
-              <th class="px-4 py-3 text-left text-xs font-medium uppercase text-text-secondary">Invito</th>
+              <th class="px-4 py-3 text-left text-xs font-medium uppercase text-text-secondary">Richiedente</th>
+              <th class="px-4 py-3 text-left text-xs font-medium uppercase text-text-secondary">Registrazione</th>
+              <th class="px-4 py-3 text-left text-xs font-medium uppercase text-text-secondary">Note</th>
+              <th class="px-4 py-3 text-left text-xs font-medium uppercase text-text-secondary">Dettagli</th>
+              <th class="px-4 py-3 text-left text-xs font-medium uppercase text-text-secondary">Invio email</th>
               <th class="px-4 py-3 text-left text-xs font-medium uppercase text-text-secondary">Creata</th>
               <th class="px-4 py-3 text-left text-xs font-medium uppercase text-text-secondary">Azioni</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-50">
-            <tr v-if="!summary.bookings.length">
-              <td colspan="8" class="px-4 py-8 text-center text-text-secondary">Nessuna prenotazione</td>
+            <tr v-if="!summary.registrations.length">
+              <td colspan="7" class="px-4 py-8 text-center text-text-secondary">Nessuna richiesta di registrazione</td>
             </tr>
-            <tr v-for="booking in summary.bookings" :key="booking.id">
+            <tr v-for="registration in summary.registrations" :key="registration.id">
               <td class="px-4 py-3 text-sm font-medium text-text-primary">
-                {{ booking.bookerFirstName }} {{ booking.bookerLastName }}
-              </td>
-              <td class="px-4 py-3 text-sm text-text-secondary">{{ booking.bookerPhone }}</td>
-              <td class="px-4 py-3 text-sm text-text-secondary">{{ booking.seatsReserved }}</td>
-              <td class="px-4 py-3 text-sm text-text-secondary">
-                <div class="space-y-1">
-                  <div v-for="participant in booking.participants" :key="participant.id">
-                    {{ participant.firstName }} {{ participant.lastName }}<span v-if="participant.isBooker"> · referente</span>
-                  </div>
-                </div>
+                <div>{{ registration.recipientFirstName || registration.recipientName || 'Richiesta senza nome' }} {{ registration.recipientLastName || '' }}</div>
+                <div class="text-xs font-normal text-text-secondary">{{ registration.recipientEmail }}</div>
+                <div v-if="registration.recipientPhone" class="text-xs font-normal text-text-secondary">{{ registration.recipientPhone }}</div>
               </td>
               <td class="px-4 py-3 text-sm">
-                <span :class="['inline-flex rounded-full px-2.5 py-1 text-xs font-medium', booking.status === 'CONFIRMED' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700']">
-                  {{ booking.status === 'CONFIRMED' ? 'Confermata' : 'Annullata' }}
+                <span
+                  :class="[
+                    'inline-flex rounded-full px-2.5 py-1 text-xs font-medium',
+                    registration.registrationStatus === 'CONFIRMED'
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : registration.registrationStatus === 'CANCELLED'
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-slate-100 text-slate-700',
+                  ]"
+                >
+                  {{
+                    registration.registrationStatus === 'CONFIRMED'
+                      ? 'Confermata'
+                      : registration.registrationStatus === 'CANCELLED'
+                        ? 'Annullata'
+                        : 'Non confermata'
+                  }}
                 </span>
               </td>
               <td class="px-4 py-3 text-sm text-text-secondary">
-                <div>{{ booking.invitation.recipientEmail }}</div>
-                <div class="text-xs">Scade: {{ formatDateTime(booking.invitation.expiresAt) }}</div>
+                {{ registration.note || '—' }}
               </td>
-              <td class="px-4 py-3 text-sm text-text-secondary">{{ formatDateTime(booking.createdAt) }}</td>
+              <td class="px-4 py-3 text-sm text-text-secondary">
+                <div v-if="registration.booking" class="space-y-2">
+                  <div>{{ registration.booking.seatsReserved }} posti riservati</div>
+                  <div class="space-y-1">
+                    <div v-for="participant in registration.booking.participants" :key="participant.id">
+                      {{ participant.firstName }} {{ participant.lastName }}<span v-if="participant.isBooker"> · referente</span>
+                    </div>
+                  </div>
+                </div>
+                <div v-else>In attesa di conferma via email</div>
+              </td>
+              <td class="px-4 py-3 text-sm text-text-secondary">
+                <div v-if="registration.lastSentAt">Inviata: {{ formatDateTime(registration.lastSentAt) }}</div>
+                <div class="text-xs">Scade: {{ formatDateTime(registration.expiresAt) }}</div>
+              </td>
+              <td class="px-4 py-3 text-sm text-text-secondary">{{ formatDateTime(registration.createdAt) }}</td>
               <td class="px-4 py-3 text-sm">
                 <button
-                  v-if="booking.status === 'CONFIRMED'"
+                  v-if="registration.booking?.status === 'CONFIRMED'"
                   type="button"
                   class="btn-secondary"
-                  @click="cancelBooking(booking)"
+                  @click="cancelBooking(registration.booking)"
                 >
                   Annulla
                 </button>
                 <button
-                  v-else
+                  v-else-if="registration.booking?.status === 'CANCELLED'"
                   type="button"
                   class="btn-secondary"
-                  @click="restoreBooking(booking)"
+                  @click="restoreBooking(registration.booking)"
                 >
                   Ripristina
                 </button>
+                <span v-else class="text-text-secondary">—</span>
               </td>
             </tr>
           </tbody>

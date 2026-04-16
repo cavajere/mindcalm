@@ -23,6 +23,10 @@ import {
   recomputeReservedSeats,
   restoreBooking,
 } from '../../services/eventBookingService'
+import {
+  EventParticipantNotificationError,
+  notifyConfirmedEventParticipants,
+} from '../../services/eventParticipantNotificationService'
 
 const router = createAsyncRouter()
 
@@ -82,9 +86,12 @@ function serializeEvent(event: {
   bookingClosesAt: Date | null
   participationMode: 'FREE' | 'PAID'
   participationPriceCents: number | null
+  cancelledAt: Date | null
+  cancellationMessage: string | null
   coverImage: string | null
   coverImageOriginalName: string | null
   coverImageDisplayName: string | null
+  coverAlbumImageId?: string | null
   coverAlbumImage?: {
     id: string
     filePath: string
@@ -101,6 +108,7 @@ function serializeEvent(event: {
     slug: event.slug,
     title: event.title,
     startsAt: event.startsAt,
+    cancelledAt: event.cancelledAt,
     bookingEnabled: event.bookingEnabled,
     bookingCapacity: event.bookingCapacity,
     bookingReservedSeats: event.bookingReservedSeats,
@@ -130,6 +138,8 @@ function serializeEvent(event: {
     visibility: event.visibility,
     status: event.status,
     publishedAt: event.publishedAt,
+    cancelledAt: event.cancelledAt,
+    cancellationMessage: event.cancellationMessage,
     createdAt: event.createdAt,
     updatedAt: event.updatedAt,
     bookingEnabled: event.bookingEnabled,
@@ -144,6 +154,60 @@ function serializeEvent(event: {
     participationPriceCents: event.participationPriceCents,
     ...cover,
   }
+}
+
+function buildParticipantNotificationSignature(event: {
+  title: string
+  slug: string
+  body: string
+  excerpt: string | null
+  organizer: string
+  city: string
+  venue: string | null
+  startsAt: Date
+  endsAt: Date | null
+  visibility: ContentVisibility
+  status: Status
+  bookingEnabled: boolean
+  bookingCapacity: number | null
+  bookingReservedSeats: number
+  bookingOpensAt: Date | null
+  bookingClosesAt: Date | null
+  participationMode: 'FREE' | 'PAID'
+  participationPriceCents: number | null
+  cancelledAt: Date | null
+  cancellationMessage: string | null
+  coverImage: string | null
+  coverImageOriginalName: string | null
+  coverImageDisplayName: string | null
+  coverAlbumImageId?: string | null
+}) {
+  return JSON.stringify({
+    title: event.title,
+    slug: event.slug,
+    body: event.body,
+    excerpt: event.excerpt ?? null,
+    organizer: event.organizer,
+    city: event.city,
+    venue: event.venue ?? null,
+    startsAt: event.startsAt.toISOString(),
+    endsAt: event.endsAt?.toISOString() ?? null,
+    visibility: event.visibility,
+    status: event.status,
+    bookingEnabled: event.bookingEnabled,
+    bookingCapacity: event.bookingCapacity ?? null,
+    bookingReservedSeats: event.bookingReservedSeats,
+    bookingOpensAt: event.bookingOpensAt?.toISOString() ?? null,
+    bookingClosesAt: event.bookingClosesAt?.toISOString() ?? null,
+    participationMode: event.participationMode,
+    participationPriceCents: event.participationPriceCents ?? null,
+    cancelledAt: event.cancelledAt?.toISOString() ?? null,
+    cancellationMessage: event.cancellationMessage ?? null,
+    coverImage: event.coverImage ?? null,
+    coverImageOriginalName: event.coverImageOriginalName ?? null,
+    coverImageDisplayName: event.coverImageDisplayName ?? null,
+    coverAlbumImageId: event.coverAlbumImageId ?? null,
+  })
 }
 
 function parseBookingSettings(body: Request['body']) {
@@ -243,7 +307,6 @@ router.post('/', uploadImage.single('coverImage'), eventValidation, async (req: 
   const excerpt = getSingleString(req.body.excerpt)
   const organizer = getSingleString(req.body.organizer)
   const city = getSingleString(req.body.city)
-  const venue = getSingleString(req.body.venue)
   const startsAt = getSingleString(req.body.startsAt)
   const endsAt = getSingleString(req.body.endsAt)
   const status = getSingleString(req.body.status)
@@ -288,7 +351,7 @@ router.post('/', uploadImage.single('coverImage'), eventValidation, async (req: 
 
   if (bookingSettings.bookingOpensAt && bookingSettings.bookingClosesAt && bookingSettings.bookingClosesAt <= bookingSettings.bookingOpensAt) {
     deleteDirectCoverImage(req.file ? `images/${req.file.filename}` : null)
-    res.status(400).json({ error: 'La chiusura prenotazioni deve essere successiva all apertura' })
+    res.status(400).json({ error: 'La chiusura prenotazioni deve essere successiva all’apertura' })
     return
   }
 
@@ -308,9 +371,9 @@ router.post('/', uploadImage.single('coverImage'), eventValidation, async (req: 
         body: sanitizedBody,
         bodyText: extractPlainText(sanitizedBody),
         excerpt: excerpt || null,
-        organizer: organizer!,
+        organizer: organizer?.trim() || 'MindCalm',
         city: city!,
-        venue: venue || null,
+        venue: null,
         startsAt: new Date(startsAt!),
         endsAt: endsAt ? new Date(endsAt) : null,
         bookingEnabled: bookingSettings.bookingEnabled,
@@ -391,7 +454,6 @@ router.put('/:id', uploadImage.single('coverImage'), eventValidation, async (req
   const excerpt = getSingleString(req.body.excerpt)
   const organizer = getSingleString(req.body.organizer)
   const city = getSingleString(req.body.city)
-  const venue = getSingleString(req.body.venue)
   const startsAt = getSingleString(req.body.startsAt)
   const endsAt = getSingleString(req.body.endsAt)
   const status = getSingleString(req.body.status)
@@ -404,6 +466,7 @@ router.put('/:id', uploadImage.single('coverImage'), eventValidation, async (req
   const requestedCoverAlbumImageId = hasCoverAlbumImageId
     ? (getSingleString(req.body.coverAlbumImageId)?.trim() || null)
     : undefined
+  const participantNotificationMessage = getSingleString(req.body.participantNotificationMessage)?.trim() || null
   const slug = createTagSlug(title!)
 
   if (endsAt && new Date(endsAt) < new Date(startsAt!)) {
@@ -420,7 +483,7 @@ router.put('/:id', uploadImage.single('coverImage'), eventValidation, async (req
 
   if (bookingSettings.bookingOpensAt && bookingSettings.bookingClosesAt && bookingSettings.bookingClosesAt <= bookingSettings.bookingOpensAt) {
     deleteDirectCoverImage(req.file ? `images/${req.file.filename}` : null)
-    res.status(400).json({ error: 'La chiusura prenotazioni deve essere successiva all apertura' })
+    res.status(400).json({ error: 'La chiusura prenotazioni deve essere successiva all’apertura' })
     return
   }
 
@@ -451,6 +514,7 @@ router.put('/:id', uploadImage.single('coverImage'), eventValidation, async (req
     : null
 
   const sanitizedBody = sanitizeBody(body!)
+  const existingParticipantSignature = buildParticipantNotificationSignature(existing)
 
   const updated = await prisma.$transaction(async (tx) => {
     const event = await tx.event.update({
@@ -461,9 +525,9 @@ router.put('/:id', uploadImage.single('coverImage'), eventValidation, async (req
         body: sanitizedBody,
         bodyText: extractPlainText(sanitizedBody),
         excerpt: excerpt || null,
-        organizer: organizer!,
+        organizer: organizer?.trim() || 'MindCalm',
         city: city!,
-        venue: venue || null,
+        venue: null,
         startsAt: new Date(startsAt!),
         endsAt: endsAt ? new Date(endsAt) : null,
         bookingEnabled: bookingSettings.bookingEnabled,
@@ -518,6 +582,7 @@ router.put('/:id', uploadImage.single('coverImage'), eventValidation, async (req
     await queueEventPublicationOutbox(tx, publicBaseUrl, event)
     return event
   })
+  const updatedParticipantSignature = buildParticipantNotificationSignature(updated)
 
   if ((req.file || selectedAlbumImage || removeCoverImage) && existing.coverImage) {
     deleteDirectCoverImage(existing.coverImage)
@@ -540,8 +605,30 @@ router.put('/:id', uploadImage.single('coverImage'), eventValidation, async (req
       bookingCapacity: updated.bookingCapacity,
       participationMode: updated.participationMode,
       participationPriceCents: updated.participationPriceCents,
+      cancelledAt: updated.cancelledAt?.toISOString() ?? null,
     },
   })
+
+  if (existingParticipantSignature !== updatedParticipantSignature) {
+    try {
+      await notifyConfirmedEventParticipants({
+        eventId: updated.id,
+        type: 'UPDATED',
+        message: participantNotificationMessage,
+        eventUrl: buildAppUrl(publicBaseUrl, `/events/${updated.slug}`),
+      })
+    } catch (error) {
+      if (error instanceof EventParticipantNotificationError) {
+        res.status(502).json({
+          error: `${error.message}. L'evento è stato comunque aggiornato.`,
+          failedRecipients: error.failedRecipients,
+        })
+        return
+      }
+
+      throw error
+    }
+  }
 
   res.json(serializeEvent(updated))
 })
@@ -567,6 +654,12 @@ router.patch('/:id/status', statusValidation, async (req: Request, res: Response
     return
   }
 
+  const existing = await prisma.event.findUnique({ where: { id: eventId } })
+  if (!existing) {
+    res.status(404).json({ error: 'Evento non trovato' })
+    return
+  }
+
   const event = await prisma.$transaction(async (tx) => {
     const updated = await tx.event.update({
       where: { id: eventId },
@@ -587,7 +680,109 @@ router.patch('/:id/status', statusValidation, async (req: Request, res: Response
     metadata: { status: event.status },
   })
 
+  if (existing.status !== event.status) {
+    try {
+      await notifyConfirmedEventParticipants({
+        eventId: event.id,
+        type: 'UPDATED',
+        message: event.status === 'PUBLISHED'
+          ? 'L’evento è stato ripubblicato nel calendario.'
+          : 'L’evento non è più disponibile nel calendario pubblico.',
+        eventUrl: buildAppUrl(publicBaseUrl, `/events/${event.slug}`),
+      })
+    } catch (error) {
+      if (error instanceof EventParticipantNotificationError) {
+        res.status(502).json({
+          error: `${error.message}. Lo stato dell'evento è stato comunque aggiornato.`,
+          failedRecipients: error.failedRecipients,
+        })
+        return
+      }
+
+      throw error
+    }
+  }
+
   res.json(event)
+})
+
+router.post('/:id/cancel', async (req: Request, res: Response) => {
+  const eventId = getSingleString(req.params.id)
+  if (!eventId) {
+    res.status(400).json({ error: 'ID evento non valido' })
+    return
+  }
+
+  const cancellationMessage = getSingleString(req.body.cancellationMessage)?.trim()
+  if (!cancellationMessage) {
+    res.status(400).json({ error: 'Inserisci un messaggio di annullamento da inviare ai partecipanti' })
+    return
+  }
+
+  const publicBaseUrl = derivePublicAppBaseUrl({
+    override: getSingleString(req.body.publicBaseUrl),
+    requestOrigin: req.get('origin'),
+    requestProtocol: req.protocol,
+    requestHost: req.get('host'),
+    fallback: config.appUrls.public,
+  })
+
+  const existing = await prisma.event.findUnique({
+    where: { id: eventId },
+    include: { coverAlbumImage: { select: albumImageSelect } },
+  })
+  if (!existing) {
+    res.status(404).json({ error: 'Evento non trovato' })
+    return
+  }
+
+  if (existing.cancelledAt) {
+    res.status(409).json({ error: 'L’evento risulta già annullato' })
+    return
+  }
+
+  const event = await prisma.event.update({
+    where: { id: eventId },
+    data: {
+      cancelledAt: new Date(),
+      cancellationMessage,
+    },
+    include: { coverAlbumImage: { select: albumImageSelect } },
+  })
+
+  await logAuditEventSafe({
+    req,
+    action: AuditAction.EVENT_CANCELLED,
+    entityType: AuditEntityType.EVENT,
+    entityId: event.id,
+    entityLabel: event.title,
+    ...getAuditActorFromRequest(req),
+    metadata: {
+      cancelledAt: event.cancelledAt?.toISOString() ?? null,
+      cancellationMessage,
+    },
+  })
+
+  try {
+    await notifyConfirmedEventParticipants({
+      eventId: event.id,
+      type: 'CANCELLED',
+      message: cancellationMessage,
+      eventUrl: buildAppUrl(publicBaseUrl, `/events/${event.slug}`),
+    })
+  } catch (error) {
+    if (error instanceof EventParticipantNotificationError) {
+      res.status(502).json({
+        error: `${error.message}. L'evento è stato comunque annullato.`,
+        failedRecipients: error.failedRecipients,
+      })
+      return
+    }
+
+    throw error
+  }
+
+  res.json(serializeEvent(event))
 })
 
 router.get('/:id/bookings', async (req: Request, res: Response) => {

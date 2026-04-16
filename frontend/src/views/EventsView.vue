@@ -13,6 +13,7 @@ interface EventItem {
   venue: string | null
   startsAt: string
   coverImage: string | null
+  cancelledAt: string | null
   bookingEnabled: boolean
   bookingAvailable: boolean
   participationMode: 'FREE' | 'PAID'
@@ -25,7 +26,7 @@ const search = ref('')
 
 const upcomingEvents = computed(() => {
   const now = new Date()
-  return events.value.filter(e => new Date(e.startsAt) > now)
+  return events.value.filter(e => !e.cancelledAt && new Date(e.startsAt) > now)
 })
 const nextEvent = computed(() => upcomingEvents.value[0] ?? null)
 const activeFiltersLabel = computed(() => search.value.trim() ? 'ricerca attiva' : 'Nessun filtro attivo')
@@ -164,7 +165,10 @@ watch(search, () => {
               <p class="text-xs font-semibold uppercase tracking-[0.16em] text-text-secondary">
                 {{ eventItem.city }}<span v-if="eventItem.venue"> · {{ eventItem.venue }}</span>
               </p>
-              <p v-if="eventItem.bookingEnabled && eventItem.bookingAvailable" class="mt-2 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">
+              <p v-if="eventItem.cancelledAt" class="mt-2 text-xs font-semibold uppercase tracking-[0.16em] text-red-700">
+                Evento annullato
+              </p>
+              <p v-else-if="eventItem.bookingEnabled && eventItem.bookingAvailable" class="mt-2 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">
                 Prenotazioni aperte
               </p>
               <p class="mt-2 text-xs font-semibold uppercase tracking-[0.16em]" :class="eventItem.participationMode === 'PAID' ? 'text-amber-700' : 'text-sky-700'">

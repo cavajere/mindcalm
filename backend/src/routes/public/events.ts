@@ -8,6 +8,7 @@ import { optionalAppAuthMiddleware } from '../../middleware/auth'
 import {
   paginationQuery,
   publicEventBookingAccessValidation,
+  publicEventBookingRequestValidation,
   publicEventBookingCreateValidation,
 } from '../../utils/validators'
 import { resolveCoverImageSource } from '../../services/albumImageService'
@@ -17,11 +18,15 @@ import {
   EventBookingError,
   getEventBookingAvailability,
   getPublicBookingAccess,
+  upsertInvitationForEventRecipient,
 } from '../../services/eventBookingService'
 import {
   eventBookingAccessRateLimiter,
+  eventBookingRequestRateLimiter,
   eventBookingCreateRateLimiter,
 } from '../../middleware/rateLimiter'
+import { sendMail } from '../../services/smtpService'
+import { buildEventBookingConfirmationEmail } from '../../services/email/templates'
 
 const router = createAsyncRouter()
 
@@ -56,6 +61,7 @@ function mapEventListItem(event: {
   bookingReservedSeats: number
   bookingOpensAt: Date | null
   bookingClosesAt: Date | null
+  cancelledAt: Date | null
   participationMode: 'FREE' | 'PAID'
   participationPriceCents: number | null
   status: 'DRAFT' | 'PUBLISHED'
@@ -72,6 +78,7 @@ function mapEventListItem(event: {
     slug: event.slug,
     title: event.title,
     startsAt: event.startsAt,
+    cancelledAt: event.cancelledAt,
     bookingEnabled: event.bookingEnabled,
     bookingCapacity: event.bookingCapacity,
     bookingReservedSeats: event.bookingReservedSeats,
@@ -94,6 +101,7 @@ function mapEventListItem(event: {
     publishedAt: event.publishedAt,
     bookingEnabled: event.bookingEnabled,
     bookingAvailable: availability.bookingAvailable,
+    cancelledAt: event.cancelledAt,
     participationMode: event.participationMode,
     participationPriceCents: event.participationPriceCents,
   }
@@ -175,6 +183,7 @@ router.get('/', paginationQuery, async (req: Request, res: Response) => {
         bookingReservedSeats: true,
         bookingOpensAt: true,
         bookingClosesAt: true,
+        cancelledAt: true,
         participationMode: true,
         participationPriceCents: true,
         status: true,
@@ -210,6 +219,107 @@ router.get('/:slug/booking-access', eventBookingAccessRateLimiter, publicEventBo
   res.json(result)
 })
 
+router.post('/:slug/booking-request', eventBookingRequestRateLimiter, publicEventBookingRequestValidation, async (req: Request, res: Response) => {
+  const errors = validationResult(req)
+  if (!errors.isEmpty()) {
+    res.status(400).json({ error: 'Payload non valido', details: errors.array() })
+    return
+  }
+
+  const slug = getSingleString(req.params.slug)
+  if (!slug) {
+    res.status(400).json({ error: 'Slug evento non valido' })
+    return
+  }
+
+  const event = await prisma.event.findFirst({
+    where: {
+      slug,
+      status: 'PUBLISHED',
+      visibility: { in: getVisibleContentVisibilities(req) },
+    },
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+      city: true,
+      venue: true,
+      startsAt: true,
+      bookingEnabled: true,
+      bookingCapacity: true,
+      bookingReservedSeats: true,
+      bookingOpensAt: true,
+      bookingClosesAt: true,
+      cancelledAt: true,
+      status: true,
+    },
+  })
+
+  if (!event) {
+    res.status(404).json({ error: 'Evento non trovato' })
+    return
+  }
+
+  const availability = getEventBookingAvailability(event)
+  if (!event.bookingEnabled) {
+    res.status(400).json({ error: 'Le prenotazioni online non sono attive per questo evento' })
+    return
+  }
+
+  if (!availability.bookingOpen) {
+    res.status(400).json({ error: 'Le prenotazioni online per questo evento sono chiuse' })
+    return
+  }
+
+  if (!availability.bookingAvailable) {
+    res.status(409).json({ error: 'I posti disponibili sono terminati' })
+    return
+  }
+
+  const email = String(req.body.email)
+  const firstName = String(req.body.firstName)
+  const lastName = String(req.body.lastName)
+  const phone = String(req.body.phone)
+  const note = typeof req.body.note === 'string' ? req.body.note : ''
+
+  try {
+    const invitation = await upsertInvitationForEventRecipient({
+      eventId: event.id,
+      userId: req.adminUser?.id ?? null,
+      recipientEmail: email,
+      recipientFirstName: firstName,
+      recipientLastName: lastName,
+      recipientPhone: phone,
+      note,
+    })
+
+    const template = buildEventBookingConfirmationEmail({
+      firstName: firstName.trim(),
+      eventTitle: invitation.event.title,
+      eventStartsAt: invitation.event.startsAt,
+      eventLocation: invitation.event.location,
+      confirmationUrl: invitation.url,
+      expiresAt: invitation.invitation.expiresAt,
+    })
+
+    await sendMail({
+      to: email.trim(),
+      ...template,
+    })
+
+    res.status(202).json({
+      message: 'Ti abbiamo inviato un link di conferma via email. Aprilo per completare la registrazione.',
+    })
+  } catch (error) {
+    if (error instanceof EventBookingError) {
+      res.status(error.status).json({ error: error.message, code: error.code })
+      return
+    }
+
+    throw error
+  }
+})
+
 router.post('/:slug/bookings', eventBookingCreateRateLimiter, publicEventBookingCreateValidation, async (req: Request, res: Response) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
@@ -234,9 +344,9 @@ router.post('/:slug/bookings', eventBookingCreateRateLimiter, publicEventBooking
     const booking = await createBooking({
       slug,
       token: String(req.body.token),
-      bookerFirstName: String(req.body.bookerFirstName),
-      bookerLastName: String(req.body.bookerLastName),
-      bookerPhone: String(req.body.bookerPhone),
+      bookerFirstName: typeof req.body.bookerFirstName === 'string' ? req.body.bookerFirstName : undefined,
+      bookerLastName: typeof req.body.bookerLastName === 'string' ? req.body.bookerLastName : undefined,
+      bookerPhone: typeof req.body.bookerPhone === 'string' ? req.body.bookerPhone : undefined,
       guests,
     })
 
@@ -284,8 +394,10 @@ router.get('/:slug', async (req: Request, res: Response) => {
       bookingReservedSeats: true,
       bookingOpensAt: true,
       bookingClosesAt: true,
+      cancelledAt: true,
       participationMode: true,
       participationPriceCents: true,
+      cancellationMessage: true,
       status: true,
       coverAlbumImage: {
         select: {
@@ -319,6 +431,7 @@ router.get('/:slug', async (req: Request, res: Response) => {
     slug: event.slug,
     title: event.title,
     startsAt: event.startsAt,
+    cancelledAt: event.cancelledAt,
     bookingEnabled: event.bookingEnabled,
     bookingCapacity: event.bookingCapacity,
     bookingReservedSeats: event.bookingReservedSeats,
@@ -342,6 +455,8 @@ router.get('/:slug', async (req: Request, res: Response) => {
     publishedAt: event.publishedAt,
     bookingEnabled: event.bookingEnabled,
     bookingAvailable: availability.bookingAvailable,
+    cancelledAt: event.cancelledAt,
+    cancellationMessage: event.cancellationMessage,
     participationMode: event.participationMode,
     participationPriceCents: event.participationPriceCents,
   })

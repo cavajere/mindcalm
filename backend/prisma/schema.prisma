@@ -460,6 +460,8 @@ model Event {
   coverImageDisplayName  String?
   coverAlbumImageId String?
   coverAlbumImage AlbumImage? @relation("EventCoverAlbumImage", fields: [coverAlbumImageId], references: [id], onDelete: SetNull)
+  cancelledAt DateTime?
+  cancellationMessage String?
   status      Status    @default(DRAFT)
   publishedAt DateTime?
   createdAt   DateTime  @default(now())
@@ -483,6 +485,10 @@ model EventBookingInvitation {
   user           User?    @relation("EventBookingInvitationUser", fields: [userId], references: [id], onDelete: SetNull)
   recipientEmail String
   recipientName  String?
+  recipientFirstName String?
+  recipientLastName  String?
+  recipientPhone     String?
+  note               String?
   tokenHash      String   @unique
   expiresAt      DateTime
   lastSentAt     DateTime?
@@ -909,6 +915,7 @@ enum AuditAction {
   POST_STATUS_CHANGED
   EVENT_CREATED
   EVENT_UPDATED
+  EVENT_CANCELLED
   EVENT_DELETED
   EVENT_STATUS_CHANGED
   EVENT_BOOKING_CREATED

@@ -33,6 +33,7 @@ const auditActions = [
   'POST_STATUS_CHANGED',
   'EVENT_CREATED',
   'EVENT_UPDATED',
+  'EVENT_CANCELLED',
   'EVENT_DELETED',
   'EVENT_STATUS_CHANGED',
   'EVENT_BOOKING_CREATED',
@@ -182,9 +183,8 @@ export const postValidation = [
 export const eventValidation = [
   body('title').trim().notEmpty().withMessage('Titolo obbligatorio'),
   body('body').trim().notEmpty().withMessage('Contenuto obbligatorio'),
-  body('organizer').trim().notEmpty().withMessage('Organizzatore obbligatorio'),
-  body('city').trim().notEmpty().withMessage('Città obbligatoria'),
-  body('venue').optional({ values: 'falsy' }).trim().isLength({ max: 160 }).withMessage('Venue max 160 caratteri'),
+  body('organizer').optional({ values: 'falsy' }).trim().isLength({ max: 160 }).withMessage('Organizzatore max 160 caratteri'),
+  body('city').trim().notEmpty().withMessage('Luogo obbligatorio'),
   body('startsAt').isISO8601().withMessage('Data inizio non valida'),
   body('endsAt').optional({ values: 'falsy' }).isISO8601().withMessage('Data fine non valida'),
   body('excerpt').optional().trim().isLength({ max: 300 }).withMessage('Excerpt max 300 caratteri'),
@@ -277,15 +277,27 @@ export const publicEventBookingAccessValidation = [
   query('token').trim().notEmpty().withMessage('Token prenotazione obbligatorio'),
 ]
 
-export const publicEventBookingCreateValidation = [
-  body('token').trim().notEmpty().withMessage('Token prenotazione obbligatorio'),
-  body('bookerFirstName').trim().notEmpty().withMessage('Nome prenotante obbligatorio'),
-  body('bookerLastName').trim().notEmpty().withMessage('Cognome prenotante obbligatorio'),
-  body('bookerPhone')
+export const publicEventBookingRequestValidation = [
+  body('email').isEmail().withMessage('Email obbligatoria o non valida'),
+  body('firstName').trim().notEmpty().withMessage('Nome obbligatorio'),
+  body('lastName').trim().notEmpty().withMessage('Cognome obbligatorio'),
+  body('phone')
     .trim()
     .notEmpty()
-    .withMessage('Telefono prenotante obbligatorio')
+    .withMessage('Numero di telefono obbligatorio')
     .bail()
+    .custom(isValidPhoneNumber)
+    .withMessage('Numero di telefono non valido'),
+  body('note').optional({ values: 'falsy' }).trim().isLength({ max: 1000 }).withMessage('Note max 1000 caratteri'),
+]
+
+export const publicEventBookingCreateValidation = [
+  body('token').trim().notEmpty().withMessage('Token prenotazione obbligatorio'),
+  body('bookerFirstName').optional({ values: 'falsy' }).trim(),
+  body('bookerLastName').optional({ values: 'falsy' }).trim(),
+  body('bookerPhone')
+    .optional({ values: 'falsy' })
+    .trim()
     .custom(isValidPhoneNumber)
     .withMessage('Numero di telefono non valido'),
   body('participants').optional().isArray({ max: 4 }).withMessage('Partecipanti aggiuntivi non validi'),

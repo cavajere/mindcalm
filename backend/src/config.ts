@@ -94,6 +94,7 @@ export const config = {
     registration: parseInt(process.env.RATE_LIMIT_REGISTRATION || '10', 10),
     registrationVerification: parseInt(process.env.RATE_LIMIT_REGISTRATION_VERIFICATION || '20', 10),
     eventBookingAccess: parseInt(process.env.RATE_LIMIT_EVENT_BOOKING_ACCESS || '30', 10),
+    eventBookingRequest: parseInt(process.env.RATE_LIMIT_EVENT_BOOKING_REQUEST || '8', 10),
     eventBookingCreate: parseInt(process.env.RATE_LIMIT_EVENT_BOOKING_CREATE || '12', 10),
   },
 
