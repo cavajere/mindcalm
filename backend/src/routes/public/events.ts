@@ -10,6 +10,8 @@ import {
   publicEventBookingAccessValidation,
   publicEventBookingRequestValidation,
   publicEventBookingCreateValidation,
+  publicEventBookingCancelAccessValidation,
+  publicEventBookingCancelValidation,
 } from '../../utils/validators'
 import { resolveCoverImageSource } from '../../services/albumImageService'
 import { getVisibleContentVisibilities } from '../../utils/contentVisibility'
@@ -18,6 +20,9 @@ import {
   EventBookingError,
   getEventBookingAvailability,
   getPublicBookingAccess,
+  getPublicBookingCancellationAccess,
+  cancelBookingByToken,
+  buildEventBookingCancellationUrl,
   upsertInvitationForEventRecipient,
 } from '../../services/eventBookingService'
 import {
@@ -26,7 +31,9 @@ import {
   eventBookingCreateRateLimiter,
 } from '../../middleware/rateLimiter'
 import { sendMail } from '../../services/smtpService'
-import { buildEventBookingConfirmationEmail } from '../../services/email/templates'
+import { buildEventBookingConfirmationEmail, buildEventBookingConfirmedEmail } from '../../services/email/templates'
+import { buildAppUrl } from '../../utils/appUrls'
+import { config } from '../../config'
 
 const router = createAsyncRouter()
 
@@ -349,6 +356,24 @@ router.post('/:slug/bookings', eventBookingCreateRateLimiter, publicEventBooking
       bookerPhone: typeof req.body.bookerPhone === 'string' ? req.body.bookerPhone : undefined,
       guests,
     })
+
+    try {
+      const location = booking.event.venue
+        ? `${booking.event.city} · ${booking.event.venue}`
+        : booking.event.city
+      const template = buildEventBookingConfirmedEmail({
+        firstName: booking.booking.bookerFirstName,
+        eventTitle: booking.event.title,
+        eventStartsAt: booking.event.startsAt,
+        eventLocation: location,
+        eventUrl: buildAppUrl(config.appUrls.public, `/events/${slug}`),
+        cancellationUrl: buildEventBookingCancellationUrl(slug, String(req.body.token)),
+        participants: booking.booking.participants,
+      })
+      await sendMail({ to: booking.invitationEmail, ...template })
+    } catch {
+      // fire-and-forget: booking is confirmed even if email fails
+    }
 
     res.status(201).json(booking)
   } catch (error) {

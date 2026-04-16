@@ -4,6 +4,7 @@ import axios from 'axios'
 import AdminModal from '../components/AdminModal.vue'
 import PageHeader from '../components/PageHeader.vue'
 import { useToast } from '../composables/useToast'
+import { useConfirm } from '../composables/useConfirm'
 import { getApiErrorMessage } from '../utils/apiMessages'
 
 interface Tag {
@@ -19,6 +20,7 @@ interface Tag {
 }
 
 const toast = useToast()
+const { confirm } = useConfirm()
 const tags = ref<Tag[]>([])
 const loading = ref(true)
 const showModal = ref(false)
@@ -120,7 +122,7 @@ async function toggleStatus(tag: Tag) {
 }
 
 async function deleteTag(tag: Tag) {
-  if (!confirm(`Eliminare il tag "${tag.label}"?`)) return
+  if (!await confirm({ message: `Eliminare il tag "${tag.label}"?`, variant: 'danger', confirmLabel: 'Elimina' })) return
   try {
     await axios.delete(`/api/admin/tags/${tag.id}`)
     toast.success('Tag eliminato')

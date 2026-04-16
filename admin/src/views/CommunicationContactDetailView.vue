@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import CommunicationSectionTabs from '../components/CommunicationSectionTabs.vue'
 import PageHeader from '../components/PageHeader.vue'
+import { useConfirm } from '../composables/useConfirm'
 import { getApiErrorMessage } from '../utils/apiMessages'
 
 type ConsentValue = 'YES' | 'NO'
@@ -56,6 +57,7 @@ type ContactDetail = {
 
 const route = useRoute()
 const router = useRouter()
+const { confirm } = useConfirm()
 
 const loading = ref(true)
 const togglingFormulaId = ref('')
@@ -153,7 +155,7 @@ async function updateConsent(formulaId: string, value: ConsentValue) {
 
 async function deleteContact() {
   if (!detail.value?.contact) return
-  if (!window.confirm(`Eliminare il contatto ${detail.value.contact.email}?`)) return
+  if (!await confirm({ message: `Eliminare il contatto ${detail.value.contact.email}?`, variant: 'danger', confirmLabel: 'Elimina' })) return
 
   try {
     await axios.delete(`/api/admin/communications/contacts/${detail.value.contact.id}`)

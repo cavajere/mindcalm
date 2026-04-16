@@ -92,6 +92,10 @@ const bookingForm = ref({
 const bookingToken = computed(() => typeof route.query.bookingToken === 'string' ? route.query.bookingToken : '')
 const isCancelled = computed(() => Boolean(eventItem.value?.cancelledAt))
 
+function scrollToBooking() {
+  document.getElementById('prenotazione')?.scrollIntoView({ behavior: 'smooth' })
+}
+
 const formattedDate = computed(() => {
   if (!eventItem.value) return ''
 
@@ -239,7 +243,7 @@ async function submitBookingRequest() {
 
     bookingRequestSuccess.value = data.message || 'Ti abbiamo inviato un link di conferma via email.'
   } catch (error: any) {
-    bookingRequestError.value = error.response?.data?.error || 'Errore durante l’invio del link di conferma'
+    bookingRequestError.value = error.response?.data?.error || "Errore durante l'invio del link di conferma"
   } finally {
     bookingRequestSaving.value = false
   }
@@ -333,19 +337,25 @@ watch(
         </router-link>
       </div>
 
-      <header class="section-panel relative overflow-hidden">
+      <section class="section-panel relative overflow-hidden">
         <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(74,144,217,0.12),_transparent_30%),radial-gradient(circle_at_bottom_left,_rgba(80,184,96,0.12),_transparent_28%)]" />
 
-        <div class="relative grid gap-8 p-6 sm:p-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] lg:p-10">
+        <div
+          :class="[
+            'relative grid gap-5 p-5 sm:gap-6 sm:p-7 lg:items-start lg:p-8',
+            eventItem.coverImage ? 'lg:grid-cols-[minmax(0,1fr)_320px]' : '',
+          ]"
+        >
           <div class="min-w-0">
-            <div class="mb-5 flex flex-wrap items-center gap-2">
+            <div class="mb-4 flex flex-wrap items-center gap-2">
               <span class="badge surface-pill text-primary">Evento pubblico</span>
-              <span class="badge surface-pill text-text-secondary">{{ formattedDate }}</span>
-              <span class="badge surface-pill text-text-secondary">{{ formattedTime }}</span>
               <span v-if="isCancelled" class="badge surface-pill bg-red-100 text-red-700">
                 Evento annullato
               </span>
               <span v-else-if="eventItem.bookingRequired && eventItem.bookingAvailable" class="badge surface-pill bg-emerald-100 text-emerald-700">
+                {{ bookingStatusLabel }}
+              </span>
+              <span v-else-if="eventItem.bookingRequired" class="badge surface-pill bg-slate-100 text-slate-700">
                 {{ bookingStatusLabel }}
               </span>
             </div>
@@ -354,95 +364,105 @@ watch(
               {{ eventItem.title }}
             </h1>
 
-            <p v-if="eventItem.excerpt" class="mt-5 max-w-2xl text-base leading-8 text-text-secondary sm:text-lg">
+            <p v-if="eventItem.excerpt" class="mt-3 max-w-2xl text-base leading-7 text-text-secondary sm:text-lg">
               {{ eventItem.excerpt }}
             </p>
 
-            <div v-if="isCancelled" class="mt-6 max-w-2xl rounded-[24px] border border-red-200 bg-red-50 px-5 py-4 text-sm leading-7 text-red-700">
+            <div
+              v-if="isCancelled"
+              :class="eventItem.excerpt ? 'mt-5' : 'mt-3'"
+              class="max-w-2xl rounded-[24px] border border-red-200 bg-red-50 px-5 py-4 text-sm leading-7 text-red-700"
+            >
               <p class="font-semibold text-red-800">Questo evento è stato annullato.</p>
               <p v-if="eventItem.cancellationMessage" class="mt-2">{{ eventItem.cancellationMessage }}</p>
             </div>
-
-            <div class="mt-8 flex flex-wrap items-center gap-4">
-              <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-text-primary text-sm font-semibold text-background">
-                MC
-              </div>
-              <div>
-                <p class="text-sm font-semibold text-text-primary">{{ eventItem.organizer }}</p>
-                <p class="text-sm text-text-secondary">Organizzazione e facilitazione dell'incontro</p>
-              </div>
-            </div>
-
-            <div class="mt-6 grid gap-3 sm:grid-cols-2">
-              <div class="surface-card-muted rounded-[24px] p-4">
-                <p class="text-xs uppercase tracking-[0.18em] text-text-secondary">Dove</p>
-                <p class="mt-2 text-sm font-semibold text-text-primary">{{ locationLabel }}</p>
-              </div>
-              <div class="surface-card-muted rounded-[24px] p-4">
-                <p class="text-xs uppercase tracking-[0.18em] text-text-secondary">Quando</p>
-                <p class="mt-2 text-sm font-semibold text-text-primary">{{ formattedDate }} · {{ formattedTime }}</p>
-              </div>
-              <div class="surface-card-muted rounded-[24px] p-4 sm:col-span-2">
-                <p class="text-xs uppercase tracking-[0.18em] text-text-secondary">Partecipazione</p>
-                <p class="mt-2 text-sm font-semibold text-text-primary">{{ participationLabel }}</p>
-              </div>
-            </div>
           </div>
 
-          <ContentCover
-            v-if="eventItem.coverImage"
-            :src="eventItem.coverImage"
-            :alt="eventItem.title"
-            container-class="surface-card min-h-[280px] overflow-hidden"
-            image-class="aspect-[4/3] h-full w-full object-cover"
-          />
+          <div v-if="eventItem.coverImage">
+            <ContentCover
+              :src="eventItem.coverImage"
+              :alt="eventItem.title"
+              container-class="surface-card min-h-[280px] overflow-hidden"
+              image-class="aspect-[4/3] h-full w-full object-cover"
+            />
+          </div>
         </div>
-      </header>
-
-      <div class="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
-        <div class="min-w-0">
-          <div class="surface-card p-6 shadow-sm sm:p-8 lg:p-10">
+        <div
+          :class="eventItem.excerpt || isCancelled ? 'pt-1' : 'pt-0'"
+          class="relative px-5 pb-5 sm:px-7 sm:pb-7 lg:px-8 lg:pb-8"
+        >
+          <div class="max-w-3xl">
             <RichTextRenderer :html="eventItem.body" />
           </div>
         </div>
+      </section>
 
-        <aside class="space-y-4 lg:sticky lg:top-24 lg:self-start">
-          <div class="surface-card-muted p-6">
-            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-text-secondary">In breve</p>
-            <div class="mt-5 space-y-4">
-              <div>
-                <p class="text-xs uppercase tracking-[0.18em] text-text-secondary">Data</p>
-                <p class="mt-1 text-sm font-medium text-text-primary">{{ formattedDate }}</p>
-              </div>
-              <div>
-                <p class="text-xs uppercase tracking-[0.18em] text-text-secondary">Orario</p>
-                <p class="mt-1 text-sm font-medium text-text-primary">{{ formattedTime }}</p>
-              </div>
-              <div>
-                <p class="text-xs uppercase tracking-[0.18em] text-text-secondary">Luogo</p>
-                <p class="mt-1 text-sm font-medium text-text-primary">{{ locationLabel }}</p>
-              </div>
-              <div>
-                <p class="text-xs uppercase tracking-[0.18em] text-text-secondary">Organizzatore</p>
-                <p class="mt-1 text-sm font-medium text-text-primary">{{ eventItem.organizer }}</p>
-              </div>
-              <div>
-                <p class="text-xs uppercase tracking-[0.18em] text-text-secondary">Partecipazione</p>
-                <p class="mt-1 text-sm font-medium text-text-primary">{{ participationLabel }}</p>
-              </div>
+      <section class="mt-8">
+        <div class="surface-card-muted p-6 sm:p-8">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-[0.24em] text-text-secondary">Informazioni pratiche</p>
+              <h2 class="mt-2 text-2xl font-semibold tracking-tight text-text-primary">Dove, quando e come partecipare</h2>
             </div>
+            <a
+              v-if="eventItem.bookingRequired && !isCancelled && eventItem.bookingAvailable"
+              href="#prenotazione"
+              class="btn-primary inline-flex items-center gap-2"
+              @click.prevent="scrollToBooking"
+            >
+              Prenota il tuo posto
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </a>
           </div>
 
-          <div v-if="eventItem.bookingRequired && !isCancelled" class="surface-card p-6">
+          <dl class="mt-6 grid gap-x-8 gap-y-5 sm:grid-cols-2">
+            <div>
+              <dt class="text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary">Dove</dt>
+              <dd class="mt-2 text-sm font-semibold leading-6 text-text-primary">{{ locationLabel }}</dd>
+            </div>
+            <div>
+              <dt class="text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary">Quando</dt>
+              <dd class="mt-2 text-sm leading-6 text-text-primary">
+                <span class="font-semibold">{{ formattedDate }}</span>
+                <span class="text-text-secondary"> · {{ formattedTime }}</span>
+              </dd>
+            </div>
+            <div>
+              <dt class="text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary">Costo</dt>
+              <dd class="mt-2 text-sm font-semibold leading-6 text-text-primary">
+                {{ eventItem.participationMode === 'PAID' && eventItem.participationPriceCents != null
+                  ? `€ ${(eventItem.participationPriceCents / 100).toFixed(2)}`
+                  : 'Gratuito' }}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary">Prenotazione</dt>
+              <dd class="mt-2 text-sm font-semibold leading-6 text-text-primary">
+                {{ eventItem.bookingRequired ? bookingStatusLabel : 'Non richiesta' }}
+              </dd>
+            </div>
+            <div v-if="eventItem.organizer" class="sm:col-span-2">
+              <dt class="text-xs font-semibold uppercase tracking-[0.18em] text-text-secondary">Organizzazione</dt>
+              <dd class="mt-2 text-sm font-semibold leading-6 text-text-primary">{{ eventItem.organizer }}</dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+
+      <section v-if="eventItem.bookingRequired && !isCancelled" id="prenotazione" class="mt-8 scroll-mt-8">
+        <div class="section-panel p-6 sm:p-8 lg:p-10">
+          <div class="mx-auto max-w-xl">
             <p class="text-xs font-semibold uppercase tracking-[0.24em] text-text-secondary">Prenotazione</p>
-            <p class="mt-3 text-lg font-semibold text-text-primary">{{ bookingStatusLabel }}</p>
+            <p class="mt-3 text-xl font-semibold text-text-primary sm:text-2xl">{{ bookingStatusLabel }}</p>
             <p class="mt-2 text-sm leading-7 text-text-secondary">
               {{ eventItem.bookingAvailable
-                ? 'La disponibilità è aperta. Il numero di posti residui non viene mostrato sul portale pubblico.'
+                ? 'Compila il modulo per richiedere la prenotazione. Riceverai un link di conferma via email.'
                 : 'Al momento non ci sono prenotazioni disponibili online per questo evento.' }}
             </p>
 
-            <div v-if="bookingToken" class="mt-5 space-y-4">
+            <div v-if="bookingToken" class="mt-6 space-y-4">
               <div v-if="bookingLoading" class="text-sm text-text-secondary">Verifica del link in corso...</div>
               <template v-else-if="bookingAccess">
                 <div v-if="bookingError" class="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">{{ bookingError }}</div>
@@ -473,27 +493,28 @@ watch(
                   class="space-y-4"
                   @submit.prevent="submitBooking"
                 >
+                  <p class="text-sm text-text-secondary">I campi contrassegnati con * sono obbligatori.</p>
                   <div class="grid gap-4 sm:grid-cols-2">
                     <div>
-                      <label class="block text-sm font-medium text-text-primary mb-1">Nome referente</label>
-                      <input v-model="bookingForm.bookerFirstName" type="text" required class="input-field" />
+                      <label class="block text-sm font-medium text-text-primary mb-1">Nome referente *</label>
+                      <input v-model="bookingForm.bookerFirstName" type="text" required class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
                     </div>
                     <div>
-                      <label class="block text-sm font-medium text-text-primary mb-1">Cognome referente</label>
-                      <input v-model="bookingForm.bookerLastName" type="text" required class="input-field" />
+                      <label class="block text-sm font-medium text-text-primary mb-1">Cognome referente *</label>
+                      <input v-model="bookingForm.bookerLastName" type="text" required class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
                     </div>
                   </div>
                   <div>
-                    <label class="block text-sm font-medium text-text-primary mb-1">Telefono referente</label>
-                    <input v-model="bookingForm.bookerPhone" type="tel" required class="input-field" />
+                    <label class="block text-sm font-medium text-text-primary mb-1">Telefono referente *</label>
+                    <input v-model="bookingForm.bookerPhone" type="tel" required class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
                   </div>
 
                   <div class="space-y-3">
-                    <div class="flex items-center justify-between gap-4">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
                       <p class="text-sm font-medium text-text-primary">Partecipanti aggiuntivi</p>
                       <button
                         type="button"
-                        class="btn-secondary"
+                        class="btn-secondary text-sm"
                         :disabled="1 + bookingForm.participants.length >= bookingAccess.maxParticipants"
                         @click="addParticipant"
                       >
@@ -506,10 +527,10 @@ watch(
                       :key="index"
                       class="rounded-[24px] border border-ui-border bg-surface/90 p-4"
                     >
-                      <div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-                        <input v-model="participant.firstName" type="text" required class="input-field" placeholder="Nome" />
-                        <input v-model="participant.lastName" type="text" required class="input-field" placeholder="Cognome" />
-                        <button type="button" class="btn-secondary" @click="removeParticipant(index)">Rimuovi</button>
+                      <div class="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+                        <input v-model="participant.firstName" type="text" required class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" placeholder="Nome" />
+                        <input v-model="participant.lastName" type="text" required class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" placeholder="Cognome" />
+                        <button type="button" class="btn-secondary text-sm" @click="removeParticipant(index)">Rimuovi</button>
                       </div>
                     </div>
                   </div>
@@ -517,6 +538,13 @@ watch(
                   <button type="submit" class="btn-primary w-full" :disabled="bookingSaving">
                     {{ bookingSaving ? 'Conferma in corso...' : 'Conferma registrazione' }}
                   </button>
+
+                  <p class="text-sm leading-6 text-text-secondary">
+                    I dati raccolti saranno trattati al fine di gestire la partecipazione all'evento. Per maggiori informazioni consulta
+                    <router-link to="/privacy-policy" class="text-primary hover:underline">
+                      l'informativa privacy
+                    </router-link>.
+                  </p>
                 </form>
 
                 <div v-else-if="bookingAccess.accessStatus === 'BOOKED' && bookingAccess.existingBooking" class="space-y-3">
@@ -552,59 +580,54 @@ watch(
               </template>
             </div>
 
-            <div v-else-if="eventItem.bookingAvailable" class="mt-5 space-y-4">
+            <div v-else-if="eventItem.bookingAvailable" class="mt-6 space-y-4">
               <div v-if="bookingRequestError" class="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">{{ bookingRequestError }}</div>
               <div v-if="bookingRequestSuccess" class="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ bookingRequestSuccess }}</div>
 
               <form class="space-y-4" @submit.prevent="submitBookingRequest">
+                <p class="text-sm text-text-secondary">I campi contrassegnati con * sono obbligatori.</p>
                 <div class="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <label class="block text-sm font-medium text-text-primary mb-1">Nome</label>
-                    <input v-model="bookingRequestForm.firstName" type="text" required class="input-field" />
+                    <label class="block text-sm font-medium text-text-primary mb-1">Nome *</label>
+                    <input v-model="bookingRequestForm.firstName" type="text" required class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
                   </div>
                   <div>
-                    <label class="block text-sm font-medium text-text-primary mb-1">Cognome</label>
-                    <input v-model="bookingRequestForm.lastName" type="text" required class="input-field" />
+                    <label class="block text-sm font-medium text-text-primary mb-1">Cognome *</label>
+                    <input v-model="bookingRequestForm.lastName" type="text" required class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
                   </div>
                 </div>
                 <div>
-                  <label class="block text-sm font-medium text-text-primary mb-1">Email</label>
-                  <input v-model="bookingRequestForm.email" type="email" required class="input-field" />
+                  <label class="block text-sm font-medium text-text-primary mb-1">Email *</label>
+                  <input v-model="bookingRequestForm.email" type="email" required class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
                 </div>
                 <div>
-                  <label class="block text-sm font-medium text-text-primary mb-1">Numero di telefono</label>
-                  <input v-model="bookingRequestForm.phone" type="tel" required class="input-field" />
+                  <label class="block text-sm font-medium text-text-primary mb-1">Numero di telefono *</label>
+                  <input v-model="bookingRequestForm.phone" type="tel" required class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
                 </div>
                 <div>
                   <label class="block text-sm font-medium text-text-primary mb-1">Note</label>
-                  <textarea v-model="bookingRequestForm.note" rows="3" class="input-field" placeholder="Informazioni utili per l’organizzazione"></textarea>
+                  <textarea v-model="bookingRequestForm.note" rows="3" class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" placeholder="Informazioni utili per l'organizzazione"></textarea>
                 </div>
 
                 <button type="submit" class="btn-primary w-full" :disabled="bookingRequestSaving">
                   {{ bookingRequestSaving ? 'Invio in corso...' : 'Richiedi link di conferma' }}
                 </button>
+
+                <p class="text-sm leading-6 text-text-secondary">
+                  I dati raccolti saranno trattati al fine di gestire la partecipazione all'evento. Per maggiori informazioni consulta
+                  <router-link to="/privacy-policy" class="text-primary hover:underline">
+                    l'informativa privacy
+                  </router-link>.
+                </p>
               </form>
 
               <p class="rounded-2xl bg-primary/5 px-4 py-3 text-sm text-text-secondary">
-                Ti invieremo un link all’indirizzo email indicato. La registrazione sarà confermata solo dopo l’apertura del link.
+                Ti invieremo un link all'indirizzo email indicato. La registrazione sarà confermata solo dopo l'apertura del link.
               </p>
             </div>
           </div>
-
-          <div class="rounded-[28px] border border-primary/10 bg-primary/5 p-6">
-            <p class="text-sm font-semibold text-text-primary">Scopri altri appuntamenti</p>
-            <p class="mt-2 text-sm leading-7 text-text-secondary">
-              Se questo incontro ti interessa, puoi continuare a esplorare l'agenda pubblica e trovare altri eventi aperti.
-            </p>
-            <router-link to="/events" class="mt-5 inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-primary-dark">
-              Vai all'agenda
-              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 5l7 7-7 7" />
-              </svg>
-            </router-link>
-          </div>
-        </aside>
-      </div>
+        </div>
+      </section>
     </article>
 
     <div v-else class="mx-auto max-w-2xl py-16 text-center">

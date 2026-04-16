@@ -9,11 +9,13 @@ import FileUploader, { type ExistingFileMeta, type UploadFileItem } from '../com
 import type { AlbumImage } from '../types/album'
 import { getPublicAppUrl } from '../utils/appUrls'
 import { useToast } from '../composables/useToast'
+import { useConfirm } from '../composables/useConfirm'
 import { getApiErrorMessage } from '../utils/apiMessages'
 
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
+const { confirm } = useConfirm()
 
 const isEdit = computed(() => !!route.params.id)
 const loading = ref(false)
@@ -187,7 +189,7 @@ async function cancelEvent() {
     return
   }
 
-  if (!confirm("Annullare l'evento e inviare la notifica a tutti i partecipanti registrati?")) {
+  if (!await confirm({ message: "Annullare l'evento e inviare la notifica a tutti i partecipanti registrati?", variant: 'danger', confirmLabel: "Annulla evento" })) {
     return
   }
 

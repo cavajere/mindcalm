@@ -277,6 +277,14 @@ export const publicEventBookingAccessValidation = [
   query('token').trim().notEmpty().withMessage('Token prenotazione obbligatorio'),
 ]
 
+export const publicEventBookingCancelAccessValidation = [
+  query('token').trim().notEmpty().withMessage('Token prenotazione obbligatorio'),
+]
+
+export const publicEventBookingCancelValidation = [
+  body('token').trim().notEmpty().withMessage('Token prenotazione obbligatorio'),
+]
+
 export const publicEventBookingRequestValidation = [
   body('email').isEmail().withMessage('Email obbligatoria o non valida'),
   body('firstName').trim().notEmpty().withMessage('Nome obbligatorio'),

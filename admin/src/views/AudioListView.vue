@@ -7,10 +7,12 @@ import StatusBadge from '../components/StatusBadge.vue'
 import { getAudioLevelLabel } from '../utils/audioLevels'
 import { getPublicAppUrl } from '../utils/appUrls'
 import { useToast } from '../composables/useToast'
+import { useConfirm } from '../composables/useConfirm'
 import { getApiErrorMessage } from '../utils/apiMessages'
 
 const router = useRouter()
 const toast = useToast()
+const { confirm } = useConfirm()
 const audioItems = ref<any[]>([])
 const loading = ref(true)
 const pagination = ref({ page: 1, limit: 20, total: 0, totalPages: 0 })
@@ -41,7 +43,7 @@ async function toggleStatus(audio: any) {
 }
 
 async function deleteAudio(audio: any) {
-  if (!confirm(`Eliminare l'audio "${audio.title}"?`)) return
+  if (!await confirm({ message: `Eliminare l'audio "${audio.title}"?`, variant: 'danger', confirmLabel: 'Elimina' })) return
   try {
     await axios.delete(`/api/admin/audio/${audio.id}`)
     audioItems.value = audioItems.value.filter((item) => item.id !== audio.id)

@@ -4,6 +4,7 @@ import axios from 'axios'
 import AdminModal from '../components/AdminModal.vue'
 import PageHeader from '../components/PageHeader.vue'
 import { useToast } from '../composables/useToast'
+import { useConfirm } from '../composables/useConfirm'
 import { getApiErrorMessage } from '../utils/apiMessages'
 
 interface Category {
@@ -17,6 +18,7 @@ interface Category {
 }
 
 const toast = useToast()
+const { confirm } = useConfirm()
 const categories = ref<Category[]>([])
 const loading = ref(true)
 const showModal = ref(false)
@@ -73,7 +75,7 @@ async function save() {
 }
 
 async function deleteCategory(cat: Category) {
-  if (!confirm(`Eliminare la categoria "${cat.name}"?`)) return
+  if (!await confirm({ message: `Eliminare la categoria "${cat.name}"?`, variant: 'danger', confirmLabel: 'Elimina' })) return
   try {
     await axios.delete(`/api/admin/categories/${cat.id}`)
     toast.success('Categoria eliminata')

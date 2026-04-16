@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import axios from 'axios'
 import PageHeader from '../components/PageHeader.vue'
+import { useConfirm } from '../composables/useConfirm'
 
 type InviteCodeStatus = 'ACTIVE' | 'REDEEMED' | 'EXPIRED' | 'DISABLED'
 
@@ -18,6 +19,7 @@ interface InviteCodeItem {
   redeemedBy: { id: string; email: string; name: string } | null
 }
 
+const { confirm } = useConfirm()
 const inviteCodes = ref<InviteCodeItem[]>([])
 const loading = ref(true)
 const submitting = ref(false)
@@ -175,7 +177,7 @@ async function copyCode(code: string) {
 }
 
 async function disableCode(inviteCode: InviteCodeItem) {
-  if (!confirm(`Disabilitare il codice "${inviteCode.code}"?`)) return
+  if (!await confirm({ message: `Disabilitare il codice "${inviteCode.code}"?`, variant: 'warning' })) return
 
   error.value = ''
   success.value = ''

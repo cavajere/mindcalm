@@ -356,6 +356,52 @@ export function buildEventParticipantsNotificationEmail(input: {
   return { subject, text, html }
 }
 
+export function buildEventBookingConfirmedEmail(input: {
+  firstName: string
+  eventTitle: string
+  eventStartsAt: Date
+  eventLocation: string
+  eventUrl: string
+  cancellationUrl: string
+  participants: Array<{ firstName: string; lastName: string; isBooker: boolean }>
+}): EmailTemplate {
+  const subject = `Registrazione confermata: ${input.eventTitle}`
+  const participantLines = input.participants
+    .sort((a, b) => Number(b.isBooker) - Number(a.isBooker))
+    .map((p) => `${p.firstName} ${p.lastName}${p.isBooker ? ' (referente)' : ''}`)
+  const text = joinTextBlocks([
+    `Ciao ${input.firstName},`,
+    `La tua registrazione per ${input.eventTitle} è stata confermata.`,
+    `Quando: ${formatDateTime(input.eventStartsAt)}`,
+    `Luogo: ${input.eventLocation}`,
+    `Partecipanti: ${participantLines.join(', ')}`,
+    `Dettagli evento: ${input.eventUrl}`,
+    `Per annullare la registrazione: ${input.cancellationUrl}`,
+  ])
+  const html = renderEmailLayout({
+    subject,
+    preheader: `La tua registrazione per ${input.eventTitle} è confermata.`,
+    title: 'Registrazione confermata',
+    bodyHtml:
+      renderParagraph(`Ciao ${input.firstName},`) +
+      renderParagraph(`La tua registrazione per <strong>${input.eventTitle}</strong> è stata confermata.`) +
+      renderInfoCard([
+        { label: 'Evento', value: input.eventTitle },
+        { label: 'Quando', value: formatDateTime(input.eventStartsAt) },
+        { label: 'Luogo', value: input.eventLocation },
+        { label: 'Partecipanti', value: participantLines.join('<br/>') },
+      ]) +
+      renderButton('Apri evento', input.eventUrl) +
+      renderLink(input.eventUrl) +
+      renderMutedNote(
+        `Se non puoi più partecipare, puoi annullare la registrazione dal seguente link:<br/><a href="${input.cancellationUrl}" style="color: #6B7280; text-decoration: underline;">${input.cancellationUrl}</a>`,
+      ),
+    footerNote: 'Conferma registrazione evento MindCalm.',
+  })
+
+  return { subject, text, html }
+}
+
 export function buildPasswordResetEmail(input: {
   resetUrl: string
   expiresAt: Date

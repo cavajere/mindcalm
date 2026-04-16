@@ -171,36 +171,37 @@ onMounted(() => {
         <p class="text-text-secondary text-sm mt-1">Inserisci il tuo codice invito e conferma la tua email</p>
       </div>
 
-      <form @submit.prevent="handleSubmit" class="card p-6 space-y-4">
+      <form @submit.prevent="handleSubmit" class="card p-6 space-y-4" autocomplete="on">
         <AppStatusMessage v-if="success" :message="success" variant="success" />
         <AppStatusMessage v-if="error" :message="error" variant="error" />
 
         <div class="grid gap-4 md:grid-cols-2">
           <div>
             <label class="block text-sm font-medium text-text-primary mb-1">Nome</label>
-            <input v-model="form.firstName" type="text" required class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" placeholder="Mario" />
+            <input v-model="form.firstName" name="firstName" type="text" autocomplete="given-name" required class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" placeholder="Mario" />
           </div>
 
           <div>
             <label class="block text-sm font-medium text-text-primary mb-1">Cognome</label>
-            <input v-model="form.lastName" type="text" required class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" placeholder="Rossi" />
+            <input v-model="form.lastName" name="lastName" type="text" autocomplete="family-name" required class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" placeholder="Rossi" />
           </div>
         </div>
 
         <div>
           <label class="block text-sm font-medium text-text-primary mb-1">Email</label>
-          <input v-model="form.email" type="email" required class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" placeholder="utente@example.com" />
+          <input v-model="form.email" name="email" type="email" autocomplete="email" required class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" placeholder="utente@example.com" />
         </div>
 
         <div>
           <label class="block text-sm font-medium text-text-primary mb-1">Telefono</label>
-          <input v-model="form.phone" type="tel" required class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" placeholder="+39 333 123 4567" />
+          <input v-model="form.phone" name="phone" type="tel" autocomplete="tel" required class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" placeholder="+39 333 123 4567" />
         </div>
 
         <div>
           <label class="block text-sm font-medium text-text-primary mb-1">Codice invito</label>
           <input
             :value="form.code"
+            name="inviteCode"
             type="text"
             inputmode="text"
             autocomplete="off"
@@ -221,12 +222,12 @@ onMounted(() => {
         <div class="grid gap-4 md:grid-cols-2">
           <div>
             <label class="block text-sm font-medium text-text-primary mb-1">Password</label>
-            <input v-model="form.password" type="password" minlength="8" required class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" placeholder="Minimo 8 caratteri" />
+            <input v-model="form.password" name="password" type="password" minlength="8" autocomplete="new-password" required class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" placeholder="Minimo 8 caratteri" />
           </div>
 
           <div>
             <label class="block text-sm font-medium text-text-primary mb-1">Conferma password</label>
-            <input v-model="form.confirmPassword" type="password" minlength="8" required class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" placeholder="Ripeti la password" />
+            <input v-model="form.confirmPassword" name="confirmPassword" type="password" minlength="8" autocomplete="new-password" required class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" placeholder="Ripeti la password" />
           </div>
         </div>
 

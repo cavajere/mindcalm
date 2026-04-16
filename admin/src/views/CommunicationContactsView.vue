@@ -5,6 +5,7 @@ import axios from 'axios'
 import AdminModal from '../components/AdminModal.vue'
 import CommunicationSectionTabs from '../components/CommunicationSectionTabs.vue'
 import PageHeader from '../components/PageHeader.vue'
+import { useConfirm } from '../composables/useConfirm'
 import { getApiErrorMessage } from '../utils/apiMessages'
 import { downloadCsv } from '../utils/csv'
 
@@ -48,6 +49,7 @@ type ContactListItem = {
 }
 
 const router = useRouter()
+const { confirm } = useConfirm()
 
 const loading = ref(true)
 const submitting = ref(false)
@@ -180,7 +182,7 @@ async function submitAdd() {
 }
 
 async function deleteContact(contact: ContactListItem) {
-  if (!window.confirm(`Eliminare il contatto ${contact.email}?`)) return
+  if (!await confirm({ message: `Eliminare il contatto ${contact.email}?`, variant: 'danger', confirmLabel: 'Elimina' })) return
 
   resetMessages()
 

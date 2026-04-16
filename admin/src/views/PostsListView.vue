@@ -6,10 +6,12 @@ import PageHeader from '../components/PageHeader.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import { getPublicAppUrl } from '../utils/appUrls'
 import { useToast } from '../composables/useToast'
+import { useConfirm } from '../composables/useConfirm'
 import { getApiErrorMessage } from '../utils/apiMessages'
 
 const router = useRouter()
 const toast = useToast()
+const { confirm } = useConfirm()
 const posts = ref<any[]>([])
 const loading = ref(true)
 
@@ -48,7 +50,7 @@ async function toggleStatus(post: any) {
 }
 
 async function deletePost(post: any) {
-  if (!confirm(`Eliminare il post "${post.title}"?`)) return
+  if (!await confirm({ message: `Eliminare il post "${post.title}"?`, variant: 'danger', confirmLabel: 'Elimina' })) return
   try {
     await axios.delete(`/api/admin/posts/${post.id}`)
     posts.value = posts.value.filter((entry) => entry.id !== post.id)

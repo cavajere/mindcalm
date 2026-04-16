@@ -39,6 +39,7 @@ export type PublicBookingAccessStatus =
   | 'BOOKING_CLOSED'
   | 'SOLD_OUT'
   | 'BOOKED'
+  | 'CANCELLED'
 
 export class EventBookingError extends Error {
   code: string
@@ -406,6 +407,24 @@ export async function getPublicBookingAccess(input: {
     }
   }
 
+  if (invitation.booking?.status === EventBookingStatus.CANCELLED) {
+    return {
+      accessStatus: 'CANCELLED' as PublicBookingAccessStatus,
+      canBook: false,
+      bookingAvailable: false,
+      existingBooking,
+      maxParticipants: MAX_EVENT_BOOKING_PARTICIPANTS,
+      requiresBookingDetails,
+      invitation: invitationSummary,
+      event: {
+        id: invitation.event.id,
+        slug: invitation.event.slug,
+        title: invitation.event.title,
+        startsAt: invitation.event.startsAt,
+      },
+    }
+  }
+
   if (invitation.revokedAt) {
     return {
       accessStatus: 'REVOKED' as PublicBookingAccessStatus,
@@ -646,10 +665,14 @@ export async function createBooking(input: {
 
     return {
       booking: serializeBookingSummary(booking),
+      invitationEmail: invitation.recipientEmail,
       event: {
         id: invitation.event.id,
         slug: invitation.event.slug,
         title: invitation.event.title,
+        startsAt: invitation.event.startsAt,
+        city: invitation.event.city,
+        venue: invitation.event.venue,
       },
     }
   })
@@ -860,5 +883,104 @@ export async function getEventBookingAdminSummary(eventId: string) {
       updatedAt: invitation.updatedAt,
       booking: invitation.booking ? serializeBookingSummary(invitation.booking) : null,
     })),
+  }
+}
+
+export function buildEventBookingCancellationUrl(slug: string, token: string, baseUrl = config.appUrls.public) {
+  return buildAppUrl(baseUrl, `/events/${slug}/cancel?bookingToken=${encodeURIComponent(token)}`)
+}
+
+export type PublicBookingCancellationStatus = 'CONFIRMED' | 'ALREADY_CANCELLED' | 'NO_BOOKING' | 'INVALID'
+
+export async function getPublicBookingCancellationAccess(input: {
+  slug: string
+  token: string
+}) {
+  const invitation = await prisma.eventBookingInvitation.findUnique({
+    where: { tokenHash: hashToken(input.token) },
+    include: {
+      event: true,
+      booking: { include: { participants: true } },
+    },
+  })
+
+  if (!invitation || invitation.event.slug !== input.slug) {
+    return { status: 'INVALID' as PublicBookingCancellationStatus }
+  }
+
+  const eventSummary = {
+    id: invitation.event.id,
+    slug: invitation.event.slug,
+    title: invitation.event.title,
+    startsAt: invitation.event.startsAt,
+    location: buildEventLocationLabel(invitation.event),
+  }
+
+  if (!invitation.booking) {
+    return { status: 'NO_BOOKING' as PublicBookingCancellationStatus, event: eventSummary }
+  }
+
+  const booking = serializeBookingSummary(invitation.booking)
+
+  if (invitation.booking.status === EventBookingStatus.CANCELLED) {
+    return {
+      status: 'ALREADY_CANCELLED' as PublicBookingCancellationStatus,
+      booking,
+      event: eventSummary,
+    }
+  }
+
+  return {
+    status: 'CONFIRMED' as PublicBookingCancellationStatus,
+    booking,
+    event: eventSummary,
+  }
+}
+
+export async function cancelBookingByToken(input: {
+  slug: string
+  token: string
+  reason?: string
+}) {
+  const invitation = await prisma.eventBookingInvitation.findUnique({
+    where: { tokenHash: hashToken(input.token) },
+    include: {
+      event: true,
+      booking: { include: { participants: true } },
+    },
+  })
+
+  if (!invitation || invitation.event.slug !== input.slug) {
+    throw new EventBookingError('TOKEN_INVALID', 'Il link di annullamento non è valido', 400)
+  }
+
+  if (!invitation.booking) {
+    throw new EventBookingError('BOOKING_NOT_FOUND', 'Nessuna prenotazione trovata per questo link', 404)
+  }
+
+  if (invitation.booking.status === EventBookingStatus.CANCELLED) {
+    return {
+      booking: serializeBookingSummary(invitation.booking),
+      event: {
+        id: invitation.event.id,
+        slug: invitation.event.slug,
+        title: invitation.event.title,
+      },
+    }
+  }
+
+  const cancelled = await cancelBooking({
+    eventId: invitation.event.id,
+    bookingId: invitation.booking.id,
+    reason: input.reason || "Annullata dall'utente",
+  })
+
+  return {
+    booking: cancelled,
+    event: {
+      id: invitation.event.id,
+      slug: invitation.event.slug,
+      title: invitation.event.title,
+    },
   }
 }

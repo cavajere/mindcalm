@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import axios from 'axios'
 import AdminModal from '../components/AdminModal.vue'
 import PageHeader from '../components/PageHeader.vue'
+import { useConfirm } from '../composables/useConfirm'
 import type { AlbumImage } from '../types/album'
 
 type PendingFile = {
@@ -23,6 +24,7 @@ const viewMode = ref<'large' | 'small'>('large')
 const visibleCount = ref(24)
 
 const createDialogOpen = ref(false)
+const { confirm } = useConfirm()
 const isDragOver = ref(false)
 const createFileInputRef = ref<HTMLInputElement | null>(null)
 const pendingFiles = ref<PendingFile[]>([])
@@ -252,7 +254,7 @@ async function removeImage(image: AlbumImage) {
     return
   }
 
-  if (!window.confirm(`Eliminare "${image.title || image.displayName}" dall'album?`)) {
+  if (!await confirm({ message: `Eliminare "${image.title || image.displayName}" dall'album?`, variant: 'danger', confirmLabel: 'Elimina' })) {
     return
   }
 

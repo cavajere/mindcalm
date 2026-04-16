@@ -4,6 +4,7 @@ import axios from 'axios'
 import PageHeader from '../components/PageHeader.vue'
 import TiptapEditor from '../components/TiptapEditor.vue'
 import LegalSectionTabs from '../components/LegalSectionTabs.vue'
+import { useConfirm } from '../composables/useConfirm'
 import { getApiErrorMessage } from '../utils/apiMessages'
 import { getPublicAppUrl } from '../utils/appUrls'
 
@@ -54,6 +55,7 @@ type PrivacyPolicy = {
 }
 
 const publicBaseUrl = getPublicAppUrl()
+const { confirm } = useConfirm()
 
 const loading = ref(true)
 const refreshing = ref(false)
@@ -297,7 +299,7 @@ async function saveConsentFormula(formula: ConsentFormula) {
 
 async function archiveConsentFormula(formula: ConsentFormula) {
   if (!privacyPolicy.value) return
-  if (!window.confirm(`Archiviare la formula ${formula.code}?`)) return
+  if (!await confirm({ message: `Archiviare la formula ${formula.code}?`, variant: 'warning' })) return
 
   resetFlashMessages()
   busyFormulaId.value = formula.id

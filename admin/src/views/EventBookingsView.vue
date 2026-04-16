@@ -4,11 +4,13 @@ import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import PageHeader from '../components/PageHeader.vue'
 import { useToast } from '../composables/useToast'
+import { useConfirm } from '../composables/useConfirm'
 import { getApiErrorMessage } from '../utils/apiMessages'
 
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
+const { confirm } = useConfirm()
 const loading = ref(true)
 const reconciling = ref(false)
 const summary = ref<any>(null)
@@ -35,7 +37,7 @@ async function loadBookings() {
 }
 
 async function cancelBooking(booking: any) {
-  if (!confirm(`Annullare la prenotazione di ${booking.bookerFirstName} ${booking.bookerLastName}?`)) return
+  if (!await confirm({ message: `Annullare la prenotazione di ${booking.bookerFirstName} ${booking.bookerLastName}?`, variant: 'danger', confirmLabel: 'Annulla prenotazione' })) return
   try {
     await axios.post(`/api/admin/events/${route.params.id}/bookings/${booking.id}/cancel`)
     toast.success('Prenotazione annullata')
@@ -46,7 +48,7 @@ async function cancelBooking(booking: any) {
 }
 
 async function restoreBooking(booking: any) {
-  if (!confirm(`Ripristinare la prenotazione di ${booking.bookerFirstName} ${booking.bookerLastName}?`)) return
+  if (!await confirm(`Ripristinare la prenotazione di ${booking.bookerFirstName} ${booking.bookerLastName}?`)) return
   try {
     await axios.post(`/api/admin/events/${route.params.id}/bookings/${booking.id}/restore`)
     toast.success('Prenotazione ripristinata')

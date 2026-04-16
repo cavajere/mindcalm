@@ -4,6 +4,7 @@ import axios from 'axios'
 import AdminModal from '../components/AdminModal.vue'
 import CommunicationSectionTabs from '../components/CommunicationSectionTabs.vue'
 import PageHeader from '../components/PageHeader.vue'
+import { useConfirm } from '../composables/useConfirm'
 import { getApiErrorMessage } from '../utils/apiMessages'
 
 type SuppressionItem = {
@@ -35,6 +36,8 @@ function formatDateTime(value: string | null) {
     timeStyle: 'short',
   })
 }
+
+const { confirm } = useConfirm()
 
 function resetMessages() {
   error.value = ''
@@ -99,7 +102,7 @@ async function submitSuppression() {
 }
 
 async function removeSuppression(item: SuppressionItem) {
-  if (!window.confirm(`Riattivare ${item.email}?`)) return
+  if (!await confirm(`Riattivare ${item.email}?`)) return
 
   resetMessages()
 
