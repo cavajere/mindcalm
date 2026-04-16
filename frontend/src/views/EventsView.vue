@@ -23,7 +23,11 @@ const events = ref<EventItem[]>([])
 const loading = ref(true)
 const search = ref('')
 
-const nextEvent = computed(() => events.value[0] ?? null)
+const upcomingEvents = computed(() => {
+  const now = new Date()
+  return events.value.filter(e => new Date(e.startsAt) > now)
+})
+const nextEvent = computed(() => upcomingEvents.value[0] ?? null)
 const activeFiltersLabel = computed(() => search.value.trim() ? 'ricerca attiva' : 'Nessun filtro attivo')
 
 function formatEventDate(value: string) {
@@ -86,17 +90,20 @@ watch(search, () => {
         </div>
 
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-          <div class="surface-card-muted p-4">
-            <p class="text-2xl font-semibold text-text-primary">{{ events.length }}</p>
-            <p class="mt-1 text-sm text-text-secondary">eventi visibili</p>
+          <div v-if="upcomingEvents.length" class="surface-card-muted p-4">
+            <p class="text-2xl font-semibold text-text-primary">{{ upcomingEvents.length }}</p>
+            <p class="mt-1 text-sm text-text-secondary">Prossimi eventi</p>
           </div>
           <div class="surface-card-muted p-4">
-            <p class="text-sm font-semibold text-text-primary">
-              {{ nextEvent ? formatEventDate(nextEvent.startsAt) : activeFiltersLabel }}
-            </p>
-            <p class="mt-1 text-sm text-text-secondary">
-              {{ nextEvent ? 'prossimo appuntamento' : 'stato della ricerca' }}
-            </p>
+            <template v-if="nextEvent">
+              <p class="text-xs font-medium uppercase tracking-wide text-text-secondary">Prossimo appuntamento</p>
+              <p class="mt-1.5 text-sm font-semibold text-text-primary">{{ formatEventDate(nextEvent.startsAt) }}</p>
+              <p class="mt-0.5 text-sm text-text-secondary line-clamp-1">{{ nextEvent.title }}</p>
+            </template>
+            <template v-else>
+              <p class="text-sm font-semibold text-text-primary">{{ activeFiltersLabel }}</p>
+              <p class="mt-1 text-sm text-text-secondary">stato della ricerca</p>
+            </template>
           </div>
         </div>
       </div>
