@@ -72,8 +72,8 @@ function toLocationInput(city?: string | null, venue?: string | null) {
   return [city, venue].filter((value): value is string => Boolean(value && value.trim())).join(' · ')
 }
 
-function appendOptionalField(fd: FormData, key: string, value: string) {
-  const trimmed = value.trim()
+function appendOptionalField(fd: FormData, key: string, value: string | number) {
+  const trimmed = String(value ?? '').trim()
   if (trimmed) {
     fd.append(key, trimmed)
   }
