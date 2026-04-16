@@ -91,7 +91,7 @@ async function handleLogout() {
   try {
     await auth.logout()
     closeAllMenus()
-    await router.push('/login')
+    await router.push('/')
   } finally {
     isLoggingOut.value = false
   }
