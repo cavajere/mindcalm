@@ -25,6 +25,7 @@ interface EventItem {
   venue: string | null
   startsAt: string
   coverImage: string | null
+  cancelledAt: string | null
 }
 
 interface PaginatedResponse<T> {
@@ -44,10 +45,10 @@ const latestPosts = ref<PostItem[]>([])
 const latestEvents = ref<EventItem[]>([])
 const featuredAudio = ref<any>(null)
 const publicLoading = ref(true)
-const publicCounts = ref({ posts: 0, events: 0 })
+const publicCounts = ref({ events: 0 })
 
 const latestStory = computed(() => latestPosts.value[0] ?? null)
-const nextEvent = computed(() => latestEvents.value[0] ?? null)
+const nextEvent = computed(() => latestEvents.value.find((event) => !event.cancelledAt) ?? null)
 
 function formatArticleDate(value: string) {
   return new Date(value).toLocaleDateString('it-IT', {
@@ -101,7 +102,6 @@ async function loadPublicHome() {
 
   if (postsResult.status === 'fulfilled') {
     latestPosts.value = postsResult.value.data.data
-    publicCounts.value.posts = Number(postsResult.value.data.pagination?.total ?? latestPosts.value.length)
   }
 
   if (eventsResult.status === 'fulfilled') {
@@ -242,28 +242,13 @@ onMounted(async () => {
               Spazio per respirare, capire, ricominciare.
             </h1>
             <p class="mt-5 max-w-2xl text-base leading-8 text-text-secondary sm:text-xl">
-              Nella parte pubblica trovi solo due percorsi chiari: post ed eventi. Da li puoi cercare per parole chiave e arrivare subito ai contenuti che ti servono.
+              Nella parte pubblica trovi due percorsi chiari: post per approfondire con calma ed eventi per capire cosa sta per succedere.
             </p>
 
             <div class="mt-8 flex flex-wrap gap-3">
               <router-link to="/posts" class="btn-primary">Post</router-link>
               <router-link to="/events" class="btn-secondary">Eventi</router-link>
               <router-link to="/login" class="btn-ghost">Accedi</router-link>
-            </div>
-
-            <div class="mt-8 grid gap-3 sm:grid-cols-3">
-              <div class="surface-card-muted p-4">
-                <p class="text-2xl font-semibold text-text-primary">{{ formatCount(publicCounts.posts) }}</p>
-                <p class="mt-1 text-sm text-text-secondary">post pubblici</p>
-              </div>
-              <div class="surface-card-muted p-4">
-                <p class="text-2xl font-semibold text-text-primary">{{ formatCount(publicCounts.events) }}</p>
-                <p class="mt-1 text-sm text-text-secondary">eventi visibili senza login</p>
-              </div>
-              <div class="surface-card-muted p-4">
-                <p class="text-2xl font-semibold text-text-primary">Ricerca</p>
-                <p class="mt-1 text-sm text-text-secondary">parole chiave in post ed eventi</p>
-              </div>
             </div>
           </div>
 
@@ -338,9 +323,9 @@ onMounted(async () => {
           <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <span class="eyebrow">Ultimi post</span>
-              <h2 class="font-display mt-4 text-3xl font-semibold text-text-primary sm:text-4xl">Letture pubbliche per fare ordine</h2>
+              <h2 class="font-display mt-4 text-3xl font-semibold text-text-primary sm:text-4xl">Letture</h2>
             </div>
-            <router-link to="/posts" class="btn-ghost hidden sm:inline-flex">Archivio post</router-link>
+            <router-link to="/posts" class="btn-ghost hidden sm:inline-flex">Tutti i post</router-link>
           </div>
 
           <div v-if="publicLoading" class="grid gap-5 sm:grid-cols-2">

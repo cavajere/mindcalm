@@ -1,12 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { useAuthStore } from '../stores/authStore'
 
 const route = useRoute()
-const auth = useAuthStore()
-
-const isPublicArea = computed(() => !auth.isAuthenticated)
 
 function isActivePath(path: string) {
   return route.path === path
@@ -19,9 +14,7 @@ function isActivePath(path: string) {
       <div class="max-w-2xl">
         <p class="text-sm font-semibold text-text-primary">MindCalm</p>
         <p class="mt-2 text-sm leading-7 text-text-secondary">
-          {{ isPublicArea
-            ? 'Post pubblici, eventi e accesso riservato in un ambiente piu chiaro e leggibile.'
-            : 'La tua area personale resta separata dai contenuti pubblici e dai documenti legali consultabili in ogni momento.' }}
+          Una piattaforma dedicata alla meditazione, per ritrovare presenza, calma e continuita nella pratica.
         </p>
       </div>
 
