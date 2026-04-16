@@ -80,7 +80,7 @@ watch(search, () => {
 
       <div class="relative grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.85fr)] lg:p-10">
         <div>
-          <span class="eyebrow">Eventi pubblici</span>
+          <span class="eyebrow">Esplora</span>
           <h1 class="font-display mt-4 text-4xl font-semibold leading-none text-text-primary sm:text-5xl">
             Eventi, incontri e appuntamenti aperti.
           </h1>

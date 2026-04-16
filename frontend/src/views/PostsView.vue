@@ -24,11 +24,9 @@ const tags = ref<FilterTag[]>([])
 const selectedTags = ref<string[]>([])
 const route = useRoute()
 
-const activeFiltersLabel = computed(() => {
-  if (!selectedTags.value.length && !search.value.trim()) {
-    return 'Nessun filtro attivo'
-  }
+const hasActiveFilters = computed(() => selectedTags.value.length > 0 || search.value.trim() !== '')
 
+const activeFiltersLabel = computed(() => {
   const parts = []
   if (search.value.trim()) {
     parts.push('ricerca attiva')
@@ -120,7 +118,7 @@ watch(search, () => {
 
       <div class="relative grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:p-10">
         <div>
-          <span class="eyebrow">Post pubblici</span>
+          <span class="eyebrow">Esplora</span>
           <h1 class="font-display mt-4 text-4xl font-semibold leading-none text-text-primary sm:text-5xl">
             Post.
           </h1>
@@ -129,12 +127,12 @@ watch(search, () => {
           </p>
         </div>
 
-        <div class="grid gap-3 sm:grid-cols-2 lg:min-w-[320px]">
+        <div class="grid gap-3 lg:min-w-[320px]" :class="hasActiveFilters ? 'sm:grid-cols-2' : ''">
           <div class="surface-card-muted p-4">
             <p class="text-2xl font-semibold text-text-primary">{{ pagination.total }}</p>
             <p class="mt-1 text-sm text-text-secondary">post pubblicati</p>
           </div>
-          <div class="surface-card-muted p-4">
+          <div v-if="hasActiveFilters" class="surface-card-muted p-4">
             <p class="text-sm font-semibold text-text-primary">{{ activeFiltersLabel }}</p>
             <p class="mt-1 text-sm text-text-secondary">stato della ricerca</p>
           </div>
