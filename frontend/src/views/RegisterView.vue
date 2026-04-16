@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import axios from 'axios'
 import AppStatusMessage from '../components/AppStatusMessage.vue'
 import { getApiErrorMessage, getApiSuccessMessage } from '../utils/apiMessages'
 
-const PHONE_REGEX = /^\+?[0-9\s().-]{7,20}$/
+const PHONE_REGEX = /^\\+?[0-9\\s().-]{7,20}$/
 const INVITE_CODE_REGEX = /^[A-NP-Z1-9]{7}$/
 
 const loading = ref(false)
@@ -27,6 +27,9 @@ const communicationConsentFormulas = ref<Array<{
   title: string
   text: string
 }>>([])
+
+// Registration type toggle
+const registrationType = ref<'free' | 'premium'>('free')
 
 const form = ref({
   firstName: '',
@@ -62,10 +65,11 @@ const normalizedCode = computed(() => normalizeInviteCode(form.value.code))
 const privacyDocument = computed(() => legalDocuments.value?.privacy ?? null)
 const termsDocument = computed(() => legalDocuments.value?.terms ?? null)
 const hasCommunicationConsents = computed(() => communicationConsentFormulas.value.length > 0)
+const isPremium = computed(() => registrationType.value === 'premium')
 
 function isPhoneValid(phone: string) {
   const normalized = phone.trim()
-  const digitsOnly = normalized.replace(/\D/g, '')
+  const digitsOnly = normalized.replace(/\\D/g, '')
   return PHONE_REGEX.test(normalized) && digitsOnly.length >= 7 && digitsOnly.length <= 15
 }
 
@@ -181,17 +185,21 @@ async function handleSubmit() {
     }
   }
 
-  const isCodeValid = await lookupInviteCode()
-  if (!isCodeValid) {
-    error.value = inviteCodeError.value || 'Codice invito non valido'
-    return
+  // Validate invite code for premium registration
+  if (isPremium.value) {
+    const isCodeValid = await lookupInviteCode()
+    if (!isCodeValid) {
+      error.value = inviteCodeError.value || 'Codice invito non valido'
+      return
+    }
   }
 
   loading.value = true
 
   try {
-    const { data } = await axios.post('/api/auth/register-with-invite-code', {
-      code: normalizedCode.value,
+    const endpoint = isPremium.value ? '/api/auth/register-with-invite-code' : '/api/auth/register-free'
+    
+    const payload = {
       email: form.value.email.trim(),
       firstName: form.value.firstName.trim(),
       lastName: form.value.lastName.trim(),
@@ -203,7 +211,13 @@ async function handleSubmit() {
         formulaId: formula.id,
         value: form.value.communicationConsents[formula.id],
       })),
-    })
+    }
+
+    if (isPremium.value) {
+      ;(payload as any).code = normalizedCode.value
+    }
+
+    const { data } = await axios.post(endpoint, payload)
 
     success.value = getApiSuccessMessage(data, 'Controlla la tua email per completare la registrazione')
   } catch (apiError) {
@@ -212,6 +226,15 @@ async function handleSubmit() {
     loading.value = false
   }
 }
+
+// Clear invite code related fields when switching to free
+watch(isPremium, (newValue) => {
+  if (!newValue) {
+    form.value.code = ''
+    inviteCodeError.value = ''
+    inviteCodeDetails.value = null
+  }
+})
 
 onMounted(() => {
   fetchLegalDocuments()
@@ -223,19 +246,52 @@ onMounted(() => {
   <div class="min-h-screen flex items-center justify-center bg-background px-4 py-8">
     <div class="w-full max-w-lg">
       <div class="text-center mb-8">
-        <router-link to="/register" class="inline-flex items-center gap-2 text-text-secondary hover:text-text-primary transition-colors mb-4">
-          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-          </svg>
-          Torna indietro
-        </router-link>
-        <h1 class="text-2xl font-bold text-text-primary">Registrazione Premium</h1>
-        <p class="text-text-secondary text-sm mt-1">Inserisci il tuo codice di attivazione per l'accesso completo</p>
+        <h1 class="text-2xl font-bold text-text-primary">Registrazione</h1>
+        <p class="text-text-secondary text-sm mt-1">Crea il tuo account su MindCalm</p>
       </div>
 
-      <form @submit.prevent="handleSubmit" class="card p-6 space-y-4" autocomplete="on">
+      <form @submit.prevent="handleSubmit" class="card p-6 space-y-6" autocomplete="on">
         <AppStatusMessage v-if="success" :message="success" variant="success" />
         <AppStatusMessage v-if="error" :message="error" variant="error" />
+
+        <!-- Registration Type Toggle -->
+        <div class="space-y-3">
+          <label class="block text-sm font-medium text-text-primary">Tipo di registrazione</label>
+          <div class="flex bg-gray-100 rounded-xl p-1">
+            <button
+              type="button"
+              class="flex-1 px-4 py-3 text-sm font-medium rounded-lg transition-all"
+              :class="!isPremium ? 'bg-white text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'"
+              @click="registrationType = 'free'"
+            >
+              <div class="flex items-center justify-center gap-2">
+                <span>Gratuita</span>
+                <span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-[10px] font-medium text-gray-600">
+                  Free
+                </span>
+              </div>
+            </button>
+            <button
+              type="button"
+              class="flex-1 px-4 py-3 text-sm font-medium rounded-lg transition-all"
+              :class="isPremium ? 'bg-white text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'"
+              @click="registrationType = 'premium'"
+            >
+              <div class="flex items-center justify-center gap-2">
+                <span>Con Codice</span>
+                <span class="inline-flex items-center rounded-full bg-secondary/10 px-2 py-1 text-[10px] font-medium text-secondary">
+                  Premium
+                </span>
+              </div>
+            </button>
+          </div>
+          <p class="text-xs text-text-secondary">
+            {{ isPremium 
+              ? 'Hai un codice di attivazione? Accedi a tutti i contenuti audio e riservati.' 
+              : 'Accedi ai contenuti pubblici, notifiche e profilo personalizzato.' 
+            }}
+          </p>
+        </div>
 
         <div class="grid gap-4 md:grid-cols-2">
           <div>
@@ -259,7 +315,8 @@ onMounted(() => {
           <input v-model="form.phone" name="phone" type="tel" autocomplete="tel" required class="w-full px-3 py-3 rounded-xl border border-gray-200 bg-surface focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" placeholder="+39 333 123 4567" />
         </div>
 
-        <div>
+        <!-- Invite Code Field (only for premium) -->
+        <div v-if="isPremium">
           <label class="block text-sm font-medium text-text-primary mb-1">Codice invito</label>
           <input
             :value="form.code"
@@ -276,7 +333,7 @@ onMounted(() => {
           />
           <p v-if="validatingCode" class="text-xs text-text-secondary mt-1">Verifica codice...</p>
           <p v-else-if="inviteCodeDetails" class="text-xs text-green-700 mt-1">
-            Codice valido. Licenza: {{ formatDuration(inviteCodeDetails.licenseDurationDays) }} dall’attivazione.
+            Codice valido. Licenza: {{ formatDuration(inviteCodeDetails.licenseDurationDays) }} dall'attivazione.
           </p>
           <p v-else-if="inviteCodeError" class="text-xs text-red-600 mt-1">{{ inviteCodeError }}</p>
         </div>

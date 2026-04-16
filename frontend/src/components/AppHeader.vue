@@ -316,7 +316,7 @@ onBeforeUnmount(() => {
             >
               Accedi
             </router-link>
-            <router-link to="/register" class="btn-primary">
+            <router-link to="/register" class="btn-primary h-11 inline-flex items-center">
               Registrati
             </router-link>
           </template>

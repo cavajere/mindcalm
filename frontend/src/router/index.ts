@@ -8,9 +8,7 @@ const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/login', component: LoginView, meta: { publicOnly: true, hideChrome: true } },
-    { path: '/register', component: () => import('../views/ChooseRegistrationView.vue'), meta: { publicOnly: true, hideChrome: true } },
-    { path: '/register/free', component: () => import('../views/RegisterFreeView.vue'), meta: { publicOnly: true, hideChrome: true } },
-    { path: '/register/premium', component: () => import('../views/RegisterPremiumView.vue'), meta: { publicOnly: true, hideChrome: true } },
+    { path: '/register', component: () => import('../views/RegisterView.vue'), meta: { publicOnly: true, hideChrome: true } },
     { path: '/forgot-password', component: () => import('../views/ForgotPasswordView.vue'), meta: { hideChrome: true } },
     { path: '/reset-password', component: () => import('../views/ResetPasswordView.vue'), meta: { hideChrome: true } },
     { path: '/verify-registration', component: () => import('../views/VerifyRegistrationView.vue'), meta: { publicOnly: true, hideChrome: true } },
