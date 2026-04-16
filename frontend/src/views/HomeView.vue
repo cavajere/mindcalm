@@ -309,9 +309,9 @@ onMounted(async () => {
             </div>
 
             <div class="card p-5">
-              <p class="text-sm font-semibold text-text-primary">Percorsi audio riservati</p>
+              <p class="text-sm font-semibold text-text-primary">Contenuti riservati ai membri</p>
               <p class="mt-2 text-sm leading-7 text-text-secondary">
-                Le meditazioni guidate, i percorsi e l'ascolto in app restano nell'area protetta. La parte pubblica introduce il progetto senza confondere i livelli di accesso.
+                Le meditazioni guidate, i percorsi audio e l'ascolto in app sono disponibili esclusivamente per chi ha ricevuto un invito. Qui trovi una panoramica del progetto e degli articoli aperti a tutti.
               </p>
             </div>
           </div>
