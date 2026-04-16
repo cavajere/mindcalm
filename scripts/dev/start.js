@@ -81,9 +81,32 @@ function ensureDocker() {
   });
 }
 
+function ensureMigrations() {
+  return new Promise((resolve) => {
+    const backendDir = path.resolve(ROOT, 'backend');
+    exec('npx prisma migrate status', { cwd: backendDir }, (err, stdout) => {
+      if (stdout && stdout.includes('have not yet been applied')) {
+        console.log('[MindCalm] Pending migrations found, applying...');
+        exec('npx prisma migrate deploy', { cwd: backendDir }, (err2, stdout2, stderr2) => {
+          if (err2) {
+            console.error('[MindCalm] Migration failed:', stderr2 || err2.message);
+          } else {
+            console.log('[MindCalm] Migrations applied successfully');
+          }
+          resolve();
+        });
+      } else {
+        console.log('[MindCalm] Database migrations up to date');
+        resolve();
+      }
+    });
+  });
+}
+
 async function start() {
   await killExistingProcesses();
   await ensureDocker();
+  await ensureMigrations();
 
   const children = [];
 
