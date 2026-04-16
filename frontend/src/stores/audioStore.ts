@@ -14,6 +14,7 @@ export interface Audio {
   description: string
   category: { id: string; name: string; color: string | null }
   level: string
+  visibility: 'PUBLIC' | 'REGISTERED'
   durationSec: number
   coverImage: string | null
   publishedAt: string

@@ -7,7 +7,7 @@ import { audioFilterQuery } from '../../utils/validators'
 import { config } from '../../config'
 import { getSingleString, getStringList } from '../../utils/request'
 import { prisma } from '../../lib/prisma'
-import { appAuthMiddleware } from '../../middleware/auth'
+import { appAuthMiddleware, optionalAppAuthMiddleware } from '../../middleware/auth'
 import { getRankedPublishedAudioIds } from '../../services/searchService'
 import { mapAudioTags } from '../../services/tagService'
 import { getAudioFilePath } from '../../services/fileService'
@@ -25,10 +25,11 @@ import {
   validatePlaybackSession,
 } from '../../services/playbackSessionService'
 import { playbackSessionRateLimiter } from '../../middleware/rateLimiter'
+import { getVisibleContentVisibilities } from '../../utils/contentVisibility'
 
 const router = createAsyncRouter()
 
-router.use(appAuthMiddleware)
+router.use(optionalAppAuthMiddleware)
 
 function setPrivateStreamingHeaders(res: Response) {
   res.setHeader('Cache-Control', 'private, no-store, max-age=0, must-revalidate')
@@ -152,6 +153,7 @@ router.get('/', audioFilterQuery, async (req: Request, res: Response) => {
   const tagSlugs = [...new Set(getStringList(req.query.tags))]
   const matchMode = getSingleString(req.query.matchMode) === 'all' ? 'all' : 'any'
   const sort = getSingleString(req.query.sort) || 'recent'
+  const visibleVisibilities = getVisibleContentVisibilities(req)
 
   if (!search && sort === 'relevance') {
     res.status(400).json({ error: 'sort=relevance richiede una query di ricerca' })
@@ -187,6 +189,7 @@ router.get('/', audioFilterQuery, async (req: Request, res: Response) => {
       categoryId: getSingleString(req.query.category),
       level: getSingleString(req.query.level) as any,
       duration: getSingleString(req.query.duration) as any,
+      visibilities: visibleVisibilities,
     })
 
     if (!ids.length) {
@@ -198,7 +201,11 @@ router.get('/', audioFilterQuery, async (req: Request, res: Response) => {
     }
 
     const audioItems = await prisma.audio.findMany({
-      where: { id: { in: ids } },
+      where: { 
+        id: { in: ids },
+        status: 'PUBLISHED',
+        visibility: { in: visibleVisibilities },
+      },
       include,
     })
 
@@ -215,7 +222,10 @@ router.get('/', audioFilterQuery, async (req: Request, res: Response) => {
     return
   }
 
-  const where: Prisma.AudioWhereInput = { status: 'PUBLISHED' }
+  const where: Prisma.AudioWhereInput = { 
+    status: 'PUBLISHED',
+    visibility: { in: visibleVisibilities },
+  }
 
   if (req.query.category) {
     where.categoryId = req.query.category as string
@@ -271,7 +281,11 @@ router.get('/:id', async (req: Request, res: Response) => {
   }
 
   const audio = await prisma.audio.findFirst({
-    where: { id: audioId, status: 'PUBLISHED' },
+    where: { 
+      id: audioId, 
+      status: 'PUBLISHED',
+      visibility: { in: getVisibleContentVisibilities(req) },
+    },
     include: {
       category: { select: { id: true, name: true, color: true } },
       coverAlbumImage: {
@@ -329,7 +343,7 @@ router.get('/:id', async (req: Request, res: Response) => {
   })
 })
 
-router.post('/:id/playback-session', playbackSessionRateLimiter, async (req: Request, res: Response) => {
+router.post('/:id/playback-session', playbackSessionRateLimiter, appAuthMiddleware, async (req: Request, res: Response) => {
   const audioId = getSingleString(req.params.id)
   if (!audioId) {
     res.status(400).json({ error: 'ID audio non valido' })
@@ -341,6 +355,7 @@ router.post('/:id/playback-session', playbackSessionRateLimiter, async (req: Req
       id: audioId,
       status: 'PUBLISHED',
       processingStatus: AudioProcessingStatus.READY,
+      visibility: { in: getVisibleContentVisibilities(req) },
     },
   })
 
@@ -379,7 +394,7 @@ router.post('/:id/playback-session', playbackSessionRateLimiter, async (req: Req
   })
 })
 
-router.get('/:id/playback/:sessionId/direct', async (req: Request, res: Response) => {
+router.get('/:id/playback/:sessionId/direct', appAuthMiddleware, async (req: Request, res: Response) => {
   const validated = await validatePlaybackRequest(req, res)
   if (!validated) return
 
@@ -431,7 +446,7 @@ router.get('/:id/playback/:sessionId/direct', async (req: Request, res: Response
   fs.createReadStream(filePath).pipe(res)
 })
 
-router.get('/:id/playback/:sessionId/:asset(*)', async (req: Request, res: Response) => {
+router.get('/:id/playback/:sessionId/:asset(*)', appAuthMiddleware, async (req: Request, res: Response) => {
   const validated = await validatePlaybackRequest(req, res)
   if (!validated) return
 

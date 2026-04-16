@@ -137,6 +137,29 @@ export const registerWithInviteCodeValidation = [
     .withMessage('URL verifica non valido'),
 ]
 
+export const registerFreeValidation = [
+  body('email').isEmail().withMessage('Email non valida'),
+  body('firstName').trim().notEmpty().withMessage('Nome obbligatorio'),
+  body('lastName').trim().notEmpty().withMessage('Cognome obbligatorio'),
+  body('phone')
+    .optional({ values: 'falsy' })
+    .trim()
+    .custom(isValidPhoneNumber)
+    .withMessage('Numero di telefono non valido'),
+  body('password')
+    .isLength({ min: 8 })
+    .withMessage('Password minima 8 caratteri'),
+  body('acceptTerms').optional().isBoolean().withMessage('acceptTerms non valido'),
+  body('termsVersionId').optional({ values: 'falsy' }).isUUID().withMessage('termsVersionId non valido'),
+  body('consents').optional().isArray().withMessage('consents non validi'),
+  body('consents.*.formulaId').optional().isUUID().withMessage('formulaId non valido'),
+  body('consents.*.value').optional().isIn(['YES', 'NO']).withMessage('value non valido'),
+  body('verificationBaseUrl')
+    .optional({ values: 'falsy' })
+    .isURL(appUrlValidationOptions)
+    .withMessage('URL verifica non valido'),
+]
+
 export const verifyRegistrationValidation = [
   body('token').trim().notEmpty().withMessage('Token verifica obbligatorio'),
 ]

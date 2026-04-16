@@ -1,6 +1,6 @@
 import { Request, Response } from 'express'
 import { createAsyncRouter } from '../../utils/asyncRouter'
-import { AuditAction, AuditEntityType, AudioProcessingStatus, Level, Prisma, Status, StreamingFormat } from '@prisma/client'
+import { AuditAction, AuditEntityType, AudioProcessingStatus, ContentVisibility, Level, Prisma, Status, StreamingFormat } from '@prisma/client'
 import { validationResult } from 'express-validator'
 import fs from 'fs'
 import { v4 as uuidv4 } from 'uuid'
@@ -98,6 +98,7 @@ function serializeAdminAudio(audio: {
   streamingFormat: StreamingFormat
   processingStatus: AudioProcessingStatus
   processingError: string | null
+  visibility: ContentVisibility
   status: Status
   publishedAt: Date | null
   createdAt: Date
@@ -140,6 +141,7 @@ function serializeAdminAudio(audio: {
     streamingFormat: audio.streamingFormat,
     processingStatus: audio.processingStatus,
     processingError: audio.processingError,
+    visibility: audio.visibility,
     status: audio.status,
     publishedAt: audio.publishedAt,
     createdAt: audio.createdAt,
@@ -255,6 +257,7 @@ router.post('/',
     const description = getSingleString(req.body.description)
     const categoryId = getSingleString(req.body.categoryId)
     const level = getSingleString(req.body.level)
+    const visibility = getSingleString(req.body.visibility)
     const status = getSingleString(req.body.status)
     const tagIds = parseTagIds(req.body.tagIds)
     const requestedCoverAlbumImageId = getSingleString(req.body.coverAlbumImageId)?.trim() || undefined
@@ -316,6 +319,7 @@ router.post('/',
             coverImageOriginalName: coverImageNames?.originalName ?? null,
             coverImageDisplayName: coverImageNames?.displayName ?? null,
             coverAlbumImageId: selectedAlbumImage?.id ?? null,
+            visibility: (visibility === 'REGISTERED' || visibility === 'PUBLIC') ? visibility as ContentVisibility : 'PUBLIC',
             status: status === 'PUBLISHED' ? 'PUBLISHED' : 'DRAFT',
             publishedAt: status === 'PUBLISHED' ? new Date() : null,
             audioTags: {
@@ -406,6 +410,7 @@ router.put('/:id',
     const description = getSingleString(req.body.description)
     const categoryId = getSingleString(req.body.categoryId)
     const level = getSingleString(req.body.level)
+    const visibility = getSingleString(req.body.visibility)
     const status = getSingleString(req.body.status)
     const requestedAudioDisplayName = getSingleString(req.body.audioFileDisplayName)
     const requestedCoverImageDisplayName = getSingleString(req.body.coverImageDisplayName)
@@ -463,6 +468,10 @@ router.put('/:id',
     if (level) {
       data.level = level as Level
       if (level !== existing.level) changedFields.push('level')
+    }
+    if (visibility && ['PUBLIC', 'REGISTERED'].includes(visibility)) {
+      data.visibility = visibility as ContentVisibility
+      if (visibility !== existing.visibility) changedFields.push('visibility')
     }
     if (status && ['DRAFT', 'PUBLISHED'].includes(status)) {
       data.status = status as Status

@@ -15,6 +15,7 @@ export type RankedAudioSearchParams = RankedSearchParams & {
   categoryId?: string
   level?: Level
   duration?: 'short' | 'medium' | 'long'
+  visibilities: ContentVisibility[]
 }
 
 export type RankedPostSearchParams = RankedSearchParams & {
@@ -144,6 +145,7 @@ export async function getRankedPublishedAudioIds(params: RankedAudioSearchParams
         WHERE at."audioId" = a."id"
       ) tags ON true
       WHERE a."status" = 'PUBLISHED'
+        AND a."visibility" IN (${Prisma.join(params.visibilities)})
         ${params.categoryId ? Prisma.sql`AND a."categoryId" = ${params.categoryId}` : Prisma.empty}
         ${params.level ? Prisma.sql`AND a."level" = ${params.level}` : Prisma.empty}
         ${durationFilter}

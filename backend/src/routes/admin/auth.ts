@@ -11,6 +11,7 @@ import {
   inviteCodeLookupValidation,
   loginValidation,
   notificationPreferencesValidation,
+  registerFreeValidation,
   registerWithInviteCodeValidation,
   resetPasswordValidation,
   verifyRegistrationValidation,
@@ -53,7 +54,9 @@ import { buildPasswordResetEmail } from '../../services/email/templates'
 import { buildAppUrl, resolveAppBaseUrl } from '../../utils/appUrls'
 import {
   completeInviteCodeRegistration,
+  completeFreeRegistration,
   getRegistrationVerificationDetails,
+  startFreeRegistration,
   startInviteCodeRegistration,
 } from '../../services/registrationService'
 
@@ -688,6 +691,105 @@ router.post('/validate-invite-code', inviteCodeValidationRateLimiter, inviteCode
   }
 })
 
+// POST /api/auth/register-free
+router.post('/register-free', registrationRateLimiter, registerFreeValidation, async (req: Request, res: Response) => {
+  const errors = validationResult(req)
+  if (!errors.isEmpty()) {
+    res.status(400).json({ error: 'Dati non validi', details: errors.array() })
+    return
+  }
+
+  const email = getSingleString(req.body.email)
+  const firstName = getSingleString(req.body.firstName)
+  const lastName = getSingleString(req.body.lastName)
+  const phone = getSingleString(req.body.phone)
+  const password = getSingleString(req.body.password)
+  const acceptTerms = getBoolean(req.body.acceptTerms) ?? false
+  const termsVersionId = getSingleString(req.body.termsVersionId)
+  const consents = Array.isArray(req.body.consents)
+    ? req.body.consents.map((entry: any) => ({
+        formulaId: String(entry.formulaId),
+        value: entry.value === 'YES' ? ConsentValue.YES : ConsentValue.NO,
+      }))
+    : []
+  let verificationBaseUrl: string
+
+  try {
+    verificationBaseUrl = resolveAppBaseUrl(getSingleString(req.body.verificationBaseUrl), config.appUrls.public, 'verifica registrazione')
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message })
+    return
+  }
+
+  try {
+    const registration = await startFreeRegistration({
+      email: email!,
+      firstName: firstName!,
+      lastName: lastName!,
+      phone: phone!,
+      password: password!,
+      verificationBaseUrl,
+      acceptTerms,
+      termsVersionId: termsVersionId || undefined,
+      consents,
+    })
+
+    await logAuditEventSafe({
+      req,
+      action: AuditAction.REGISTRATION_STARTED,
+      entityType: AuditEntityType.REGISTRATION,
+      entityLabel: registration.email,
+      actorEmail: registration.email,
+      metadata: {
+        channel: 'SELF_SERVICE',
+        tier: 'FREE',
+      },
+    })
+
+    await logAuditEventSafe({
+      req,
+      action: AuditAction.REGISTRATION_VERIFICATION_SENT,
+      entityType: AuditEntityType.REGISTRATION,
+      entityLabel: registration.email,
+      actorEmail: registration.email,
+      metadata: {
+        channel: 'SELF_SERVICE',
+        verificationExpiresAt: registration.verificationExpiresAt,
+        tier: 'FREE',
+      },
+    })
+
+    res.json({ message: 'Controlla la tua email per completare la registrazione' })
+  } catch (error) {
+    const errorMessage = (error as Error).message
+    const responseMessage = errorMessage === 'TERMS_ACCEPTANCE_REQUIRED'
+      ? 'Devi accettare i termini e le condizioni per continuare'
+      : errorMessage === 'TERMS_VERSION_OUTDATED'
+        ? 'I termini e le condizioni sono stati aggiornati. Aprili di nuovo e conferma l\'accettazione.'
+        : errorMessage === 'CONSENT_PAYLOAD_INCOMPLETE'
+          ? 'Completa la scelta dei consensi comunicazione per continuare'
+          : errorMessage === 'REQUIRED_CONSENT_REJECTED'
+            ? 'È necessario accettare i consensi obbligatori per continuare'
+        : errorMessage
+
+    await logAuditEventSafe({
+      req,
+      action: AuditAction.REGISTRATION_FAILED,
+      entityType: AuditEntityType.REGISTRATION,
+      entityLabel: email ?? 'Registrazione',
+      outcome: AuditOutcome.FAILURE,
+      actorEmail: email ?? null,
+      metadata: {
+        channel: 'SELF_SERVICE',
+        stage: 'REGISTRATION_START',
+        tier: 'FREE',
+        error: errorMessage,
+      },
+    })
+    res.status(400).json({ error: responseMessage })
+  }
+})
+
 // POST /api/auth/register-with-invite-code
 router.post('/register-with-invite-code', registrationRateLimiter, registerWithInviteCodeValidation, async (req: Request, res: Response) => {
   const errors = validationResult(req)
@@ -763,7 +865,7 @@ router.post('/register-with-invite-code', registrationRateLimiter, registerWithI
     const responseMessage = errorMessage === 'TERMS_ACCEPTANCE_REQUIRED'
       ? 'Devi accettare i termini e le condizioni per continuare'
       : errorMessage === 'TERMS_VERSION_OUTDATED'
-        ? 'I termini e le condizioni sono stati aggiornati. Aprili di nuovo e conferma l’accettazione.'
+        ? 'I termini e le condizioni sono stati aggiornati. Aprili di nuovo e conferma l\'accettazione.'
         : errorMessage === 'CONSENT_PAYLOAD_INCOMPLETE'
           ? 'Completa la scelta dei consensi comunicazione per continuare'
           : errorMessage === 'REQUIRED_CONSENT_REJECTED'
@@ -814,7 +916,23 @@ router.post('/verify-registration', registrationVerificationRateLimiter, verifyR
   const token = getSingleString(req.body.token)
 
   try {
-    const result = await completeInviteCodeRegistration(token!)
+    // Try to complete as invite code registration first
+    let result
+    let isFreeRegistration = false
+    
+    try {
+      result = await completeInviteCodeRegistration(token!)
+    } catch (error) {
+      // If invite code registration fails, try free registration
+      try {
+        result = await completeFreeRegistration(token!)
+        isFreeRegistration = true
+      } catch {
+        // Re-throw the original error
+        throw error
+      }
+    }
+    
     setAppAuthSession(res, result.user)
 
     res.json({
@@ -839,24 +957,27 @@ router.post('/verify-registration', registrationVerificationRateLimiter, verifyR
       actorRole: result.user.role,
       metadata: {
         channel: 'APP',
-        licenseExpiresAt: result.licenseExpiresAt,
+        tier: (result.user as any).tier,
+        licenseExpiresAt: isFreeRegistration ? null : (result as any).licenseExpiresAt,
       },
     })
 
-    await logAuditEventSafe({
-      req,
-      action: AuditAction.INVITE_CODE_REDEEMED,
-      entityType: AuditEntityType.INVITE_CODE,
-      entityId: result.inviteCode.id,
-      entityLabel: result.inviteCode.code,
-      actorUserId: result.user.id,
-      actorEmail: result.user.email,
-      actorName: result.user.name,
-      actorRole: result.user.role,
-      metadata: {
-        channel: 'APP',
-      },
-    })
+    if (!isFreeRegistration && (result as any).inviteCode) {
+      await logAuditEventSafe({
+        req,
+        action: AuditAction.INVITE_CODE_REDEEMED,
+        entityType: AuditEntityType.INVITE_CODE,
+        entityId: (result as any).inviteCode.id,
+        entityLabel: (result as any).inviteCode.code,
+        actorUserId: result.user.id,
+        actorEmail: result.user.email,
+        actorName: result.user.name,
+        actorRole: result.user.role,
+        metadata: {
+          channel: 'APP',
+        },
+      })
+    }
 
     if (result.termsPolicyVersionId) {
       await logAuditEventSafe({

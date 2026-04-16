@@ -28,6 +28,7 @@ const form = ref({
   description: '',
   categoryId: '',
   level: 'BEGINNER',
+  visibility: 'PUBLIC',
   status: 'DRAFT',
   tagIds: [] as string[],
 })
@@ -125,6 +126,7 @@ async function save() {
     fd.append('description', form.value.description)
     fd.append('categoryId', form.value.categoryId)
     fd.append('level', form.value.level)
+    fd.append('visibility', form.value.visibility)
     fd.append('status', form.value.status)
     fd.append('publicBaseUrl', getPublicAppUrl())
     fd.append('tagIds', JSON.stringify(form.value.tagIds))
@@ -182,6 +184,7 @@ onMounted(async () => {
         description: audio.description,
         categoryId: audio.categoryId,
         level: audio.level,
+        visibility: audio.visibility || 'PUBLIC',
         status: audio.status,
         tagIds: (audio.tags || []).map((tag: any) => tag.id),
       }
@@ -245,6 +248,13 @@ onMounted(async () => {
           <label class="label">Livello</label>
           <select v-model="form.level" class="input-field">
             <option v-for="option in audioLevelOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+          </select>
+        </div>
+        <div>
+          <label class="label">Visibilità</label>
+          <select v-model="form.visibility" class="input-field">
+            <option value="PUBLIC">Visibile a tutti</option>
+            <option value="REGISTERED">Solo utenti Premium</option>
           </select>
         </div>
       </div>

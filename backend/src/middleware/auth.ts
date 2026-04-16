@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express'
-import { UserRole } from '@prisma/client'
+import { UserRole, UserTier } from '@prisma/client'
 import jwt from 'jsonwebtoken'
 import { config } from '../config'
 import { prisma } from '../lib/prisma'
@@ -11,12 +11,14 @@ export interface AuthPayload {
   email: string
   name: string
   role: UserRole
+  tier?: UserTier
   sessionVersion?: number
   bootstrap?: boolean
   isBootstrap?: boolean
 }
 
 export interface AuthPrincipal extends AuthPayload {
+  tier?: UserTier
   isBootstrap?: boolean
 }
 
@@ -139,7 +141,7 @@ async function resolveCandidate(candidate: AuthCandidate, options: ResolveAuthOp
     const tokenSessionVersion = typeof payload.sessionVersion === 'number' ? payload.sessionVersion : 0
     const user = await prisma.user.findUnique({
       where: { id: payload.id },
-      select: { id: true, email: true, name: true, role: true, isActive: true, licenseExpiresAt: true, sessionVersion: true },
+      select: { id: true, email: true, name: true, role: true, tier: true, isActive: true, licenseExpiresAt: true, sessionVersion: true },
     })
 
     if (!user) {
@@ -200,6 +202,7 @@ async function resolveCandidate(candidate: AuthCandidate, options: ResolveAuthOp
         email: user.email,
         name: user.name,
         role: user.role,
+        tier: user.tier,
         isBootstrap: false,
       },
     }

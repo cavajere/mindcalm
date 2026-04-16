@@ -33,6 +33,9 @@ const levelLabels: Record<string, string> = {
         >
           {{ audio.category.name }}
         </span>
+        <span v-if="audio.visibility === 'REGISTERED'" class="inline-flex items-center rounded-full bg-secondary/10 px-2 py-1 text-[10px] font-medium text-secondary">
+          Premium
+        </span>
         <span class="text-xs text-text-secondary">{{ levelLabels[audio.level] || audio.level }}</span>
         <span v-if="!audio.coverImage" class="text-xs text-text-secondary">· {{ formatDuration(audio.durationSec) }}</span>
       </div>

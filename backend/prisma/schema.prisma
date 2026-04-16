@@ -17,6 +17,7 @@ model User {
   phone                  String?
   notes                  String?
   role                   UserRole  @default(STANDARD)
+  tier                   UserTier  @default(FREE)
   isActive               Boolean   @default(true)
   licenseExpiresAt       DateTime?
   sessionVersion         Int       @default(0)
@@ -39,6 +40,7 @@ model User {
   eventBookingInvitations EventBookingInvitation[] @relation("EventBookingInvitationUser")
 
   @@index([role])
+  @@index([tier])
   @@map("admin_users")
 }
 
@@ -524,8 +526,8 @@ model InviteCode {
 
 model PendingRegistration {
   id                    String                    @id @default(uuid())
-  inviteCodeId          String
-  inviteCode            InviteCode                @relation(fields: [inviteCodeId], references: [id], onDelete: Restrict)
+  inviteCodeId          String?
+  inviteCode            InviteCode?               @relation(fields: [inviteCodeId], references: [id], onDelete: Restrict)
   termsPolicyVersionId  String?
   termsPolicyVersion    TermsPolicyVersion?       @relation(fields: [termsPolicyVersionId], references: [id], onDelete: SetNull)
   termsAcceptedAt       DateTime?
@@ -613,6 +615,7 @@ model Audio {
   coverImageDisplayName  String?
   coverAlbumImageId String?
   coverAlbumImage AlbumImage? @relation("AudioCoverAlbumImage", fields: [coverAlbumImageId], references: [id], onDelete: SetNull)
+  visibility  ContentVisibility @default(PUBLIC)
   status      Status    @default(DRAFT)
   publishedAt DateTime?
   createdAt   DateTime  @default(now())
@@ -623,7 +626,7 @@ model Audio {
 
   @@index([categoryId])
   @@index([coverAlbumImageId])
-  @@index([status])
+  @@index([status, visibility])
   @@index([level])
   @@map("audio")
 }
@@ -817,6 +820,11 @@ enum ContentVisibility {
 enum UserRole {
   ADMIN
   STANDARD
+}
+
+enum UserTier {
+  FREE
+  PREMIUM
 }
 
 enum InviteCodeStatus {

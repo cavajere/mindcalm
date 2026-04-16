@@ -14,6 +14,7 @@ interface AppUser {
   email: string
   name: string
   role: 'ADMIN' | 'STANDARD'
+  tier?: 'FREE' | 'PREMIUM'
   isActive?: boolean
 }
 
@@ -28,6 +29,7 @@ export const useAuthStore = defineStore('app-auth', () => {
   const initialized = ref(false)
   const licenseExpiredAt = ref<string | null>(null)
   const isAuthenticated = computed(() => !!user.value)
+  const isPremiumUser = computed(() => user.value?.tier === 'PREMIUM')
   const isLicenseExpired = computed(() => !!licenseExpiredAt.value)
 
   function saveUserSnapshot(nextUser: AppUser) {
@@ -160,6 +162,7 @@ export const useAuthStore = defineStore('app-auth', () => {
     initialized,
     licenseExpiredAt,
     isAuthenticated,
+    isPremiumUser,
     isLicenseExpired,
     login,
     fetchMe,

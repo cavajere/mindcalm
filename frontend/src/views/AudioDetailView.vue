@@ -1,20 +1,36 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAudioStore, type AudioDetail } from '../stores/audioStore'
 import { usePlayerStore } from '../stores/playerStore'
 import { useUiStore } from '../stores/uiStore'
+import { useAuthStore } from '../stores/authStore'
 import { trackAudioView } from '../services/analyticsService'
 
 const route = useRoute()
 const audioStore = useAudioStore()
 const player = usePlayerStore()
 const ui = useUiStore()
+const auth = useAuthStore()
 
 const audio = ref<AudioDetail | null>(null)
 const relatedAudio = ref<any[]>([])
 const loading = ref(true)
 const playbackError = ref('')
+
+const canAccessAudio = computed(() => {
+  if (!audio.value) return false
+  
+  // Se è pubblico, tutti possono accedere
+  if (audio.value.visibility === 'PUBLIC') return true
+  
+  // Se è premium, solo gli utenti premium possono accedere
+  if (audio.value.visibility === 'REGISTERED') {
+    return auth.isAuthenticated && auth.isPremiumUser
+  }
+  
+  return false
+})
 
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60)
@@ -28,7 +44,7 @@ function formatSize(bytes: number): string {
 }
 
 async function playAudio() {
-  if (!audio.value || !ui.isOnline) return
+  if (!audio.value || !ui.isOnline || !canAccessAudio.value) return
 
   playbackError.value = ''
 
@@ -132,6 +148,7 @@ onMounted(async () => {
           <!-- Actions -->
           <div class="flex flex-wrap gap-3">
             <button
+              v-if="canAccessAudio"
               @click="playAudio"
               :disabled="!ui.isOnline"
               :class="[
@@ -144,8 +161,52 @@ onMounted(async () => {
               </svg>
               Riproduci
             </button>
+            
+            <!-- Premium upgrade message for restricted content -->
+            <div v-else-if="audio.visibility === 'REGISTERED'" class="w-full">
+              <div class="rounded-2xl border border-secondary/20 bg-secondary/5 p-6">
+                <div class="flex items-center gap-3 mb-4">
+                  <div class="flex-shrink-0">
+                    <svg class="h-8 w-8 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m0 0v2m0-2h2m-2 0H10m12-4a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 class="font-semibold text-text-primary">Contenuto Premium</h3>
+                    <p class="text-sm text-text-secondary mt-1">
+                      Questo audio è riservato agli utenti con accesso Premium
+                    </p>
+                  </div>
+                </div>
+                
+                <div v-if="!auth.isAuthenticated" class="space-y-3">
+                  <p class="text-sm text-text-secondary">
+                    Hai un codice di attivazione? Registrati per accedere a tutti i contenuti audio.
+                  </p>
+                  <div class="flex gap-3">
+                    <router-link to="/register/premium" class="btn-secondary">
+                      Registrati con Codice
+                    </router-link>
+                    <router-link to="/login" class="text-primary hover:underline text-sm font-medium flex items-center">
+                      Oppure accedi
+                    </router-link>
+                  </div>
+                </div>
+                
+                <div v-else class="space-y-3">
+                  <p class="text-sm text-text-secondary">
+                    Il tuo account gratuito non include l'accesso agli audio premium. 
+                    Contatta l'amministratore per ottenere un codice di attivazione.
+                  </p>
+                  <div class="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-600">
+                    Account Free
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-          <p class="mt-4 text-sm text-text-secondary">
+          
+          <p v-if="canAccessAudio" class="mt-4 text-sm text-text-secondary">
             L'ascolto avviene solo in streaming e richiede una connessione attiva.
           </p>
           <p v-if="playbackError" class="mt-2 text-sm text-red-600">

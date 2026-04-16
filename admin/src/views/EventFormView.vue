@@ -377,8 +377,8 @@ watch(
           <div>
             <label class="label">Visibilità</label>
             <select v-model="form.visibility" class="input-field">
-              <option value="REGISTERED">Solo utenti registrati</option>
-              <option value="PUBLIC">Pubblico</option>
+              <option value="REGISTERED">Solo utenti Premium</option>
+              <option value="PUBLIC">Visibile a tutti</option>
             </select>
           </div>
         </div>

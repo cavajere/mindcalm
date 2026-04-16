@@ -223,8 +223,14 @@ onMounted(() => {
   <div class="min-h-screen flex items-center justify-center bg-background px-4 py-8">
     <div class="w-full max-w-lg">
       <div class="text-center mb-8">
-        <h1 class="text-2xl font-bold text-text-primary">Registrati a MindCalm</h1>
-        <p class="text-text-secondary text-sm mt-1">Inserisci il tuo codice invito e conferma la tua email</p>
+        <router-link to="/register" class="inline-flex items-center gap-2 text-text-secondary hover:text-text-primary transition-colors mb-4">
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+          </svg>
+          Torna indietro
+        </router-link>
+        <h1 class="text-2xl font-bold text-text-primary">Registrazione Premium</h1>
+        <p class="text-text-secondary text-sm mt-1">Inserisci il tuo codice di attivazione per l'accesso completo</p>
       </div>
 
       <form @submit.prevent="handleSubmit" class="card p-6 space-y-4" autocomplete="on">

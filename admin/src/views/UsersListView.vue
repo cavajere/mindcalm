@@ -139,6 +139,7 @@ onMounted(fetchUsers)
             <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Nome</th>
             <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Email</th>
             <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Ruolo</th>
+            <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Tier</th>
             <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Stato</th>
             <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Licenza</th>
             <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Notifiche</th>
@@ -148,10 +149,10 @@ onMounted(fetchUsers)
         </thead>
         <tbody class="divide-y divide-gray-50">
           <tr v-if="loading">
-            <td colspan="8" class="px-4 py-8 text-center text-text-secondary">Caricamento...</td>
+            <td colspan="9" class="px-4 py-8 text-center text-text-secondary">Caricamento...</td>
           </tr>
           <tr v-else-if="!users.length">
-            <td colspan="8" class="px-4 py-8 text-center text-text-secondary">Nessun utente</td>
+            <td colspan="9" class="px-4 py-8 text-center text-text-secondary">Nessun utente</td>
           </tr>
           <tr v-for="user in users" :key="user.id" class="hover:bg-gray-50/50">
             <td class="px-4 py-3 text-sm font-medium text-text-primary">{{ user.name }}</td>
@@ -159,6 +160,11 @@ onMounted(fetchUsers)
             <td class="px-4 py-3 text-sm">
               <span :class="['inline-flex px-2 py-1 rounded-full text-xs font-medium', user.role === 'ADMIN' ? 'bg-primary/10 text-primary' : 'bg-gray-100 text-text-secondary']">
                 {{ user.role === 'ADMIN' ? 'Admin' : 'Standard' }}
+              </span>
+            </td>
+            <td class="px-4 py-3 text-sm">
+              <span :class="['inline-flex px-2 py-1 rounded-full text-xs font-medium', user.tier === 'PREMIUM' ? 'bg-secondary/10 text-secondary' : 'bg-gray-100 text-text-secondary']">
+                {{ user.tier === 'PREMIUM' ? 'Premium' : 'Free' }}
               </span>
             </td>
             <td class="px-4 py-3 text-sm">

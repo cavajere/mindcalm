@@ -233,13 +233,13 @@ export function buildRegistrationVerificationEmail(input: {
   verificationUrl: string
   verificationExpiresAt: Date
   verificationExpiresInHours: number
-  licenseDurationDays: number
+  licenseDurationDays?: number | null
 }): EmailTemplate {
   const subject = 'Conferma la registrazione a MindCalm'
   const text = joinTextBlocks([
     `Ciao ${input.firstName},`,
     `Conferma la tua registrazione a MindCalm entro ${input.verificationExpiresInHours} ore usando questo link:\n${input.verificationUrl}`,
-    `Dopo la conferma, la tua licenza di ${input.licenseDurationDays} giorni verra' attivata automaticamente.`,
+    ...(input.licenseDurationDays ? [`Dopo la conferma, la tua licenza di ${input.licenseDurationDays} giorni verra' attivata automaticamente.`] : []),
     `Scadenza link: ${formatDateTime(input.verificationExpiresAt)}`,
   ])
   const html = renderEmailLayout({
@@ -252,7 +252,7 @@ export function buildRegistrationVerificationEmail(input: {
       renderButton('Conferma email', input.verificationUrl) +
       renderLink(input.verificationUrl) +
       renderInfoCard([
-        { label: 'Licenza', value: `${input.licenseDurationDays} giorni` },
+        ...(input.licenseDurationDays ? [{ label: 'Licenza', value: `${input.licenseDurationDays} giorni` }] : []),
         { label: 'Scadenza link', value: formatDateTime(input.verificationExpiresAt) },
       ]),
     footerNote: 'Completamento registrazione MindCalm.',

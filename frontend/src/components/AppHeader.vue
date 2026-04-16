@@ -24,6 +24,9 @@ const navigationItems = computed(() => {
   if (isPublicVisitor.value) {
     const items = [{ label: 'Home', to: '/', description: 'Pagina principale' }]
 
+    if (hasAudio.value) {
+      items.push({ label: 'Audio', to: '/audio', description: 'Percorsi guidati gratuiti' })
+    }
     if (hasPosts.value) {
       items.push({ label: 'Post', to: '/posts', description: 'Contenuti pubblici' })
     }
@@ -263,8 +266,18 @@ onBeforeUnmount(() => {
                 role="menu"
               >
                 <div class="border-b border-ui-border px-5 py-4">
-                  <p class="text-sm font-semibold text-text-primary">{{ auth.user?.name || 'Utente' }}</p>
-                  <p class="mt-1 text-sm text-text-secondary">{{ auth.user?.email }}</p>
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <p class="text-sm font-semibold text-text-primary">{{ auth.user?.name || 'Utente' }}</p>
+                      <p class="mt-1 text-sm text-text-secondary">{{ auth.user?.email }}</p>
+                    </div>
+                    <div v-if="auth.isPremiumUser" class="inline-flex items-center rounded-full bg-secondary/10 px-2 py-1 text-xs font-medium text-secondary">
+                      Premium
+                    </div>
+                    <div v-else class="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
+                      Free
+                    </div>
+                  </div>
                 </div>
 
                 <div class="p-2">
