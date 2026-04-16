@@ -7,13 +7,12 @@ import AudioCard from '../components/AudioCard.vue'
 import CategoryFilter from '../components/CategoryFilter.vue'
 import TagFilter, { type FilterTag } from '../components/TagFilter.vue'
 import SearchLoader from '../components/SearchLoader.vue'
-import { useAdvancedSearch, SearchScorer } from '../composables/useAdvancedSearch'
+import { useAdvancedSearch } from '../composables/useAdvancedSearch'
 
 const store = useAudioStore()
 const route = useRoute()
 const router = useRouter()
 
-const allAudio = ref<any[]>([])
 const filteredAudio = ref<any[]>([])
 const selectedCategory = ref('')
 const selectedLevel = ref('')
@@ -28,8 +27,7 @@ const {
   searchQuery,
   isSearching,
   showSearchLoader,
-  hasValidQuery,
-  isQueryEmpty
+  hasValidQuery
 } = useAdvancedSearch({
   debounceMs: 400,
   minQueryLength: 2,
@@ -51,114 +49,78 @@ const durations = [
   { value: 'long', label: 'Lunga (> 20 min)' },
 ]
 
-// Load all audio for client-side search and filtering
-async function loadAllAudio() {
+function buildAudioSearchParams(query?: string) {
+  const params = new URLSearchParams({
+    page: String(pagination.value.page),
+    limit: String(pagination.value.limit),
+  })
+
+  if (selectedCategory.value) params.set('category', selectedCategory.value)
+  if (selectedLevel.value) params.set('level', selectedLevel.value)
+  if (selectedDuration.value) params.set('duration', selectedDuration.value)
+  if (selectedTags.value.length) params.set('tags', selectedTags.value.join(','))
+
+  const trimmedQuery = query?.trim()
+  if (trimmedQuery) {
+    params.set('search', trimmedQuery)
+    params.set('sort', 'relevance')
+  }
+
+  return params
+}
+
+async function fetchAudioResults(query?: string) {
   loading.value = true
-  
+
+  const params = buildAudioSearchParams(query)
+  const queryString = params.toString()
+  const logPayload = {
+    query: query?.trim() || '',
+    page: pagination.value.page,
+    limit: pagination.value.limit,
+    category: selectedCategory.value || null,
+    level: selectedLevel.value || null,
+    duration: selectedDuration.value || null,
+    tags: [...selectedTags.value],
+  }
+
+  console.info('[Search][AudioView] request', logPayload)
+
   try {
-    const { data } = await axios.get('/api/audio?limit=1000')
-    allAudio.value = data.data
-    
-    // Apply current filters
-    applyFiltersAndPagination()
+    const { data } = await axios.get(`/api/audio?${queryString}`)
+    filteredAudio.value = data.data
+    pagination.value = data.pagination
+
+    console.info('[Search][AudioView] response', {
+      ...logPayload,
+      resultCount: data.data.length,
+      total: data.pagination?.total ?? data.data.length,
+      totalPages: data.pagination?.totalPages ?? 1,
+    })
+  } catch (error) {
+    console.error('[Search][AudioView] request failed', logPayload, error)
+    throw error
   } finally {
     loading.value = false
   }
 }
 
-// Perform client-side search with relevance scoring
+async function loadAllAudio() {
+  await fetchAudioResults()
+}
+
 async function performSearch(query: string) {
-  if (!allAudio.value.length) {
-    await loadAllAudio()
-    return
-  }
-  
-  // Score and sort audio by relevance
-  const scoredAudio = allAudio.value
-    .map(audio => ({
-      audio,
-      score: SearchScorer.scoreItem(audio, query, [
-        { key: 'title', weight: 3 },
-        { key: 'description', weight: 2 },
-        { key: 'tags', weight: 1, isArray: true }
-      ])
-    }))
-    .filter(({ score }) => score > 0)
-    .sort((a, b) => b.score - a.score)
-    .map(({ audio }) => audio)
-  
-  // Apply filters
-  const filtered = applyFilters(scoredAudio)
-  
-  // Update pagination and display
-  updatePaginationAndDisplay(filtered)
-}
-
-// Apply all filters (category, level, duration, tags)
-function applyFilters(audioList: any[]) {
-  let filtered = audioList
-  
-  // Category filter
-  if (selectedCategory.value) {
-    filtered = filtered.filter(audio => audio.category?.id === selectedCategory.value)
-  }
-  
-  // Level filter
-  if (selectedLevel.value) {
-    filtered = filtered.filter(audio => audio.level === selectedLevel.value)
-  }
-  
-  // Duration filter
-  if (selectedDuration.value) {
-    const durationFilter = selectedDuration.value
-    filtered = filtered.filter(audio => {
-      const duration = audio.durationSeconds || 0
-      switch (durationFilter) {
-        case 'short':
-          return duration < 600 // < 10 min
-        case 'medium':
-          return duration >= 600 && duration <= 1200 // 10-20 min
-        case 'long':
-          return duration > 1200 // > 20 min
-        default:
-          return true
-      }
-    })
-  }
-  
-  // Tags filter
-  if (selectedTags.value.length) {
-    filtered = filtered.filter(audio =>
-      selectedTags.value.some(tagId =>
-        audio.tags?.some((tag: any) => tag.id === tagId)
-      )
-    )
-  }
-  
-  return filtered
-}
-
-// Apply filters and pagination to current dataset
-function applyFiltersAndPagination() {
-  const filtered = applyFilters(allAudio.value)
-  updatePaginationAndDisplay(filtered)
-}
-
-// Update pagination and display results
-function updatePaginationAndDisplay(filtered: any[]) {
-  // Update pagination
-  pagination.value.total = filtered.length
-  pagination.value.totalPages = Math.ceil(filtered.length / pagination.value.limit)
-  
-  // Apply pagination
-  const startIndex = (pagination.value.page - 1) * pagination.value.limit
-  const endIndex = startIndex + pagination.value.limit
-  filteredAudio.value = filtered.slice(startIndex, endIndex)
+  await fetchAudioResults(query)
 }
 
 function changePage(page: number) {
   pagination.value.page = page
-  applyFiltersAndPagination()
+  if (hasValidQuery.value) {
+    void performSearch(searchQuery.value.trim())
+    return
+  }
+
+  void loadAllAudio()
 }
 
 onMounted(async () => {
@@ -176,9 +138,9 @@ onMounted(async () => {
 watch([selectedCategory, selectedLevel, selectedDuration, selectedTags], () => {
   pagination.value.page = 1
   if (hasValidQuery.value) {
-    performSearch(searchQuery.value.trim())
+    void performSearch(searchQuery.value.trim())
   } else {
-    applyFiltersAndPagination()
+    void loadAllAudio()
   }
 })
 </script>

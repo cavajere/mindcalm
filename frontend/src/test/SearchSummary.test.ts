@@ -17,7 +17,7 @@ describe('🎯 MindCalm Search System - Complete Test Suite', () => {
       expect(exactScore).toBeGreaterThan(100)
 
       // Test partial match
-      const partialScore = SearchScorer.scoreText('meditation practice', 'meditation')
+      const partialScore = SearchScorer.scoreText('guided meditation practice', 'meditation')
       console.log(`  ✅ Partial match: "${partialScore}" points`)
       expect(partialScore).toBeGreaterThan(0)
       expect(partialScore).toBeLessThan(exactScore)

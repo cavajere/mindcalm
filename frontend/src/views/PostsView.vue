@@ -5,7 +5,7 @@ import axios from 'axios'
 import ContentCover from '../components/ContentCover.vue'
 import TagFilter, { type FilterTag } from '../components/TagFilter.vue'
 import SearchLoader from '../components/SearchLoader.vue'
-import { useAdvancedSearch, SearchScorer } from '../composables/useAdvancedSearch'
+import { useAdvancedSearch } from '../composables/useAdvancedSearch'
 
 interface Post {
   id: string
@@ -19,7 +19,6 @@ interface Post {
 }
 
 const posts = ref<Post[]>([])
-const allPosts = ref<Post[]>([])
 const loading = ref(true)
 const pagination = ref({ page: 1, limit: 12, total: 0, totalPages: 0 })
 const tags = ref<FilterTag[]>([])
@@ -31,8 +30,7 @@ const {
   searchQuery,
   isSearching,
   showSearchLoader,
-  hasValidQuery,
-  isQueryEmpty
+  hasValidQuery
 } = useAdvancedSearch({
   debounceMs: 400,
   minQueryLength: 2,
@@ -64,93 +62,72 @@ function parseTagsFromRoute() {
     .filter(Boolean)
 }
 
-// Load all posts for client-side search
-async function loadAllPosts() {
+function buildPostSearchParams(query?: string) {
+  const params = new URLSearchParams({
+    page: String(pagination.value.page),
+    limit: String(pagination.value.limit),
+  })
+
+  if (selectedTags.value.length) params.set('tags', selectedTags.value.join(','))
+
+  const trimmedQuery = query?.trim()
+  if (trimmedQuery) {
+    params.set('search', trimmedQuery)
+    params.set('sort', 'relevance')
+  }
+
+  return params
+}
+
+async function fetchPosts(query?: string) {
   loading.value = true
-  
+
+  const params = buildPostSearchParams(query)
+  const queryString = params.toString()
+  const logPayload = {
+    query: query?.trim() || '',
+    page: pagination.value.page,
+    limit: pagination.value.limit,
+    tags: [...selectedTags.value],
+  }
+
+  console.info('[Search][PostsView] request', logPayload)
+
   try {
-    const query = new URLSearchParams({
-      limit: '1000' // Load all posts for client-side filtering
+    const { data } = await axios.get(`/api/posts?${queryString}`)
+    posts.value = data.data
+    pagination.value = data.pagination
+
+    console.info('[Search][PostsView] response', {
+      ...logPayload,
+      resultCount: data.data.length,
+      total: data.pagination?.total ?? data.data.length,
+      totalPages: data.pagination?.totalPages ?? 1,
     })
-    
-    if (selectedTags.value.length) query.set('tags', selectedTags.value.join(','))
-    
-    const { data } = await axios.get(`/api/posts?${query}`)
-    allPosts.value = data.data
-    
-    // Apply current filters
-    applyFiltersAndPagination()
+  } catch (error) {
+    console.error('[Search][PostsView] request failed', logPayload, error)
+    throw error
   } finally {
     loading.value = false
   }
 }
 
-// Perform client-side search with relevance scoring
-async function performSearch(query: string) {
-  if (!allPosts.value.length) {
-    await loadAllPosts()
-    return
-  }
-  
-  // Score and sort posts by relevance
-  const scoredPosts = allPosts.value
-    .map(post => ({
-      post,
-      score: SearchScorer.scoreItem(post, query, [
-        { key: 'title', weight: 3 },
-        { key: 'excerpt', weight: 2 },
-        { key: 'tags', weight: 1, isArray: true }
-      ])
-    }))
-    .filter(({ score }) => score > 0)
-    .sort((a, b) => b.score - a.score)
-    .map(({ post }) => post)
-  
-  // Apply tag filters if any
-  const filteredPosts = selectedTags.value.length 
-    ? scoredPosts.filter(post => 
-        selectedTags.value.some(tagId => 
-          post.tags.some(tag => tag.id === tagId)
-        )
-      )
-    : scoredPosts
-  
-  // Update pagination and posts
-  pagination.value.total = filteredPosts.length
-  pagination.value.totalPages = Math.ceil(filteredPosts.length / pagination.value.limit)
-  pagination.value.page = 1
-  
-  const startIndex = 0
-  const endIndex = pagination.value.limit
-  posts.value = filteredPosts.slice(startIndex, endIndex)
+async function loadAllPosts() {
+  await fetchPosts()
 }
 
-// Apply filters and pagination to current dataset
-function applyFiltersAndPagination() {
-  let filteredPosts = allPosts.value
-  
-  // Apply tag filters
-  if (selectedTags.value.length) {
-    filteredPosts = filteredPosts.filter(post =>
-      selectedTags.value.some(tagId =>
-        post.tags.some(tag => tag.id === tagId)
-      )
-    )
-  }
-  
-  // Update pagination
-  pagination.value.total = filteredPosts.length
-  pagination.value.totalPages = Math.ceil(filteredPosts.length / pagination.value.limit)
-  
-  // Apply pagination
-  const startIndex = (pagination.value.page - 1) * pagination.value.limit
-  const endIndex = startIndex + pagination.value.limit
-  posts.value = filteredPosts.slice(startIndex, endIndex)
+async function performSearch(query: string) {
+  await fetchPosts(query)
 }
 
 function changePage(page: number) {
   pagination.value.page = page
-  applyFiltersAndPagination()
+  if (hasValidQuery.value) {
+    void performSearch(searchQuery.value.trim())
+    return
+  }
+
+  void loadAllPosts()
 }
 
 onMounted(async () => {
@@ -167,9 +144,9 @@ watch(() => route.query.tags, () => {
 watch(selectedTags, () => {
   pagination.value.page = 1
   if (hasValidQuery.value) {
-    performSearch(searchQuery.value.trim())
+    void performSearch(searchQuery.value.trim())
   } else {
-    loadAllPosts()
+    void loadAllPosts()
   }
 })
 </script>

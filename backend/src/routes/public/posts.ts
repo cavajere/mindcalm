@@ -73,6 +73,15 @@ router.get('/', postFilterQuery, async (req: Request, res: Response) => {
   const author = getSingleString(req.query.author)?.trim()
   const sort = getSingleString(req.query.sort) || 'recent'
   const visibleVisibilities = getVisibleContentVisibilities(req)
+  const requestLog = {
+    search,
+    page,
+    limit,
+    tagSlugs,
+    matchMode,
+    author: author || null,
+    sort,
+  }
 
   if (!search && sort === 'relevance') {
     res.status(400).json({ error: 'sort=relevance richiede una query di ricerca' })
@@ -98,6 +107,8 @@ router.get('/', postFilterQuery, async (req: Request, res: Response) => {
   } satisfies Prisma.PostInclude
 
   if (search) {
+    console.info('[Search][API][Posts] request', requestLog)
+
     const { ids, total } = await getRankedPublishedPostIds({
       page,
       limit,
@@ -109,6 +120,7 @@ router.get('/', postFilterQuery, async (req: Request, res: Response) => {
     })
 
     if (!ids.length) {
+      console.info('[Search][API][Posts] response', { ...requestLog, resultCount: 0, total: 0 })
       res.json({
         data: [],
         pagination: { page, limit, total: 0, totalPages: 0 },
@@ -147,6 +159,7 @@ router.get('/', postFilterQuery, async (req: Request, res: Response) => {
       data,
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     })
+    console.info('[Search][API][Posts] response', { ...requestLog, resultCount: data.length, total })
     return
   }
 

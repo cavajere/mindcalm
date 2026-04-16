@@ -28,14 +28,3 @@ vi.mock('vue-router', () => ({
     forward: vi.fn()
   })
 }))
-
-// Mock window methods
-Object.defineProperty(window, 'setTimeout', {
-  value: vi.fn((fn) => fn()),
-  writable: true
-})
-
-Object.defineProperty(window, 'clearTimeout', {
-  value: vi.fn(),
-  writable: true
-})

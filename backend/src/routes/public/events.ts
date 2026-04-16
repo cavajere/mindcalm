@@ -127,6 +127,16 @@ router.get('/', paginationQuery, async (req: Request, res: Response) => {
   const city = getSingleString(req.query.city)?.trim()
   const search = getSingleString(req.query.search)?.trim()
   const visibleVisibilities = getVisibleContentVisibilities(req)
+  const requestLog = {
+    search: search || '',
+    city: city || null,
+    page,
+    limit,
+  }
+
+  if (search) {
+    console.info('[Search][API][Events] request', requestLog)
+  }
 
   const where: Prisma.EventWhereInput = {
     status: 'PUBLISHED',
@@ -206,6 +216,14 @@ router.get('/', paginationQuery, async (req: Request, res: Response) => {
     data: events.map(mapEventListItem),
     pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
   })
+
+  if (search) {
+    console.info('[Search][API][Events] response', {
+      ...requestLog,
+      resultCount: events.length,
+      total,
+    })
+  }
 })
 
 router.get('/:slug/booking-access', eventBookingAccessRateLimiter, publicEventBookingAccessValidation, async (req: Request, res: Response) => {

@@ -3,7 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import axios from 'axios'
 import ContentCover from '../components/ContentCover.vue'
 import SearchLoader from '../components/SearchLoader.vue'
-import { useAdvancedSearch, SearchScorer } from '../composables/useAdvancedSearch'
+import { useAdvancedSearch } from '../composables/useAdvancedSearch'
 
 interface EventItem {
   id: string
@@ -31,8 +31,7 @@ const {
   searchQuery,
   isSearching,
   showSearchLoader,
-  hasValidQuery,
-  isQueryEmpty
+  hasValidQuery
 } = useAdvancedSearch({
   debounceMs: 400,
   minQueryLength: 2,
@@ -61,46 +60,55 @@ function formatCompactEventDate(value: string) {
   })
 }
 
-// Load all events for client-side search
-async function loadAllEvents() {
+async function fetchEvents(query?: string) {
   loading.value = true
-  
+
+  const params = new URLSearchParams({ limit: '1000' })
+  const trimmedQuery = query?.trim()
+  if (trimmedQuery) params.set('search', trimmedQuery)
+
+  const logPayload = {
+    query: trimmedQuery || '',
+    limit: 1000,
+  }
+
+  console.info('[Search][EventsView] request', logPayload)
+
   try {
-    const { data } = await axios.get('/api/events?limit=1000')
+    const { data } = await axios.get(`/api/events?${params.toString()}`)
     allEvents.value = data.data
     events.value = data.data
+
+    console.info('[Search][EventsView] response', {
+      ...logPayload,
+      resultCount: data.data.length,
+      total: data.pagination?.total ?? data.data.length,
+    })
+  } catch (error) {
+    console.error('[Search][EventsView] request failed', logPayload, error)
+    throw error
   } finally {
     loading.value = false
   }
 }
 
-// Perform client-side search with relevance scoring
-async function performSearch(query: string) {
-  if (!allEvents.value.length) {
-    await loadAllEvents()
-    return
-  }
-  
-  // Score and sort events by relevance
-  const scoredEvents = allEvents.value
-    .map(event => ({
-      event,
-      score: SearchScorer.scoreItem(event, query, [
-        { key: 'title', weight: 3 },
-        { key: 'excerpt', weight: 2 },
-        { key: 'city', weight: 1.5 },
-        { key: 'venue', weight: 1.5 },
-        { key: 'organizer', weight: 1 }
-      ])
-    }))
-    .filter(({ score }) => score > 0)
-    .sort((a, b) => b.score - a.score)
-    .map(({ event }) => event)
-  
-  events.value = scoredEvents
+async function loadAllEvents() {
+  await fetchEvents()
 }
 
-onMounted(loadAllEvents)
+async function performSearch(query: string) {
+  await fetchEvents(query)
+}
+
+watch(hasValidQuery, (isValid) => {
+  if (!isValid && searchQuery.value.trim().length === 0 && allEvents.value.length) {
+    events.value = allEvents.value
+  }
+})
+
+onMounted(() => {
+  void loadAllEvents()
+})
 </script>
 
 <template>

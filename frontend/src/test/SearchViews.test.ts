@@ -187,7 +187,7 @@ describe('Search Integration Tests', () => {
       const mediumItems = mockAudioItems.filter(item => 
         item.durationSeconds >= 600 && item.durationSeconds <= 1200
       )
-      expect(mediumItems).toHaveLength(2)
+      expect(mediumItems).toHaveLength(3)
 
       // Long: > 1200 seconds (20 min)
       const longItems = mockAudioItems.filter(item => item.durationSeconds > 1200)

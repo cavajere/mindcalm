@@ -1,5 +1,6 @@
 import { ContentVisibility, Level, Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma'
+import { ensureSearchDatabaseSupport } from './searchDatabaseService'
 
 type MatchMode = 'any' | 'all'
 
@@ -31,6 +32,8 @@ type RankedIdRow = {
 type CountRow = {
   total: bigint | number
 }
+
+type SearchDatabaseSupport = Awaited<ReturnType<typeof ensureSearchDatabaseSupport>>
 
 function buildAudioDurationFilter(duration?: RankedAudioSearchParams['duration']) {
   if (duration === 'short') {
@@ -112,28 +115,120 @@ function parseCount(value: bigint | number): number {
   return typeof value === 'bigint' ? Number(value) : value
 }
 
+function buildVisibilityList(visibilities: ContentVisibility[]) {
+  return Prisma.join(visibilities.map((visibility) => Prisma.sql`${visibility}::"ContentVisibility"`))
+}
+
+function buildLevelFilter(level?: Level) {
+  if (!level) {
+    return Prisma.empty
+  }
+
+  return Prisma.sql`AND a."level" = ${level}::"Level"`
+}
+
+function buildSearchQueryCte(search: string, normalizedSearch: string, support: SearchDatabaseSupport) {
+  if (support.hasUnaccent && support.hasImmutableUnaccent) {
+    return Prisma.sql`
+      WITH search_query AS (
+        SELECT
+          websearch_to_tsquery('simple', unaccent(${search})) AS query,
+          lower(immutable_unaccent(${normalizedSearch})) AS normalized
+      )
+    `
+  }
+
+  return Prisma.sql`
+    WITH search_query AS (
+      SELECT
+        websearch_to_tsquery('simple', ${search}) AS query,
+        lower(${normalizedSearch}) AS normalized
+    )
+  `
+}
+
+function buildNormalizedTextSql(text: Prisma.Sql, support: SearchDatabaseSupport) {
+  if (support.hasUnaccent && support.hasImmutableUnaccent) {
+    return Prisma.sql`lower(immutable_unaccent(COALESCE(${text}, '')))`
+  }
+
+  return Prisma.sql`lower(COALESCE(${text}, ''))`
+}
+
+function buildTsVectorSql(text: Prisma.Sql, support: SearchDatabaseSupport) {
+  if (support.hasUnaccent) {
+    return Prisma.sql`to_tsvector('simple', unaccent(COALESCE(${text}, '')))`
+  }
+
+  return Prisma.sql`to_tsvector('simple', COALESCE(${text}, ''))`
+}
+
+function buildSimilarityScoreSql(
+  normalizedTitle: Prisma.Sql,
+  normalizedLabels: Prisma.Sql,
+  support: SearchDatabaseSupport,
+) {
+  if (!support.hasPgTrgm) {
+    return Prisma.sql`0`
+  }
+
+  return Prisma.sql`
+    GREATEST(
+      similarity(${normalizedTitle}, search_query.normalized),
+      similarity(${normalizedLabels}, search_query.normalized)
+    ) * 0.35
+  `
+}
+
+function buildSimilarityFilterSql(
+  normalizedTitle: Prisma.Sql,
+  normalizedLabels: Prisma.Sql,
+  support: SearchDatabaseSupport,
+) {
+  if (!support.hasPgTrgm) {
+    return Prisma.sql`
+      position(search_query.normalized in ${normalizedTitle}) > 0
+      OR position(search_query.normalized in ${normalizedLabels}) > 0
+    `
+  }
+
+  return Prisma.sql`
+    similarity(${normalizedTitle}, search_query.normalized) > 0.12
+    OR similarity(${normalizedLabels}, search_query.normalized) > 0.12
+  `
+}
+
 export async function getRankedPublishedAudioIds(params: RankedAudioSearchParams) {
   const offset = (params.page - 1) * params.limit
   const normalizedSearch = params.search.trim().toLowerCase()
   const tagFilter = buildAudioTagFilter(params.tagSlugs, params.matchMode)
   const durationFilter = buildAudioDurationFilter(params.duration)
+  const support = await ensureSearchDatabaseSupport()
+  const visibilityList = buildVisibilityList(params.visibilities)
+
+  const normalizedTitle = buildNormalizedTextSql(Prisma.sql`a."title"`, support)
+  const normalizedLabels = buildNormalizedTextSql(Prisma.sql`tags."labels"`, support)
+  const rankedNormalizedTitle = Prisma.sql`ranked.normalized_title`
+  const rankedNormalizedLabels = Prisma.sql`ranked.normalized_labels`
+  const titleVector = buildTsVectorSql(Prisma.sql`a."title"`, support)
+  const labelsVector = buildTsVectorSql(Prisma.sql`tags."labels"`, support)
+  const aliasesVector = buildTsVectorSql(Prisma.sql`tags."aliases"`, support)
+  const descriptionVector = buildTsVectorSql(Prisma.sql`a."description"`, support)
+  const similarityScore = buildSimilarityScoreSql(rankedNormalizedTitle, rankedNormalizedLabels, support)
+  const similarityFilter = buildSimilarityFilterSql(rankedNormalizedTitle, rankedNormalizedLabels, support)
 
   const baseQuery = Prisma.sql`
-    WITH search_query AS (
-      SELECT
-        websearch_to_tsquery('simple', unaccent(${params.search})) AS query,
-        lower(immutable_unaccent(${normalizedSearch})) AS normalized
-    ),
+    ${buildSearchQueryCte(params.search, normalizedSearch, support)},
     ranked AS (
       SELECT
         a."id",
         a."publishedAt",
-        setweight(to_tsvector('simple', unaccent(COALESCE(a."title", ''))), 'A') ||
-        setweight(to_tsvector('simple', unaccent(COALESCE(tags."labels", ''))), 'B') ||
-        setweight(to_tsvector('simple', unaccent(COALESCE(tags."aliases", ''))), 'B') ||
-        setweight(to_tsvector('simple', unaccent(COALESCE(a."description", ''))), 'C') AS document,
-        lower(immutable_unaccent(COALESCE(a."title", ''))) AS normalized_title,
-        lower(immutable_unaccent(COALESCE(tags."labels", ''))) AS normalized_labels
+        setweight(${titleVector}, 'A') ||
+        setweight(${labelsVector}, 'B') ||
+        setweight(${aliasesVector}, 'B') ||
+        setweight(${descriptionVector}, 'C') AS document,
+        ${normalizedTitle} AS normalized_title,
+        ${normalizedLabels} AS normalized_labels
       FROM "audio" a
       LEFT JOIN LATERAL (
         SELECT
@@ -145,9 +240,9 @@ export async function getRankedPublishedAudioIds(params: RankedAudioSearchParams
         WHERE at."audioId" = a."id"
       ) tags ON true
       WHERE a."status" = 'PUBLISHED'
-        AND a."visibility" IN (${Prisma.join(params.visibilities)})
+        AND a."visibility" IN (${visibilityList})
         ${params.categoryId ? Prisma.sql`AND a."categoryId" = ${params.categoryId}` : Prisma.empty}
-        ${params.level ? Prisma.sql`AND a."level" = ${params.level}` : Prisma.empty}
+        ${buildLevelFilter(params.level)}
         ${durationFilter}
         ${tagFilter}
     ),
@@ -158,17 +253,13 @@ export async function getRankedPublishedAudioIds(params: RankedAudioSearchParams
           ts_rank_cd(ranked.document, search_query.query) +
           CASE WHEN ranked.normalized_title = search_query.normalized THEN 2 ELSE 0 END +
           CASE WHEN position(search_query.normalized in ranked.normalized_title) > 0 THEN 0.4 ELSE 0 END +
-          GREATEST(
-            similarity(ranked.normalized_title, search_query.normalized),
-            similarity(ranked.normalized_labels, search_query.normalized)
-          ) * 0.35
+          ${similarityScore}
         ) AS relevance,
         ranked."publishedAt"
       FROM ranked
       CROSS JOIN search_query
       WHERE ranked.document @@ search_query.query
-        OR similarity(ranked.normalized_title, search_query.normalized) > 0.12
-        OR similarity(ranked.normalized_labels, search_query.normalized) > 0.12
+        OR ${similarityFilter}
     )
   `
 
@@ -198,24 +289,34 @@ export async function getRankedPublishedPostIds(params: RankedPostSearchParams) 
   const offset = (params.page - 1) * params.limit
   const normalizedSearch = params.search.trim().toLowerCase()
   const tagFilter = buildPostTagFilter(params.tagSlugs, params.matchMode)
+  const support = await ensureSearchDatabaseSupport()
+  const visibilityList = buildVisibilityList(params.visibilities)
+
+  const normalizedTitle = buildNormalizedTextSql(Prisma.sql`ar."title"`, support)
+  const normalizedLabels = buildNormalizedTextSql(Prisma.sql`tags."labels"`, support)
+  const rankedNormalizedTitle = Prisma.sql`ranked.normalized_title`
+  const rankedNormalizedLabels = Prisma.sql`ranked.normalized_labels`
+  const titleVector = buildTsVectorSql(Prisma.sql`ar."title"`, support)
+  const labelsVector = buildTsVectorSql(Prisma.sql`tags."labels"`, support)
+  const aliasesVector = buildTsVectorSql(Prisma.sql`tags."aliases"`, support)
+  const excerptVector = buildTsVectorSql(Prisma.sql`ar."excerpt"`, support)
+  const bodyTextVector = buildTsVectorSql(Prisma.sql`ar."bodyText"`, support)
+  const similarityScore = buildSimilarityScoreSql(rankedNormalizedTitle, rankedNormalizedLabels, support)
+  const similarityFilter = buildSimilarityFilterSql(rankedNormalizedTitle, rankedNormalizedLabels, support)
 
   const baseQuery = Prisma.sql`
-    WITH search_query AS (
-      SELECT
-        websearch_to_tsquery('simple', unaccent(${params.search})) AS query,
-        lower(immutable_unaccent(${normalizedSearch})) AS normalized
-    ),
+    ${buildSearchQueryCte(params.search, normalizedSearch, support)},
     ranked AS (
       SELECT
         ar."id",
         ar."publishedAt",
-        setweight(to_tsvector('simple', unaccent(COALESCE(ar."title", ''))), 'A') ||
-        setweight(to_tsvector('simple', unaccent(COALESCE(tags."labels", ''))), 'B') ||
-        setweight(to_tsvector('simple', unaccent(COALESCE(tags."aliases", ''))), 'B') ||
-        setweight(to_tsvector('simple', unaccent(COALESCE(ar."excerpt", ''))), 'C') ||
-        setweight(to_tsvector('simple', unaccent(COALESCE(ar."bodyText", ''))), 'D') AS document,
-        lower(immutable_unaccent(COALESCE(ar."title", ''))) AS normalized_title,
-        lower(immutable_unaccent(COALESCE(tags."labels", ''))) AS normalized_labels
+        setweight(${titleVector}, 'A') ||
+        setweight(${labelsVector}, 'B') ||
+        setweight(${aliasesVector}, 'B') ||
+        setweight(${excerptVector}, 'C') ||
+        setweight(${bodyTextVector}, 'D') AS document,
+        ${normalizedTitle} AS normalized_title,
+        ${normalizedLabels} AS normalized_labels
       FROM "posts" ar
       LEFT JOIN LATERAL (
         SELECT
@@ -227,7 +328,7 @@ export async function getRankedPublishedPostIds(params: RankedPostSearchParams) 
         WHERE at."postId" = ar."id"
       ) tags ON true
       WHERE ar."status" = 'PUBLISHED'
-        AND ar."visibility" IN (${Prisma.join(params.visibilities)})
+        AND ar."visibility" IN (${visibilityList})
         ${params.author ? Prisma.sql`AND lower(ar."author") = lower(${params.author})` : Prisma.empty}
         ${tagFilter}
     ),
@@ -238,17 +339,13 @@ export async function getRankedPublishedPostIds(params: RankedPostSearchParams) 
           ts_rank_cd(ranked.document, search_query.query) +
           CASE WHEN ranked.normalized_title = search_query.normalized THEN 2 ELSE 0 END +
           CASE WHEN position(search_query.normalized in ranked.normalized_title) > 0 THEN 0.4 ELSE 0 END +
-          GREATEST(
-            similarity(ranked.normalized_title, search_query.normalized),
-            similarity(ranked.normalized_labels, search_query.normalized)
-          ) * 0.35
+          ${similarityScore}
         ) AS relevance,
         ranked."publishedAt"
       FROM ranked
       CROSS JOIN search_query
       WHERE ranked.document @@ search_query.query
-        OR similarity(ranked.normalized_title, search_query.normalized) > 0.12
-        OR similarity(ranked.normalized_labels, search_query.normalized) > 0.12
+        OR ${similarityFilter}
     )
   `
 

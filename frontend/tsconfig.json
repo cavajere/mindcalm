@@ -4,6 +4,7 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "strict": true,
+    "types": ["vitest/globals"],
     "jsx": "preserve",
     "resolveJsonModule": true,
     "isolatedModules": true,

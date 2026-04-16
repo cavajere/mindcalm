@@ -121,7 +121,7 @@ describe('useAdvancedSearch', () => {
 
     // First set a search query and trigger search
     vm.searchQuery = 'test'
-    vi.advanceTimersByTime(100)
+    await vi.advanceTimersByTimeAsync(100)
     await nextTick()
     
     vm.hasSearched = true // Simulate that search has been performed
@@ -156,13 +156,13 @@ describe('useAdvancedSearch', () => {
     })
 
     vm.searchQuery = 'test'
-    vi.advanceTimersByTime(100)
+    await vi.advanceTimersByTimeAsync(100)
     await nextTick()
 
     expect(vm.isSearching).toBe(true)
 
     // Complete the search
-    vi.advanceTimersByTime(50)
+    await vi.advanceTimersByTimeAsync(50)
     await nextTick()
 
     expect(vm.isSearching).toBe(false)
@@ -181,20 +181,20 @@ describe('useAdvancedSearch', () => {
     })
 
     vm.searchQuery = 'test'
-    vi.advanceTimersByTime(100) // Trigger search
+    await vi.advanceTimersByTimeAsync(100) // Trigger search
     await nextTick()
 
     expect(vm.isSearching).toBe(true)
     expect(vm.showSearchLoader).toBe(false) // Should not show immediately
 
     // Advance past loader delay (300ms)
-    vi.advanceTimersByTime(300)
+    await vi.advanceTimersByTimeAsync(300)
     await nextTick()
 
     expect(vm.showSearchLoader).toBe(true) // Now should show
 
     // Complete search
-    vi.advanceTimersByTime(200)
+    await vi.advanceTimersByTimeAsync(200)
     await nextTick()
 
     expect(vm.showSearchLoader).toBe(false) // Should hide immediately
@@ -210,7 +210,7 @@ describe('useAdvancedSearch', () => {
     })
 
     vm.searchQuery = 'test'
-    vi.advanceTimersByTime(100) // Trigger search
+    await vi.advanceTimersByTimeAsync(100) // Trigger search
     await nextTick()
 
     // Search completes immediately
@@ -218,7 +218,7 @@ describe('useAdvancedSearch', () => {
     expect(vm.showSearchLoader).toBe(false)
 
     // Even after loader delay, should not show
-    vi.advanceTimersByTime(300)
+    await vi.advanceTimersByTimeAsync(300)
     await nextTick()
 
     expect(vm.showSearchLoader).toBe(false)
@@ -233,7 +233,7 @@ describe('useAdvancedSearch', () => {
     vm.mockSearch.mockRejectedValue(new Error('Search failed'))
 
     vm.searchQuery = 'test'
-    vi.advanceTimersByTime(100)
+    await vi.advanceTimersByTimeAsync(100)
     await nextTick()
 
     expect(vm.isSearching).toBe(false)
@@ -253,7 +253,7 @@ describe('useAdvancedSearch', () => {
     vm.mockSearch.mockRejectedValue(abortError)
 
     vm.searchQuery = 'test'
-    vi.advanceTimersByTime(100)
+    await vi.advanceTimersByTimeAsync(100)
     await nextTick()
 
     expect(vm.isSearching).toBe(false)
@@ -262,14 +262,15 @@ describe('useAdvancedSearch', () => {
     consoleError.mockRestore()
   })
 
-  it('should cleanup timers on unmount', () => {
-    const clearTimeoutSpy = vi.spyOn(global, 'clearTimeout')
+  it('should cleanup timers on unmount', async () => {
+    const clearTimeoutSpy = vi.spyOn(window, 'clearTimeout')
     
     const wrapper = mount(TestComponent)
     const vm = wrapper.vm as any
 
     vm.searchQuery = 'test'
-    
+    await nextTick()
+
     // Unmount component
     wrapper.unmount()
 
@@ -296,21 +297,21 @@ describe('useAdvancedSearch', () => {
     const wrapper = mount(CustomTestComponent)
     const vm = wrapper.vm as any
 
-    vm.searchQuery = 'test'
+    vm.searchQuery = 'te'
     await nextTick()
 
     // Should respect custom minQueryLength
     expect(vm.hasValidQuery).toBe(false)
 
-    vm.searchQuery = 'test query'
+    vm.searchQuery = 'test'
     await nextTick()
     expect(vm.hasValidQuery).toBe(true)
 
     // Should respect custom debounce timing
-    vi.advanceTimersByTime(200)
+    await vi.advanceTimersByTimeAsync(200)
     expect(vm.mockSearch).not.toHaveBeenCalled()
 
-    vi.advanceTimersByTime(100)
+    await vi.advanceTimersByTimeAsync(100)
     await nextTick()
     expect(vm.mockSearch).toHaveBeenCalled()
   })
@@ -321,7 +322,7 @@ describe('useAdvancedSearch', () => {
 
     // Query with leading/trailing spaces
     vm.searchQuery = '  test query  '
-    vi.advanceTimersByTime(100)
+    await vi.advanceTimersByTimeAsync(100)
     await nextTick()
 
     expect(vm.mockSearch).toHaveBeenCalledWith('test query')
@@ -363,7 +364,7 @@ describe('useAdvancedSearch integration scenarios', () => {
   })
 
   it('should handle realistic search flow', async () => {
-    const searchResults = ref([])
+    const searchResults = ref<Array<{ id: number; title: string }>>([])
     const mockSearch = vi.fn(async (query: string) => {
       // Simulate API call delay
       await new Promise(resolve => setTimeout(resolve, 200))
@@ -405,14 +406,14 @@ describe('useAdvancedSearch integration scenarios', () => {
     await nextTick()
 
     // Advance past debounce
-    vi.advanceTimersByTime(150)
+    await vi.advanceTimersByTimeAsync(150)
     await nextTick()
 
     expect(vm.isSearching).toBe(true)
     expect(vm.mockSearch).toHaveBeenCalledWith('meditation')
 
     // Wait for search to complete
-    vi.advanceTimersByTime(200)
+    await vi.advanceTimersByTimeAsync(200)
     await nextTick()
 
     expect(vm.isSearching).toBe(false)

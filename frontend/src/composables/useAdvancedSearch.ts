@@ -78,7 +78,7 @@ export function useAdvancedSearch(options: SearchOptions) {
     isSearching.value = true
     
     try {
-      await onSearch(query)
+      await Promise.resolve(onSearch(query))
       hasSearched.value = true
     } catch (error) {
       // Only log error if it's not an abort error
@@ -100,7 +100,7 @@ export function useAdvancedSearch(options: SearchOptions) {
     if (onClear) {
       isSearching.value = true
       try {
-        await onClear()
+        await Promise.resolve(onClear())
       } finally {
         isSearching.value = false
       }
@@ -118,7 +118,7 @@ export function useAdvancedSearch(options: SearchOptions) {
     if (query.length === 0) {
       if (hasSearched.value && onClear) {
         isSearching.value = true
-        onClear().finally(() => {
+        Promise.resolve(onClear()).finally(() => {
           isSearching.value = false
           hasSearched.value = false
         })
@@ -218,11 +218,11 @@ export class SearchScorer {
     return score
   }
   
-  static scoreItem<T extends Record<string, any>>(
+  static scoreItem<T extends Record<string, unknown>>(
     item: T, 
     query: string, 
     fields: Array<{
-      key: keyof T
+      key: string
       weight?: number
       isArray?: boolean
     }>
@@ -230,15 +230,16 @@ export class SearchScorer {
     let totalScore = 0
     
     for (const field of fields) {
-      const value = item[field.key]
+      const value = item[field.key as keyof T]
       const weight = field.weight ?? 1
       let fieldScore = 0
       
       if (field.isArray && Array.isArray(value)) {
         // Handle array fields (like tags)
-        for (const arrayItem of value) {
+        for (const arrayItem of value as unknown[]) {
           if (arrayItem && typeof arrayItem === 'object') {
-            const itemText = arrayItem.label || arrayItem.name || String(arrayItem)
+            const arrayItemRecord = arrayItem as Record<string, unknown>
+            const itemText = String(arrayItemRecord.label || arrayItemRecord.name || arrayItem)
             fieldScore += SearchScorer.scoreText(itemText, query)
           } else if (arrayItem) {
             fieldScore += SearchScorer.scoreText(String(arrayItem), query)

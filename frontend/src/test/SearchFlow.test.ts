@@ -23,9 +23,9 @@ describe('Complete Search Flow Tests', () => {
   describe('User Search Journey', () => {
     it('User searches for "meditation" across all content', () => {
       console.log('\n🔍 USER JOURNEY: Searching for "meditation"')
-      console.log('=' * 50)
+      console.log('='.repeat(50))
 
-      const query = 'meditation'
+      const query = 'meditazione'
 
       // Audio search
       const audioResults = mockDatabase.audio
@@ -93,7 +93,7 @@ describe('Complete Search Flow Tests', () => {
 
     it('User refines search with filters', () => {
       console.log('\n🔍 USER JOURNEY: Refining search with filters')
-      console.log('=' * 50)
+      console.log('='.repeat(50))
 
       const query = 'meditazione'
       const categoryFilter = '1' // Mindfulness category
@@ -137,7 +137,7 @@ describe('Complete Search Flow Tests', () => {
 
     it('User searches by location', () => {
       console.log('\n🔍 USER JOURNEY: Searching events by location')
-      console.log('=' * 50)
+      console.log('='.repeat(50))
 
       const query = 'milano'
       console.log(`Searching for: "${query}"`)
@@ -173,7 +173,7 @@ describe('Complete Search Flow Tests', () => {
   describe('Search Performance Analysis', () => {
     it('Benchmark search performance', () => {
       console.log('\n⚡ PERFORMANCE BENCHMARK')
-      console.log('=' * 50)
+      console.log('='.repeat(50))
 
       const queries = ['meditation', 'respirazione', 'mindfulness', 'milano', 'stress']
       const fieldConfig = [
@@ -215,7 +215,7 @@ describe('Complete Search Flow Tests', () => {
   describe('Edge Cases and Error Handling', () => {
     it('Handles empty search gracefully', () => {
       console.log('\n🔍 EDGE CASE: Empty search')
-      console.log('=' * 30)
+      console.log('='.repeat(30))
 
       const emptyQueries = ['', '   ', '\t']
       
@@ -233,7 +233,7 @@ describe('Complete Search Flow Tests', () => {
 
     it('Handles special characters', () => {
       console.log('\n🔍 EDGE CASE: Special characters')
-      console.log('=' * 35)
+      console.log('='.repeat(35))
 
       const specialQueries = ['meditazione!', 'respirazione?', 'mindfulness & stress', '(tecniche)']
       
@@ -254,7 +254,7 @@ describe('Complete Search Flow Tests', () => {
 
     it('Handles no results found', () => {
       console.log('\n🔍 EDGE CASE: No results')
-      console.log('=' * 25)
+      console.log('='.repeat(25))
 
       const noMatchQuery = 'cooking recipes'
       console.log(`Searching for: "${noMatchQuery}"`)
@@ -279,7 +279,7 @@ describe('Complete Search Flow Tests', () => {
   describe('Final Integration Test', () => {
     it('Complete search workflow simulation', () => {
       console.log('\n🎯 COMPLETE WORKFLOW SIMULATION')
-      console.log('=' * 40)
+      console.log('='.repeat(40))
 
       // Simulate user typing progressively
       const typingSequence = ['m', 'me', 'med', 'medi', 'medit', 'medita', 'meditaz', 'meditazi', 'meditazio', 'meditazion', 'meditazione']

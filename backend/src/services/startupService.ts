@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { prisma } from '../lib/prisma'
+import { ensureSearchDatabaseSupport } from './searchDatabaseService'
 
 type PrismaMigrationRow = {
   migration_name: string
@@ -46,6 +47,7 @@ export async function ensureDatabaseReady() {
 
     const pendingMigrations = expectedMigrations.filter((migration) => !appliedMigrations.has(migration))
     if (!pendingMigrations.length) {
+      await ensureSearchDatabaseSupport()
       return
     }
 

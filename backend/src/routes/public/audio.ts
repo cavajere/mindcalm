@@ -154,6 +154,17 @@ router.get('/', audioFilterQuery, async (req: Request, res: Response) => {
   const matchMode = getSingleString(req.query.matchMode) === 'all' ? 'all' : 'any'
   const sort = getSingleString(req.query.sort) || 'recent'
   const visibleVisibilities = getVisibleContentVisibilities(req)
+  const requestLog = {
+    search,
+    page,
+    limit,
+    categoryId: getSingleString(req.query.category) || null,
+    level: getSingleString(req.query.level) || null,
+    duration: getSingleString(req.query.duration) || null,
+    tagSlugs,
+    matchMode,
+    sort,
+  }
 
   if (!search && sort === 'relevance') {
     res.status(400).json({ error: 'sort=relevance richiede una query di ricerca' })
@@ -180,6 +191,8 @@ router.get('/', audioFilterQuery, async (req: Request, res: Response) => {
   } satisfies Prisma.AudioInclude
 
   if (search) {
+    console.info('[Search][API][Audio] request', requestLog)
+
     const { ids, total } = await getRankedPublishedAudioIds({
       page,
       limit,
@@ -193,6 +206,7 @@ router.get('/', audioFilterQuery, async (req: Request, res: Response) => {
     })
 
     if (!ids.length) {
+      console.info('[Search][API][Audio] response', { ...requestLog, resultCount: 0, total: 0 })
       res.json({
         data: [],
         pagination: { page, limit, total: 0, totalPages: 0 },
@@ -219,6 +233,7 @@ router.get('/', audioFilterQuery, async (req: Request, res: Response) => {
       data,
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     })
+    console.info('[Search][API][Audio] response', { ...requestLog, resultCount: data.length, total })
     return
   }
 

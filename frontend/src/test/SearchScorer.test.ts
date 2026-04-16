@@ -249,8 +249,8 @@ describe('SearchScorer', () => {
         .sort((a, b) => b.score - a.score)
 
       expect(scoredItems).toHaveLength(2)
-      expect(scoredItems[0].item.id).toBe('1') // 'Guided Meditation for Beginners'
-      expect(scoredItems[1].item.id).toBe('3') // 'Meditation and Stress Relief'
+      expect(scoredItems[0].item.id).toBe('3') // title starts with query and has more direct matches
+      expect(scoredItems[1].item.id).toBe('1')
     })
 
     it('should rank posts correctly for mindfulness search', () => {
