@@ -18,6 +18,10 @@ AUTO_YES=false
 API_PORT=3003
 DEPLOY_BRANCH=""
 HEALTHCHECK_ATTEMPTS=90
+POSTGRES_UID=70
+POSTGRES_GID=70
+APP_UID=1001
+APP_GID=1001
 
 compose() {
   docker compose -f "${COMPOSE_DIR}/docker-compose.yml" --env-file "${ENV_FILE}" "$@"
@@ -233,12 +237,30 @@ create_data_directories() {
   mkdir -p "${POSTGRES_DATA_DIR}" "${AUDIOS_DATA_DIR}" "${HLS_DATA_DIR}" "${IMAGES_DATA_DIR}"
 }
 
+apply_permissions() {
+  log "Imposto permessi script e .env"
+  chmod +x "${COMPOSE_DIR}/deploy.sh" 2>/dev/null || true
+  [[ -f "${COMPOSE_DIR}/seed.sh" ]] && chmod +x "${COMPOSE_DIR}/seed.sh" 2>/dev/null || true
+  [[ -f "${ENV_FILE}" ]] && chmod 600 "${ENV_FILE}" 2>/dev/null || true
+
+  log "Imposto ownership directory dati (postgres ${POSTGRES_UID}:${POSTGRES_GID}, appuser ${APP_UID}:${APP_GID})"
+  docker run --rm -v "${DATA_DIR}:/data" alpine sh -c "
+    chown -R ${POSTGRES_UID}:${POSTGRES_GID} /data/postgres 2>/dev/null || true
+    chmod 700 /data/postgres 2>/dev/null || true
+    chown -R ${APP_UID}:${APP_GID} /data/audio /data/hls /data/images 2>/dev/null || true
+    chmod 755 /data/audio /data/hls /data/images 2>/dev/null || true
+  " >/dev/null
+}
+
 destroy_stack_and_data() {
   log "Arresto e rimozione stack Docker"
   compose down --volumes --remove-orphans --rmi local
 
-  log "Rimozione directory dati bind-mounted"
-  rm -rf "${DATA_DIR}"
+  if [[ -d "${DATA_DIR}" ]]; then
+    log "Rimozione directory dati bind-mounted (via container privilegiato)"
+    docker run --rm -v "${DATA_DIR}:/target" alpine sh -c 'rm -rf /target/* /target/.[!.]* /target/..?* 2>/dev/null || true'
+    rmdir "${DATA_DIR}" 2>/dev/null || rm -rf "${DATA_DIR}" 2>/dev/null || true
+  fi
 
   reset_env_file
 
@@ -355,6 +377,8 @@ main() {
   else
     create_data_directories
   fi
+
+  apply_permissions
 
   deploy_stack
   show_post_deploy_status
