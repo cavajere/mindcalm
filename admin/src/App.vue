@@ -6,6 +6,7 @@ import { getPublicAppUrl } from './utils/appUrls'
 import AppLoadingBar from './components/AppLoadingBar.vue'
 import AppToastContainer from './components/AppToastContainer.vue'
 import ConfirmModal from './components/ConfirmModal.vue'
+import { NAV_ICON_PATHS, type NavIconKey } from './utils/navIcons'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -16,40 +17,40 @@ const publicUrl = getPublicAppUrl()
 type NavLeafItem = {
   path: string
   label: string
-  shortLabel: string
+  icon: NavIconKey
 }
 
 type NavGroupItem = {
   key: string
   label: string
-  shortLabel: string
+  icon: NavIconKey
   children: NavLeafItem[]
 }
 
 type NavItem = NavLeafItem | NavGroupItem
 
 const primaryNavItems: NavLeafItem[] = [
-  { path: '/', label: 'Dashboard', shortLabel: 'Home' },
-  { path: '/audio', label: 'Audio', shortLabel: 'Audio' },
-  { path: '/posts', label: 'Post', shortLabel: 'Post' },
-  { path: '/events', label: 'Eventi', shortLabel: 'Eventi' },
-  { path: '/album', label: 'Album', shortLabel: 'Album' },
-  { path: '/analytics', label: 'Analytics', shortLabel: 'Analytics' },
-  { path: '/communications', label: 'Comunicazione', shortLabel: 'CM' },
-  { path: '/users', label: 'Utenti', shortLabel: 'Utenti' },
-  { path: '/invite-codes', label: 'Codici invito', shortLabel: 'CI' },
+  { path: '/', label: 'Dashboard', icon: 'dashboard' },
+  { path: '/audio', label: 'Audio', icon: 'audio' },
+  { path: '/posts', label: 'Post', icon: 'post' },
+  { path: '/events', label: 'Eventi', icon: 'event' },
+  { path: '/album', label: 'Album', icon: 'album' },
+  { path: '/analytics', label: 'Analytics', icon: 'analytics' },
+  { path: '/communications', label: 'Comunicazione', icon: 'communication' },
+  { path: '/users', label: 'Utenti', icon: 'users' },
+  { path: '/invite-codes', label: 'Codici invito', icon: 'invite' },
 ]
 
 const adminNavItems: NavLeafItem[] = [
-  { path: '/settings/legal', label: 'Legal', shortLabel: 'LG' },
-  { path: '/settings/notifications', label: 'Notifiche', shortLabel: 'NF' },
-  { path: '/settings/notifications/pipeline', label: 'Pipeline notifiche', shortLabel: 'NP' },
-  { path: '/settings/smtp', label: 'SMTP', shortLabel: 'SMTP' },
-  { path: '/settings/storage', label: 'Storage', shortLabel: 'ST' },
-  { path: '/settings/backup-restore', label: 'Backup & Restore', shortLabel: 'BR' },
-  { path: '/audit-logs', label: 'Log attivita', shortLabel: 'Log' },
-  { path: '/categories', label: 'Categorie', shortLabel: 'Categorie' },
-  { path: '/tags', label: 'Tag', shortLabel: 'Tag' },
+  { path: '/settings/legal', label: 'Legal', icon: 'legal' },
+  { path: '/settings/notifications', label: 'Notifiche', icon: 'bell' },
+  { path: '/settings/notifications/pipeline', label: 'Pipeline notifiche', icon: 'pipeline' },
+  { path: '/settings/smtp', label: 'SMTP', icon: 'mail' },
+  { path: '/settings/storage', label: 'Storage', icon: 'storage' },
+  { path: '/settings/backup-restore', label: 'Backup & Restore', icon: 'backup' },
+  { path: '/audit-logs', label: 'Log attivita', icon: 'log' },
+  { path: '/categories', label: 'Categorie', icon: 'category' },
+  { path: '/tags', label: 'Tag', icon: 'tag' },
 ]
 
 const navItems: NavItem[] = [
@@ -57,10 +58,14 @@ const navItems: NavItem[] = [
   {
     key: 'admin',
     label: 'Amministrazione',
-    shortLabel: 'AM',
+    icon: 'settings',
     children: adminNavItems,
   },
 ]
+
+function iconPaths(key: NavIconKey) {
+  return NAV_ICON_PATHS[key]
+}
 
 const sidebarCollapsed = ref(false)
 const mobileSidebarOpen = ref(false)
@@ -127,7 +132,7 @@ function childNavItemClasses(path: string) {
 
 function navIconClasses(active: boolean, nested = false) {
   return [
-    'inline-flex shrink-0 items-center justify-center rounded-lg text-xs font-semibold',
+    'inline-flex shrink-0 items-center justify-center rounded-lg',
     nested && !sidebarCollapsed.value ? 'h-6 w-6' : 'h-7 w-7',
     active ? 'bg-slate-950 text-white' : 'bg-white/8 text-slate-300 group-hover:bg-white/12',
   ]
@@ -244,7 +249,16 @@ onBeforeUnmount(() => {
               :class="navItemClasses(item.path)"
             >
               <span :class="navIconClasses(isActivePath(item.path))">
-                {{ item.shortLabel.slice(0, 2).toUpperCase() }}
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    v-for="(d, i) in iconPaths(item.icon)"
+                    :key="i"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.6"
+                    :d="d"
+                  />
+                </svg>
               </span>
               <span v-if="!sidebarCollapsed" class="truncate">{{ item.label }}</span>
             </router-link>
@@ -258,7 +272,16 @@ onBeforeUnmount(() => {
                 @click="toggleGroup(item)"
               >
                 <span :class="navIconClasses(isGroupActive(item) || expandedGroupKey === item.key)">
-                  {{ item.shortLabel.slice(0, 2).toUpperCase() }}
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      v-for="(d, i) in iconPaths(item.icon)"
+                      :key="i"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="1.6"
+                      :d="d"
+                    />
+                  </svg>
                 </span>
                 <span v-if="!sidebarCollapsed" class="min-w-0 flex-1 truncate text-left">{{ item.label }}</span>
                 <svg
