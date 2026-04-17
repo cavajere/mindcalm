@@ -346,12 +346,6 @@ seed_policies() {
             versionNumber: 1,
             status: 'PUBLISHED',
             publishedAt: new Date(),
-          },
-        });
-        await prisma.termsPolicyVersionTranslation.create({
-          data: {
-            versionId: version.id,
-            lang: 'it',
             title: 'Termini e condizioni MindCalm',
             buttonLabel: 'Accetto i termini',
             html: '<p>Usando MindCalm accetti i termini di utilizzo del servizio, inclusi accesso personale, corretto uso dei contenuti e rispetto delle credenziali fornite.</p><p>L\\'accesso ai contenuti richiede una licenza valida e puo essere sospeso in caso di abuso o violazione delle regole d\\'uso.</p>',
@@ -382,12 +376,6 @@ seed_policies() {
           versionNumber: 1,
           status: 'PUBLISHED',
           publishedAt: new Date(),
-        },
-      });
-      await prisma.subscriptionPolicyVersionTranslation.create({
-        data: {
-          versionId: subVersion.id,
-          lang: 'it',
           title: 'Informativa sulla privacy',
           html: '<p>I tuoi dati verranno trattati nel rispetto del GDPR per l\\'invio di comunicazioni relative ai servizi MindCalm.</p>',
           buttonLabel: 'Iscriviti alla newsletter',
@@ -409,12 +397,6 @@ seed_policies() {
           versionNumber: 1,
           status: 'PUBLISHED',
           publishedAt: new Date(),
-        },
-      });
-      await prisma.consentFormulaVersionTranslation.create({
-        data: {
-          consentVersionId: nlVersion.id,
-          lang: 'it',
           title: 'Newsletter',
           text: 'Desidero ricevere la newsletter di MindCalm con consigli sulla mindfulness, nuovi contenuti e aggiornamenti.',
         },
@@ -434,12 +416,6 @@ seed_policies() {
           versionNumber: 1,
           status: 'PUBLISHED',
           publishedAt: new Date(),
-        },
-      });
-      await prisma.consentFormulaVersionTranslation.create({
-        data: {
-          consentVersionId: mkVersion.id,
-          lang: 'it',
           title: 'Comunicazioni promozionali',
           text: 'Acconsento a ricevere comunicazioni promozionali relative a eventi, ritiri e iniziative MindCalm.',
         },
