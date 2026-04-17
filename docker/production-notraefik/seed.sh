@@ -171,6 +171,21 @@ seed_admin() {
         create: { email, password: hash, name, firstName, lastName, role: 'ADMIN', isActive: true },
       });
       console.log('  Admin: ' + user.email + ' (id: ' + user.id + ')');
+
+      const stdEmail = 'enrico.lanni@gmail.com';
+      const stdPassword = 'Alt53255!';
+      const stdName = 'Enrico Lanni';
+      const stdHash = await bcrypt.hash(stdPassword, 12);
+      const stdParts = stdName.split(' ');
+      const stdFirstName = stdParts[0] || stdName;
+      const stdLastName = stdParts.slice(1).join(' ') || null;
+
+      const stdUser = await prisma.user.upsert({
+        where: { email: stdEmail },
+        update: { password: stdHash, name: stdName, firstName: stdFirstName, lastName: stdLastName, role: 'STANDARD', isActive: true },
+        create: { email: stdEmail, password: stdHash, name: stdName, firstName: stdFirstName, lastName: stdLastName, role: 'STANDARD', isActive: true },
+      });
+      console.log('  Standard: ' + stdUser.email + ' (id: ' + stdUser.id + ')');
     })()
     .catch(e => { console.error(e); process.exit(1); })
     .finally(() => prisma.\$disconnect());
