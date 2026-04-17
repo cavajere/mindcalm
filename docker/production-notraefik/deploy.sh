@@ -42,8 +42,9 @@ Behavior:
 
   Con --reset-data:
     - aggiorna il repository con git pull --ff-only origin <branch-target>
-    - ferma e rimuove lo stack Docker
-    - rimuove anche volumi Docker e directory dati bind-mounted
+    - ferma e rimuove lo stack Docker (incluse immagini locali)
+    - rimuove volumi Docker e directory dati bind-mounted (data/postgres, data/audio, ...)
+    - fa backup del .env attuale e lo sovrascrive con .env.example
     - ricrea tutto da zero e rilancia il deploy
 EOF
 }
@@ -239,7 +240,26 @@ destroy_stack_and_data() {
   log "Rimozione directory dati bind-mounted"
   rm -rf "${DATA_DIR}"
 
+  reset_env_file
+
   create_data_directories
+}
+
+reset_env_file() {
+  [[ -f "${ENV_EXAMPLE_FILE}" ]] || die "File ${ENV_EXAMPLE_FILE} non trovato"
+
+  if [[ -f "${ENV_FILE}" ]]; then
+    local backup
+    backup="${ENV_FILE}.bak.$(date +%Y%m%d-%H%M%S)"
+    cp "${ENV_FILE}" "${backup}"
+    log "Backup .env precedente in ${backup}"
+  fi
+
+  cp "${ENV_EXAMPLE_FILE}" "${ENV_FILE}"
+  log "Ricreato ${ENV_FILE} da .env.example"
+
+  # Ricarica le variabili perche il nuovo .env puo differire dal precedente
+  load_env_file
 }
 
 deploy_stack() {

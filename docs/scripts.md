@@ -22,8 +22,8 @@ Script bash per deploy/aggiornamento dello stack Docker dietro gateway esterno (
 
 | Flag            | Effetto                                                                                   |
 |-----------------|-------------------------------------------------------------------------------------------|
-| `--keep-data`   | **Default**. Aggiornamento conservativo: preserva database, storage e volumi.             |
-| `--reset-data`  | Reinstallazione totale: `docker compose down --volumes --rmi local` + `rm -rf data/`.     |
+| `--keep-data`   | **Default**. Aggiornamento conservativo: preserva database, storage, volumi e `.env`.     |
+| `--reset-data`  | Reinstallazione totale: `docker compose down --volumes --rmi local` + `rm -rf data/` + backup e ricreazione di `.env` da `.env.example`. |
 | `--yes`         | Salta la conferma interattiva.                                                            |
 | `--branch NAME` | Forza il branch da deployare (default: `DEPLOY_BRANCH` da `.env` o branch locale).        |
 | `--help`        | Stampa l'help.                                                                            |
@@ -39,7 +39,7 @@ cd /opt/mindcalm/docker/production-notraefik
 ./deploy.sh --reset-data --yes        # DISTRUGGE dati e ricrea tutto da zero
 ```
 
-**Attenzione:** `--reset-data` elimina il database, i file audio/HLS/immagini caricati e i volumi Docker. Non reversibile.
+**Attenzione:** `--reset-data` elimina il database, i file audio/HLS/immagini caricati, i volumi Docker e **sovrascrive il `.env` dai valori in `.env.example`** (ne salva prima un backup in `.env.bak.<timestamp>`). Non reversibile se non ripristinando manualmente il backup.
 
 ---
 
@@ -183,18 +183,20 @@ Usabili con `npm run <script> --workspace=backend` dalla root, oppure direttamen
 
 ## 8. Workflow operativi comuni
 
-### Primo deploy su server pulito (con bootstrap admin)
+### Primo deploy su server pulito (pseudo-produzione, con bootstrap admin)
+
+`.env.example` contiene gia defaults utilizzabili in pseudo-produzione
+(`ADMIN_EMAIL=admin@admin.com`, `ADMIN_PASSWORD=admin`, ecc.), quindi il flusso base
+non richiede modifiche manuali. Per una produzione reale, prima del deploy
+sostituisci `POSTGRES_PASSWORD`, `JWT_SECRET`, `ADMIN_PASSWORD`, `CORS_ORIGIN`.
 
 ```bash
 ssh utente@server
-cd /opt/mindcalm
-cp docker/production-notraefik/.env.example docker/production-notraefik/.env
-# modifica .env: POSTGRES_PASSWORD, JWT_SECRET, ADMIN_EMAIL, ADMIN_PASSWORD, CORS_ORIGIN
-cd docker/production-notraefik
-./deploy.sh --yes
-./seed.sh --all --users --yes             # dati + utenti test, bootstrap admin ancora attivo
-# ora apri /admin/login, entra con ADMIN_EMAIL/ADMIN_PASSWORD (bootstrap),
-# e completa il wizard per creare il primo admin reale
+cd /opt/mindcalm/docker/production-notraefik
+./deploy.sh --yes                         # se .env non esiste, lo crea da .env.example
+./seed.sh --all --users --yes             # dati + utenti test, bootstrap admin attivo
+# apri /admin/login → admin@admin.com / admin (bootstrap)
+# il frontend ti redirige a /setup: completa il wizard per creare il primo admin reale
 ```
 
 ### Primo deploy saltando il wizard di bootstrap
