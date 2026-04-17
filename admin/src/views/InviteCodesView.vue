@@ -350,8 +350,8 @@ onMounted(() => {
                     <button
                       type="button"
                       class="icon-action-button icon-action-button-neutral"
-                      title="Copia codice"
-                      aria-label="Copia codice"
+                      v-tooltip="'Copia codice invito'"
+                      aria-label="Copia codice invito"
                       @click="copyCode(inviteCode.code)"
                     >
                       <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -362,8 +362,8 @@ onMounted(() => {
                       v-if="inviteCode.status === 'ACTIVE'"
                       type="button"
                       class="icon-action-button icon-action-button-warning"
-                      title="Disabilita"
-                      aria-label="Disabilita"
+                      v-tooltip="'Disabilita codice invito'"
+                      aria-label="Disabilita codice invito"
                       @click="disableCode(inviteCode)"
                     >
                       <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">

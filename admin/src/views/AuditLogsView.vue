@@ -567,7 +567,7 @@ onMounted(() => {
                 <button
                   type="button"
                   class="icon-action-button icon-action-button-danger"
-                  title="Elimina log"
+                  v-tooltip="'Elimina log'"
                   aria-label="Elimina log"
                   @click="openSingleDelete(log)"
                 >

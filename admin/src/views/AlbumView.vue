@@ -374,17 +374,17 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="flex items-center gap-1">
-              <button type="button" class="icon-action-button icon-action-button-neutral" title="Scarica" @click="downloadImage(image)">
+              <button type="button" class="icon-action-button icon-action-button-neutral" v-tooltip="'Scarica immagine'" aria-label="Scarica immagine" @click="downloadImage(image)">
                 <svg class="h-4 w-4 text-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 3v12m0 0l4-4m-4 4l-4-4m-5 8h18" />
                 </svg>
               </button>
-              <button type="button" class="icon-action-button icon-action-button-neutral" title="Modifica" @click="openEditDialog(image)">
+              <button type="button" class="icon-action-button icon-action-button-neutral" v-tooltip="'Modifica immagine'" aria-label="Modifica immagine" @click="openEditDialog(image)">
                 <svg class="h-4 w-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.5-7.5l2 2L11 16H9v-2z" />
                 </svg>
               </button>
-              <button type="button" class="icon-action-button icon-action-button-danger" title="Elimina" @click="removeImage(image)">
+              <button type="button" class="icon-action-button icon-action-button-danger" v-tooltip="'Elimina immagine'" aria-label="Elimina immagine" @click="removeImage(image)">
                 <svg class="h-4 w-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M6 7h12m-9 0V5a1 1 0 011-1h4a1 1 0 011 1v2m-8 0l1 12h8l1-12" />
                 </svg>

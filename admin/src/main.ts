@@ -6,6 +6,7 @@ import router from './router'
 import { useAuthStore } from './stores/authStore'
 import { useUiStore } from './stores/uiStore'
 import { injectDesignSystemTokens } from './utils/designSystem'
+import { vTooltip } from './directives/tooltip'
 import './assets/styles/main.css'
 
 injectDesignSystemTokens()
@@ -17,6 +18,7 @@ axios.defaults.withCredentials = true
 
 app.use(pinia)
 app.use(router)
+app.directive('tooltip', vTooltip)
 
 axios.interceptors.request.use(
   (config) => {
