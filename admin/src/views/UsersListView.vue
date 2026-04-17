@@ -59,13 +59,17 @@ function formatDate(value: string) {
   return new Date(value).toLocaleDateString('it-IT')
 }
 
+function formatTime(value: string) {
+  return new Date(value).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
+}
+
 function getLicenseStatus(user: any) {
   if (user.role !== 'STANDARD') {
     return { label: 'Non applicabile', className: 'bg-gray-100 text-text-secondary' }
   }
 
   if (!user.licenseExpiresAt) {
-    return { label: 'Nessuna scadenza', className: 'bg-sky-100 text-sky-700' }
+    return { label: 'A vita', className: 'bg-sky-100 text-sky-700' }
   }
 
   const expiresAt = new Date(user.licenseExpiresAt)
@@ -95,21 +99,23 @@ function getNotificationFrequencyLabel(frequency: string) {
   }
 }
 
+type NotificationChannel = { key: 'audio' | 'posts' | 'events'; label: string }
+
 function getNotificationSummary(user: any) {
   const preferences = user.notificationPreferences
   if (!preferences || preferences.frequency === 'NONE') {
     return {
       frequency: getNotificationFrequencyLabel('NONE'),
-      channels: [] as string[],
+      channels: [] as NotificationChannel[],
       className: 'bg-gray-100 text-text-secondary',
     }
   }
 
-  const channels = [
-    preferences.notifyOnAudio ? 'Audio' : null,
-    preferences.notifyOnPosts ? 'Post' : null,
-    preferences.notifyOnEvents ? 'Eventi' : null,
-  ].filter((value): value is string => Boolean(value))
+  const channels: NotificationChannel[] = [
+    preferences.notifyOnAudio ? { key: 'audio', label: 'Audio' } : null,
+    preferences.notifyOnPosts ? { key: 'posts', label: 'Post' } : null,
+    preferences.notifyOnEvents ? { key: 'events', label: 'Eventi' } : null,
+  ].filter((value): value is NotificationChannel => Boolean(value))
 
   return {
     frequency: getNotificationFrequencyLabel(preferences.frequency),
@@ -138,12 +144,12 @@ onMounted(fetchUsers)
           <tr>
             <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Nome</th>
             <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Email</th>
-            <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Ruolo</th>
-            <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Tier</th>
-            <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Stato</th>
-            <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Licenza</th>
-            <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Notifiche</th>
-            <th class="text-left px-4 py-3 text-xs font-medium text-text-secondary uppercase">Creato</th>
+            <th class="text-center px-4 py-3 text-xs font-medium text-text-secondary uppercase">Ruolo</th>
+            <th class="text-center px-4 py-3 text-xs font-medium text-text-secondary uppercase">Tier</th>
+            <th class="text-center px-4 py-3 text-xs font-medium text-text-secondary uppercase">Stato</th>
+            <th class="text-center px-4 py-3 text-xs font-medium text-text-secondary uppercase">Licenza</th>
+            <th class="text-center px-4 py-3 text-xs font-medium text-text-secondary uppercase">Notifiche</th>
+            <th class="text-center px-4 py-3 text-xs font-medium text-text-secondary uppercase">Creato</th>
             <th class="table-actions-header px-4 py-3 text-xs font-medium text-text-secondary uppercase">Azioni</th>
           </tr>
         </thead>
@@ -157,18 +163,18 @@ onMounted(fetchUsers)
           <tr v-for="user in users" :key="user.id" class="hover:bg-gray-50/50">
             <td class="px-4 py-3 text-sm font-medium text-text-primary">{{ user.name }}</td>
             <td class="px-4 py-3 text-sm text-text-secondary">{{ user.email }}</td>
-            <td class="px-4 py-3 text-sm">
+            <td class="px-4 py-3 text-sm text-center">
               <span :class="['inline-flex px-2 py-1 rounded-full text-xs font-medium', user.role === 'ADMIN' ? 'bg-primary/10 text-primary' : 'bg-gray-100 text-text-secondary']">
                 {{ user.role === 'ADMIN' ? 'Admin' : 'Standard' }}
               </span>
             </td>
-            <td class="px-4 py-3 text-sm">
+            <td class="px-4 py-3 text-sm text-center">
               <span :class="['inline-flex px-2 py-1 rounded-full text-xs font-medium', user.tier === 'PREMIUM' ? 'bg-secondary/10 text-secondary' : 'bg-gray-100 text-text-secondary']">
                 {{ user.tier === 'PREMIUM' ? 'Premium' : 'Free' }}
               </span>
             </td>
             <td class="px-4 py-3 text-sm">
-              <div class="flex flex-wrap gap-2">
+              <div class="flex flex-wrap justify-center gap-2">
                 <span :class="['inline-flex px-2 py-1 rounded-full text-xs font-medium', user.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700']">
                   {{ user.isActive ? 'Attivo' : 'Disattivato' }}
                 </span>
@@ -177,44 +183,57 @@ onMounted(fetchUsers)
                 </span>
               </div>
             </td>
-            <td class="px-4 py-3 text-sm">
+            <td class="px-4 py-3 text-sm text-center">
               <span :class="['inline-flex px-2 py-1 rounded-full text-xs font-medium', getLicenseStatus(user).className]">
                 {{ getLicenseStatus(user).label }}
               </span>
             </td>
             <td class="px-4 py-3 text-sm">
-              <div class="flex flex-wrap items-center gap-2">
+              <div class="flex flex-wrap items-center justify-center gap-2">
                 <span :class="['inline-flex px-2 py-1 rounded-full text-xs font-medium', getNotificationSummary(user).className]">
                   {{ getNotificationSummary(user).frequency }}
                 </span>
                 <span
                   v-for="channel in getNotificationSummary(user).channels"
-                  :key="channel"
-                  class="inline-flex px-2 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700"
+                  :key="channel.key"
+                  v-tooltip="channel.label"
+                  :aria-label="channel.label"
+                  class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-600"
                 >
-                  {{ channel }}
+                  <svg v-if="channel.key === 'audio'" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19a3 3 0 11-6 0 3 3 0 016 0zm12-3a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  </svg>
+                  <svg v-else-if="channel.key === 'posts'" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9h6m-6 4h6m-6-8h6"/>
+                  </svg>
+                  <svg v-else class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                  </svg>
                 </span>
               </div>
             </td>
-            <td class="px-4 py-3 text-sm text-text-secondary">{{ formatDate(user.createdAt) }}</td>
+            <td class="px-4 py-3 text-sm text-center text-text-secondary">
+              <div>{{ formatDate(user.createdAt) }}</div>
+              <div class="text-xs text-text-secondary/70">{{ formatTime(user.createdAt) }}</div>
+            </td>
             <td class="table-actions-cell">
               <div class="table-actions-group">
                 <button
                   v-if="user.isActive"
                   @click="resendInvite(user)"
                   class="icon-action-button icon-action-button-warning"
-                  title="Invia o reinvia invito"
+                  v-tooltip="'Invia o reinvia invito'"
                   aria-label="Invia o reinvia invito"
                 >
                   <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.945a2 2 0 002.22 0L21 8m-18 8h18a2 2 0 002-2V8a2 2 0 00-2-2H3a2 2 0 00-2 2v6a2 2 0 002 2z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
                   </svg>
                 </button>
                 <button
                   @click="router.push(`/users/${user.id}/edit`)"
                   class="icon-action-button icon-action-button-neutral"
-                  title="Modifica"
-                  aria-label="Modifica"
+                  v-tooltip="'Modifica utente'"
+                  aria-label="Modifica utente"
                 >
                   <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
@@ -223,8 +242,8 @@ onMounted(fetchUsers)
                 <button
                   @click="confirmDelete(user)"
                   class="icon-action-button icon-action-button-danger"
-                  title="Elimina"
-                  aria-label="Elimina"
+                  v-tooltip="'Elimina utente'"
+                  aria-label="Elimina utente"
                 >
                   <svg class="w-4 h-4 text-red-400 hover:text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
