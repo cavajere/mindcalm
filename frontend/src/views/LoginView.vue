@@ -1,21 +1,25 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
-import { useNotificationStore } from '../stores/notificationStore'
 import { getApiErrorMessage } from '../utils/apiMessages'
 
 const auth = useAuthStore()
 const router = useRouter()
-const notifications = useNotificationStore()
 
 const isDev = import.meta.env.DEV
 
 const email = ref(isDev ? 'admin@mindcalm.com' : '')
 const password = ref(isDev ? 'admin123!' : '')
 const loading = ref(false)
+const errorMessage = ref('')
+
+watch([email, password], () => {
+  if (errorMessage.value) errorMessage.value = ''
+})
 
 async function handleLogin() {
+  errorMessage.value = ''
   loading.value = true
 
   try {
@@ -27,8 +31,7 @@ async function handleLogin() {
       return
     }
 
-    const errorMessage = getApiErrorMessage(apiError, 'Errore di connessione')
-    notifications.showError(errorMessage)
+    errorMessage.value = getApiErrorMessage(apiError)
   } finally {
     loading.value = false
   }
@@ -53,7 +56,19 @@ async function handleLogin() {
         </div>
       </div>
 
-      <form @submit.prevent="handleLogin" class="card p-6 space-y-6">
+      <form @submit.prevent="handleLogin" class="card p-6 space-y-6" novalidate>
+
+          <div
+            v-if="errorMessage"
+            role="alert"
+            aria-live="polite"
+            class="flex gap-3 rounded-xl border border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/40 px-4 py-3 text-sm text-red-700 dark:text-red-200"
+          >
+            <svg class="w-5 h-5 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M18 10A8 8 0 11 2 10a8 8 0 0116 0zm-8-3a1 1 0 00-1 1v3a1 1 0 002 0V8a1 1 0 00-1-1zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+            </svg>
+            <span>{{ errorMessage }}</span>
+          </div>
 
           <div>
             <label class="block text-sm font-medium text-text-primary mb-2">Email</label>

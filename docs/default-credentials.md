@@ -21,7 +21,7 @@ Solo finché **non esiste alcun utente con `role=ADMIN` e `isActive=true`** nel 
 
 ## Utente STANDARD seedato
 
-Creato/aggiornato dallo script di seed produzione (`docker/production-notraefik/seed.sh --admin`) insieme all'admin reale.
+Creato/aggiornato dallo script di seed produzione con `docker/production-notraefik/seed.sh --users` (non include admin, quindi il bootstrap admin resta attivo).
 
 | Campo    | Valore                      |
 |----------|-----------------------------|

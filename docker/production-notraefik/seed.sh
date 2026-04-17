@@ -7,6 +7,7 @@ ENV_FILE="${COMPOSE_DIR}/.env"
 
 # Sezioni selezionate (default: nessuna, l'utente deve scegliere)
 SEED_ADMIN=false
+SEED_USERS=false
 SEED_CATEGORIES=false
 SEED_TAGS=false
 SEED_SMTP=false
@@ -27,13 +28,16 @@ usage() {
 Usage: ./seed.sh [opzioni] <sezioni>
 
 Sezioni (almeno una richiesta, oppure --all):
-  --admin        Crea/aggiorna l'utente admin (da ADMIN_EMAIL/ADMIN_PASSWORD nel .env)
+  --admin        Crea/aggiorna l'utente ADMIN da ADMIN_EMAIL/ADMIN_PASSWORD nel .env
+                 (attenzione: disattiva il bootstrap admin perche introduce un admin reale)
+  --users        Crea/aggiorna utenti STANDARD di prova (mantiene il bootstrap admin attivo)
   --categories   Seed categorie predefinite
   --tags         Seed tag predefiniti
   --smtp         Seed impostazioni SMTP
   --policies     Seed Terms Policy + Subscription Policy con consensi
   --demo         Seed dati demo (audio, post, eventi, contatti, codici invito, analytics, audit log)
-  --all          Tutte le sezioni
+  --all          Tutti i dati di prova ESCLUSI gli utenti (mantiene il bootstrap admin attivo):
+                 categories + tags + smtp + policies + demo
 
 Opzioni:
   --status       Mostra conteggio righe nel database ed esce
@@ -41,9 +45,10 @@ Opzioni:
   --help         Mostra questo messaggio
 
 Esempi:
-  ./seed.sh --admin                     # Solo admin user
-  ./seed.sh --admin --categories --tags # Admin + struttura base
-  ./seed.sh --all --yes                 # Tutto senza conferma
+  ./seed.sh --all --yes                 # Dati di prova senza utenti (bootstrap admin attivo)
+  ./seed.sh --users --yes               # Solo utenti STANDARD di prova
+  ./seed.sh --all --users --yes         # Dati di prova + utenti STANDARD
+  ./seed.sh --admin --yes               # Solo admin reale da .env (disattiva bootstrap)
   ./seed.sh --status                    # Mostra stato DB
 EOF
 }
@@ -85,13 +90,14 @@ parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --admin)      SEED_ADMIN=true; has_section=true ;;
+      --users)      SEED_USERS=true; has_section=true ;;
       --categories) SEED_CATEGORIES=true; has_section=true ;;
       --tags)       SEED_TAGS=true; has_section=true ;;
       --smtp)       SEED_SMTP=true; has_section=true ;;
       --policies)   SEED_POLICIES=true; has_section=true ;;
       --demo)       SEED_DEMO=true; has_section=true ;;
       --all)
-        SEED_ADMIN=true; SEED_CATEGORIES=true; SEED_TAGS=true
+        SEED_CATEGORIES=true; SEED_TAGS=true
         SEED_SMTP=true; SEED_POLICIES=true; SEED_DEMO=true
         has_section=true
         ;;
@@ -142,7 +148,7 @@ run_node() {
 # ---------------------------------------------------------------------------
 
 seed_admin() {
-  log "Seeding admin user..."
+  log "Seeding admin user (disattiva il bootstrap admin)..."
 
   local admin_email="${ADMIN_EMAIL:-bootstrap-admin@example.invalid}"
   local admin_password="${ADMIN_PASSWORD:-}"
@@ -171,21 +177,38 @@ seed_admin() {
         create: { email, password: hash, name, firstName, lastName, role: 'ADMIN', isActive: true },
       });
       console.log('  Admin: ' + user.email + ' (id: ' + user.id + ')');
+    })()
+    .catch(e => { console.error(e); process.exit(1); })
+    .finally(() => prisma.\$disconnect());
+  "
+}
 
-      const stdEmail = 'enrico.lanni@gmail.com';
-      const stdPassword = 'Alt53255!';
-      const stdName = 'Enrico Lanni';
-      const stdHash = await bcrypt.hash(stdPassword, 12);
-      const stdParts = stdName.split(' ');
-      const stdFirstName = stdParts[0] || stdName;
-      const stdLastName = stdParts.slice(1).join(' ') || null;
+seed_users() {
+  log "Seeding utenti STANDARD di prova..."
 
-      const stdUser = await prisma.user.upsert({
-        where: { email: stdEmail },
-        update: { password: stdHash, name: stdName, firstName: stdFirstName, lastName: stdLastName, role: 'STANDARD', isActive: true },
-        create: { email: stdEmail, password: stdHash, name: stdName, firstName: stdFirstName, lastName: stdLastName, role: 'STANDARD', isActive: true },
-      });
-      console.log('  Standard: ' + stdUser.email + ' (id: ' + stdUser.id + ')');
+  run_node "
+    const { PrismaClient } = require('@prisma/client');
+    const bcrypt = require('bcryptjs');
+    const prisma = new PrismaClient();
+
+    const testUsers = [
+      { email: 'enrico.lanni@gmail.com', password: 'Alt53255!', name: 'Enrico Lanni' },
+    ];
+
+    (async () => {
+      for (const u of testUsers) {
+        const hash = await bcrypt.hash(u.password, 12);
+        const parts = u.name.split(' ');
+        const firstName = parts[0] || u.name;
+        const lastName = parts.slice(1).join(' ') || null;
+
+        const user = await prisma.user.upsert({
+          where: { email: u.email },
+          update: { password: hash, name: u.name, firstName, lastName, role: 'STANDARD', isActive: true },
+          create: { email: u.email, password: hash, name: u.name, firstName, lastName, role: 'STANDARD', isActive: true },
+        });
+        console.log('  Standard: ' + user.email + ' (id: ' + user.id + ')');
+      }
     })()
     .catch(e => { console.error(e); process.exit(1); })
     .finally(() => prisma.\$disconnect());
@@ -704,7 +727,7 @@ main() {
   if [[ "${SHOW_STATUS}" == "true" ]]; then
     show_db_status
     # Se --status e' l'unica sezione, esci
-    if [[ "${SEED_ADMIN}${SEED_CATEGORIES}${SEED_TAGS}${SEED_SMTP}${SEED_POLICIES}${SEED_DEMO}" == "falsefalsefalsefalsefalsefalse" ]]; then
+    if [[ "${SEED_ADMIN}${SEED_USERS}${SEED_CATEGORIES}${SEED_TAGS}${SEED_SMTP}${SEED_POLICIES}${SEED_DEMO}" == "falsefalsefalsefalsefalsefalsefalse" ]]; then
       exit 0
     fi
   fi
@@ -712,6 +735,7 @@ main() {
   # Riepilogo sezioni
   local sections=""
   [[ "${SEED_ADMIN}"      == "true" ]] && sections="${sections} admin"
+  [[ "${SEED_USERS}"      == "true" ]] && sections="${sections} users"
   [[ "${SEED_CATEGORIES}" == "true" ]] && sections="${sections} categories"
   [[ "${SEED_TAGS}"       == "true" ]] && sections="${sections} tags"
   [[ "${SEED_SMTP}"       == "true" ]] && sections="${sections} smtp"
@@ -722,6 +746,7 @@ main() {
   confirm "Procedere con il seeding?"
 
   [[ "${SEED_ADMIN}"      == "true" ]] && seed_admin
+  [[ "${SEED_USERS}"      == "true" ]] && seed_users
   [[ "${SEED_CATEGORIES}" == "true" ]] && seed_categories
   [[ "${SEED_TAGS}"       == "true" ]] && seed_tags
   [[ "${SEED_SMTP}"       == "true" ]] && seed_smtp

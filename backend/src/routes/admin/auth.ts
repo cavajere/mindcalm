@@ -198,7 +198,7 @@ router.post('/login', loginRateLimiter, loginValidation, async (req: Request, re
       bootstrapAvailable: bootstrapEnabled,
     },
   })
-  res.status(401).json({ error: 'Credenziali non valide' })
+  res.status(401).json({ code: 'INVALID_CREDENTIALS', error: 'Credenziali non valide' })
 })
 
 // POST /api/auth/app-login
@@ -222,7 +222,7 @@ router.post('/app-login', loginRateLimiter, loginValidation, async (req: Request
       actorEmail: email,
       metadata: { channel: 'APP' },
     })
-    res.status(401).json({ error: 'Credenziali non valide' })
+    res.status(401).json({ code: 'INVALID_CREDENTIALS', error: 'Credenziali non valide' })
     return
   }
 

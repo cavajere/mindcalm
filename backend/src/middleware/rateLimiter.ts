@@ -15,7 +15,7 @@ export const publicRateLimiter = rateLimit({
   max: config.rateLimit.public,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Troppe richieste, riprova tra poco' },
+  message: { code: 'RATE_LIMITED', error: 'Troppe richieste, riprova tra poco' },
 })
 
 export const loginRateLimiter = rateLimit({
@@ -23,7 +23,7 @@ export const loginRateLimiter = rateLimit({
   max: config.rateLimit.login,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Troppi tentativi di login, riprova tra poco' },
+  message: { code: 'LOGIN_RATE_LIMITED', error: 'Troppi tentativi di login, riprova tra poco' },
 })
 
 export const inviteCodeValidationRateLimiter = rateLimit({
@@ -32,7 +32,7 @@ export const inviteCodeValidationRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: getIpKey,
-  message: { error: 'Troppi tentativi di verifica codice, riprova tra poco' },
+  message: { code: 'INVITE_CODE_RATE_LIMITED', error: 'Troppi tentativi di verifica codice, riprova tra poco' },
 })
 
 export const registrationRateLimiter = rateLimit({
@@ -41,7 +41,7 @@ export const registrationRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: getIpKey,
-  message: { error: 'Troppi tentativi di registrazione, riprova tra poco' },
+  message: { code: 'REGISTRATION_RATE_LIMITED', error: 'Troppi tentativi di registrazione, riprova tra poco' },
 })
 
 export const registrationVerificationRateLimiter = rateLimit({
@@ -50,7 +50,7 @@ export const registrationVerificationRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: getIpKey,
-  message: { error: 'Troppi tentativi di conferma registrazione, riprova tra poco' },
+  message: { code: 'REGISTRATION_VERIFY_RATE_LIMITED', error: 'Troppi tentativi di conferma registrazione, riprova tra poco' },
 })
 
 export const eventBookingAccessRateLimiter = rateLimit({
@@ -59,7 +59,7 @@ export const eventBookingAccessRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: getIpKey,
-  message: { error: 'Troppi tentativi di accesso prenotazione, riprova tra poco' },
+  message: { code: 'EVENT_BOOKING_ACCESS_RATE_LIMITED', error: 'Troppi tentativi di accesso prenotazione, riprova tra poco' },
 })
 
 export const eventBookingRequestRateLimiter = rateLimit({
@@ -68,7 +68,7 @@ export const eventBookingRequestRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: getIpKey,
-  message: { error: 'Troppi tentativi di richiesta link, riprova tra poco' },
+  message: { code: 'EVENT_BOOKING_REQUEST_RATE_LIMITED', error: 'Troppi tentativi di richiesta link, riprova tra poco' },
 })
 
 export const eventBookingCreateRateLimiter = rateLimit({
@@ -77,7 +77,7 @@ export const eventBookingCreateRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: getIpKey,
-  message: { error: 'Troppi tentativi di prenotazione, riprova tra poco' },
+  message: { code: 'EVENT_BOOKING_CREATE_RATE_LIMITED', error: 'Troppi tentativi di prenotazione, riprova tra poco' },
 })
 
 export const playbackSessionRateLimiter = rateLimit({
@@ -86,5 +86,5 @@ export const playbackSessionRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: getRequestKey,
-  message: { error: 'Troppe richieste di riproduzione, riprova tra poco' },
+  message: { code: 'PLAYBACK_RATE_LIMITED', error: 'Troppe richieste di riproduzione, riprova tra poco' },
 })
