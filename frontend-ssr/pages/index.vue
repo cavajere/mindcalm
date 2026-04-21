@@ -9,11 +9,10 @@ const latestPosts = posts.slice(0, 3)
 const latestAudio = audioItems.slice(0, 3)
 const upcomingEvents = events.slice(0, 3)
 
-useSeoMeta({
-  title: 'MindCalm',
+useSeoDefaults({
+  title: 'Mindfulness guidata con audio, articoli ed eventi',
   description: 'Sessioni audio, articoli ed eventi di mindfulness guidata.',
-  ogTitle: 'MindCalm',
-  ogDescription: 'Sessioni audio, articoli ed eventi di mindfulness guidata.',
+  ogType: 'website',
 })
 </script>
 

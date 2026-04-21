@@ -1,3 +1,10 @@
+<script setup lang="ts">
+useHead({
+  titleTemplate: (titleChunk?: string) =>
+    titleChunk && titleChunk !== 'MindCalm' ? `${titleChunk} · MindCalm` : 'MindCalm',
+})
+</script>
+
 <template>
   <div class="app-shell">
     <header class="topbar">

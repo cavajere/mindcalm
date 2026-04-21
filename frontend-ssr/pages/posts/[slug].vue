@@ -4,10 +4,11 @@ const slug = computed(() => String(route.params.slug || ''))
 
 const post = await fetchPostDetail(slug.value)
 
-useSeoMeta({
+useSeoDefaults({
   title: post?.title || 'Articolo',
   description: post?.excerpt || 'Dettaglio articolo MindCalm',
   ogType: 'article',
+  coverImagePath: post?.coverImage ?? null,
 })
 
 useHead({
@@ -19,6 +20,7 @@ useHead({
         '@type': 'Article',
         headline: post.title,
         description: post.excerpt || undefined,
+        datePublished: post.publishedAt || undefined,
       }),
     }]
     : [],

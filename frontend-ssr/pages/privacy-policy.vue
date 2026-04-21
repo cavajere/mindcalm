@@ -3,7 +3,7 @@ const config = useRuntimeConfig()
 const sourceUrl = `${config.public.apiBase}/public-api/privacy`
 const { data } = await useFetch<string>(sourceUrl, { responseType: 'text' })
 
-useSeoMeta({
+useSeoDefaults({
   title: 'Privacy Policy',
   description: 'Informativa privacy di MindCalm.',
 })

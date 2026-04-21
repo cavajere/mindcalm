@@ -1,7 +1,7 @@
 <script setup lang="ts">
 const posts = await fetchPostList()
 
-useSeoMeta({
+useSeoDefaults({
   title: 'Articoli mindfulness',
   description: 'Approfondimenti e guide pratiche di mindfulness.',
 })

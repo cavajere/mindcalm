@@ -1,7 +1,7 @@
 <script setup lang="ts">
 const audioItems = await fetchAudioList()
 
-useSeoMeta({
+useSeoDefaults({
   title: 'Sessioni audio',
   description: 'Meditazioni guidate e percorsi audio MindCalm.',
 })

@@ -4,9 +4,11 @@ const slug = computed(() => String(route.params.slug || ''))
 
 const event = await fetchEventDetail(slug.value)
 
-useSeoMeta({
+useSeoDefaults({
   title: event?.title || 'Evento',
   description: event?.excerpt || 'Dettaglio evento MindCalm',
+  ogType: 'article',
+  coverImagePath: event?.coverImage ?? null,
 })
 </script>
 
