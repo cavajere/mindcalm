@@ -1,16 +1,24 @@
 export default defineEventHandler(() => {
   const config = useRuntimeConfig()
-  const body = [
-    'User-agent: *',
-    'Allow: /',
-    'Disallow: /admin',
-    'Disallow: /api/',
-    `Sitemap: ${config.public.siteUrl}/sitemap.xml`,
-  ].join('\n')
+  const allowIndexing = config.public.allowIndexing !== false
 
-  return new Response(body, {
+  const lines = allowIndexing
+    ? [
+        'User-agent: *',
+        'Allow: /',
+        'Disallow: /admin',
+        'Disallow: /api/',
+        `Sitemap: ${config.public.siteUrl}/sitemap.xml`,
+      ]
+    : [
+        'User-agent: *',
+        'Disallow: /',
+      ]
+
+  return new Response(lines.join('\n'), {
     headers: {
       'content-type': 'text/plain; charset=utf-8',
+      'cache-control': 'public, max-age=300',
     },
   })
 })

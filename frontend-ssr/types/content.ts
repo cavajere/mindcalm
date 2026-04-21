@@ -10,25 +10,30 @@ export interface PaginatedResponse<T> {
   pagination: Pagination
 }
 
-export interface PublicAudio {
+export interface CoverImageFields {
+  coverImage?: string | null
+  coverImageOriginalName?: string | null
+  coverImageDisplayName?: string | null
+}
+
+export interface PublicAudio extends CoverImageFields {
   id: string
   title: string
   description?: string | null
   durationSec?: number | null
-  coverImageUrl?: string | null
+  publishedAt?: string | null
 }
 
-export interface PublicPost {
+export interface PublicPost extends CoverImageFields {
   id: string
   slug: string
   title: string
   excerpt?: string | null
   body?: string | null
-  coverImageUrl?: string | null
   publishedAt?: string | null
 }
 
-export interface PublicEvent {
+export interface PublicEvent extends CoverImageFields {
   id: string
   slug: string
   title: string
@@ -37,5 +42,5 @@ export interface PublicEvent {
   city?: string | null
   venue?: string | null
   startsAt?: string | null
-  coverImageUrl?: string | null
+  publishedAt?: string | null
 }

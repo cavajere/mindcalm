@@ -4,9 +4,10 @@ const id = computed(() => String(route.params.id || ''))
 
 const audio = await fetchAudioDetail(id.value)
 
-useSeoMeta({
+useSeoDefaults({
   title: audio?.title || 'Sessione audio',
   description: audio?.description || 'Dettaglio sessione audio MindCalm',
+  coverImagePath: audio?.coverImage ?? null,
 })
 </script>
 

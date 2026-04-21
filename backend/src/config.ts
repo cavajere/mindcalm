@@ -86,6 +86,7 @@ export const config = {
   frontend: {
     renderMode: (process.env.FRONTEND_RENDER_MODE?.trim().toLowerCase() || 'spa') as 'spa' | 'ssr',
     ssrOrigin: process.env.FRONTEND_SSR_ORIGIN?.trim() || 'http://localhost:5573',
+    ssrInternalToken: process.env.SSR_INTERNAL_TOKEN?.trim() || '',
   },
   appUrls: {
     public: process.env.PUBLIC_APP_URL?.trim() || 'http://localhost:5473',

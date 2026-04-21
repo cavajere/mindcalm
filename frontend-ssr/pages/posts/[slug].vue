@@ -3,11 +3,13 @@ const route = useRoute()
 const slug = computed(() => String(route.params.slug || ''))
 
 const post = await fetchPostDetail(slug.value)
+const sanitizedBody = computed(() => sanitizeContentHtml(post?.body))
 
-useSeoMeta({
+useSeoDefaults({
   title: post?.title || 'Articolo',
   description: post?.excerpt || 'Dettaglio articolo MindCalm',
   ogType: 'article',
+  coverImagePath: post?.coverImage ?? null,
 })
 
 useHead({
@@ -19,6 +21,7 @@ useHead({
         '@type': 'Article',
         headline: post.title,
         description: post.excerpt || undefined,
+        datePublished: post.publishedAt || undefined,
       }),
     }]
     : [],
@@ -29,6 +32,6 @@ useHead({
   <article v-if="post" class="card">
     <h1>{{ post.title }}</h1>
     <p>{{ post.excerpt }}</p>
-    <div v-if="post.body" v-html="post.body" />
+    <div v-if="sanitizedBody" v-html="sanitizedBody" />
   </article>
 </template>

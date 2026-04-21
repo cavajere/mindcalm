@@ -1,7 +1,7 @@
 <script setup lang="ts">
 const events = await fetchEventList()
 
-useSeoMeta({
+useSeoDefaults({
   title: 'Eventi mindfulness',
   description: 'Calendario eventi e incontri MindCalm.',
 })

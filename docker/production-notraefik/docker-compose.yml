@@ -38,6 +38,8 @@ services:
       NODE_ENV: production
       NUXT_PUBLIC_API_BASE: http://api:3000
       NUXT_PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-https://mindcalm.example.com}
+      NUXT_PUBLIC_ALLOW_INDEXING: ${NUXT_PUBLIC_ALLOW_INDEXING:-true}
+      SSR_INTERNAL_TOKEN: ${SSR_INTERNAL_TOKEN:-}
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/healthz', (r) => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))"]
       interval: 20s
@@ -100,6 +102,7 @@ services:
       ADMIN_NAME: ${ADMIN_NAME:-MindCalm Bootstrap}
       FRONTEND_RENDER_MODE: ${FRONTEND_RENDER_MODE:-ssr}
       FRONTEND_SSR_ORIGIN: http://frontend-ssr:3000
+      SSR_INTERNAL_TOKEN: ${SSR_INTERNAL_TOKEN:-}
     volumes:
       - ./data/audio:/data/audio
       - ./data/hls:/data/hls

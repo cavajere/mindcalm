@@ -9,6 +9,10 @@
     "preview": "nuxt preview --port 5573"
   },
   "dependencies": {
-    "nuxt": "^3.17.0"
+    "nuxt": "^3.17.0",
+    "sanitize-html": "^2.13.0"
+  },
+  "devDependencies": {
+    "@types/sanitize-html": "^2.13.0"
   }
 }

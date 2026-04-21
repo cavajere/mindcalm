@@ -3,10 +3,13 @@ const route = useRoute()
 const slug = computed(() => String(route.params.slug || ''))
 
 const event = await fetchEventDetail(slug.value)
+const sanitizedBody = computed(() => sanitizeContentHtml(event?.body))
 
-useSeoMeta({
+useSeoDefaults({
   title: event?.title || 'Evento',
   description: event?.excerpt || 'Dettaglio evento MindCalm',
+  ogType: 'article',
+  coverImagePath: event?.coverImage ?? null,
 })
 </script>
 
@@ -16,6 +19,6 @@ useSeoMeta({
     <p>{{ event.excerpt }}</p>
     <p v-if="event.city">{{ event.city }}<span v-if="event.venue"> · {{ event.venue }}</span></p>
     <p v-if="event.startsAt">Data: {{ event.startsAt }}</p>
-    <div v-if="event.body" v-html="event.body" />
+    <div v-if="sanitizedBody" v-html="sanitizedBody" />
   </article>
 </template>
