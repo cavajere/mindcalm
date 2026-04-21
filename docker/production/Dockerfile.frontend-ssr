@@ -1,0 +1,41 @@
+# =============================================================================
+# MindCalm — Nuxt SSR runtime image
+# =============================================================================
+
+FROM node:20-slim AS deps
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+
+COPY package*.json ./
+COPY packages/design-tokens/ ./packages/design-tokens/
+COPY frontend-ssr/package*.json ./frontend-ssr/
+RUN npm ci
+
+FROM deps AS builder
+COPY frontend-ssr/ ./frontend-ssr/
+WORKDIR /app
+RUN npm run build --workspace=frontend-ssr
+
+FROM node:20-slim AS prod
+LABEL org.opencontainers.image.title="MindCalm Frontend SSR"
+LABEL org.opencontainers.image.description="Nuxt SSR runtime for MindCalm public website"
+
+RUN addgroup --system --gid 1001 appgroup && \
+    adduser --system --uid 1001 --ingroup appgroup appuser
+
+WORKDIR /app/frontend-ssr
+
+COPY --from=builder /app/frontend-ssr/.output ./.output
+
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV NITRO_HOST=0.0.0.0
+ENV NITRO_PORT=3000
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:3000/healthz', (r) => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))"
+
+USER appuser
+CMD ["node", ".output/server/index.mjs"]

@@ -7,11 +7,15 @@ const PID_FILE = path.resolve(__dirname, '../../.devserver-pids.json');
 const ROOT = path.resolve(__dirname, '../..');
 const isWin = process.platform === 'win32';
 
-const PORTS = [3300, 5473, 5474];
+const useSsrFrontend = process.env.MINDCALM_FRONTEND_MODE === 'ssr';
+const frontendWorkspace = useSsrFrontend ? 'frontend-ssr' : 'frontend';
+const frontendPort = useSsrFrontend ? 5573 : 5473;
+
+const PORTS = [3300, frontendPort, 5474];
 
 const services = [
   { name: 'api', cmd: 'npm', args: ['run', 'dev', '-w', 'backend'] },
-  { name: 'frontend', cmd: 'npm', args: ['run', 'dev', '-w', 'frontend'] },
+  { name: 'frontend', cmd: 'npm', args: ['run', 'dev', '-w', frontendWorkspace] },
   { name: 'admin', cmd: 'npm', args: ['run', 'dev', '-w', 'admin'] },
 ];
 
@@ -33,6 +37,7 @@ function killExistingProcesses() {
     const portList = PORTS.join(',');
     const killCommands = [
       `pkill -f "vite.*mindcalm" 2>/dev/null || true`,
+      `pkill -f "nuxt.*mindcalm" 2>/dev/null || true`,
       `pkill -f "tsx.*mindcalm" 2>/dev/null || true`,
       `lsof -ti :${portList} 2>/dev/null | xargs -r kill -9 2>/dev/null || true`,
     ];
@@ -56,7 +61,7 @@ function ensureDocker() {
     exec(
       'docker compose ps --services --filter status=running',
       { cwd: composePath },
-      (err, stdout) => {
+      (_err, stdout) => {
         const running = (stdout || '').trim().split('\n').filter(Boolean);
         const required = ['postgres', 'mailhog'];
         const missing = required.filter(s => !running.includes(s));
@@ -84,10 +89,10 @@ function ensureDocker() {
 function ensureMigrations() {
   return new Promise((resolve) => {
     const backendDir = path.resolve(ROOT, 'backend');
-    exec('npx prisma migrate status', { cwd: backendDir }, (err, stdout) => {
+    exec('npx prisma migrate status', { cwd: backendDir }, (_err, stdout) => {
       if (stdout && stdout.includes('have not yet been applied')) {
         console.log('[MindCalm] Pending migrations found, applying...');
-        exec('npx prisma migrate deploy', { cwd: backendDir }, (err2, stdout2, stderr2) => {
+        exec('npx prisma migrate deploy', { cwd: backendDir }, (err2, _stdout2, stderr2) => {
           if (err2) {
             console.error('[MindCalm] Migration failed:', stderr2 || err2.message);
           } else {
@@ -148,8 +153,9 @@ async function start() {
 ╔══════════════════════════════════════════════╗
 ║           MindCalm Dev Stack                 ║
 ╠══════════════════════════════════════════════╣
+║  Mode:      ${useSsrFrontend ? 'SSR (Nuxt)' : 'SPA (Vite)'}${useSsrFrontend ? '           ' : '          '}║
 ║  API:       http://localhost:3300            ║
-║  Frontend:  http://localhost:5473            ║
+║  Frontend:  http://localhost:${frontendPort}            ║
 ║  Admin:     http://localhost:5474/admin/     ║
 ║  Postgres:  localhost:5435                   ║
 ║  MailHog:   http://localhost:3326            ║

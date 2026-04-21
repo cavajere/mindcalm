@@ -15,6 +15,7 @@ NAS Synology (traefik-gateway)
 VM Ubuntu (/opt/mindcalm)
   |
   mindcalm_notraefik_api (:3003 -> :3000 interno)
+  mindcalm_notraefik_frontend_ssr (:3000 interno, non esposto)
   mindcalm_notraefik_postgres (solo rete interna)
 ```
 
@@ -60,6 +61,8 @@ nano .env
 | `ADMIN_PASSWORD` | Password bootstrap sicura a scelta |
 | `ADMIN_EMAIL` | Email dedicata al bootstrap admin |
 | `CORS_ORIGIN` | Dominio pubblico reale dell'istanza |
+| `PUBLIC_SITE_URL` | URL pubblico canonico usato dal frontend SSR |
+| `FRONTEND_RENDER_MODE` | `ssr` (default) o `spa` per rollback rapido |
 | `DEPLOY_BRANCH` | Branch git da deployare (`main` in produzione) |
 
 ## 3. Creare le directory dati
@@ -138,7 +141,7 @@ Attenzione:
 - se `.env` non esiste, viene creato automaticamente da `.env.example`
 - lo script deploya il branch definito da `DEPLOY_BRANCH` nel `.env` oppure quello passato con `--branch`
 - se il repository ha modifiche locali tracciate, lo script si ferma prima del deploy
-- se il deploy fallisce, lo script mostra automaticamente `docker compose ps` e gli ultimi log di `api` e `postgres`
+- se il deploy fallisce, lo script mostra automaticamente `docker compose ps` e gli ultimi log di `api`, `frontend-ssr` e `postgres`
 
 Modalita' disponibili:
 
@@ -177,12 +180,16 @@ Comportamento dello script:
 - con `--reset-data` esegue `docker compose down --volumes --remove-orphans --rmi local` e rimuove `./data`
 - ricostruisce lo stack e verifica:
   - `http://127.0.0.1:3003/api/health`
-  - `http://127.0.0.1:3003/`
+  - `http://127.0.0.1:3003/` (proxy SSR via API)
+  - `http://127.0.0.1:3003/robots.txt`
+  - `http://127.0.0.1:3003/sitemap.xml`
   - `http://127.0.0.1:3003/admin/` -> `302`
   - `http://127.0.0.1:3003/admin/login` -> `200`
 - se qualcosa va storto, stampa automaticamente stato container e log recenti
 
 ## 5. Verifica
+
+Il deploy esegue automaticamente anche `smoke-check.sh` a fine procedura.
 
 ```bash
 # Stato container
@@ -237,6 +244,9 @@ Le migrazioni Prisma vengono applicate automaticamente dall'entrypoint ad ogni a
 ```bash
 # Log in tempo reale
 docker compose logs -f
+
+# Smoke test manuale (ripetibile)
+./smoke-check.sh
 
 # Riavvio API (senza rebuild)
 docker compose restart api
@@ -297,3 +307,20 @@ chmod -R 777 ./data/audio ./data/hls ./data/images
 | Localo API | 3001 | 3000 | localo.it |
 | AlTavolo API | 3002 | 3000 | altavolo.it |
 | **MindCalm API** | **3003** | **3000** | **mindcalm.datagestio.com** |
+
+## Rollback rapido SSR -> SPA
+
+Se devi tornare subito alla modalita SPA:
+
+```bash
+cd /opt/mindcalm/docker/production-notraefik
+sed -i "s/^FRONTEND_RENDER_MODE=.*/FRONTEND_RENDER_MODE=spa/" .env
+./deploy.sh --yes
+```
+
+Per ripristinare SSR:
+
+```bash
+sed -i "s/^FRONTEND_RENDER_MODE=.*/FRONTEND_RENDER_MODE=ssr/" .env
+./deploy.sh --yes
+```

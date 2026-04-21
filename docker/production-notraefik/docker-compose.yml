@@ -23,6 +23,27 @@ name: mindcalm-notraefik
 # =============================================================================
 
 services:
+
+  # ---------------------------------------------------------------------------
+  # MindCalm Frontend SSR - Nuxt Runtime
+  # ---------------------------------------------------------------------------
+  frontend-ssr:
+    build:
+      context: ../..
+      dockerfile: docker/production/Dockerfile.frontend-ssr
+    image: mindcalm-frontend-ssr-notraefik:${VERSION:-latest}
+    container_name: mindcalm_notraefik_frontend_ssr
+    restart: always
+    environment:
+      NODE_ENV: production
+      NUXT_PUBLIC_API_BASE: http://api:3000
+      NUXT_PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-https://mindcalm.example.com}
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/healthz', (r) => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+
   # ---------------------------------------------------------------------------
   # PostgreSQL - Database
   # ---------------------------------------------------------------------------
@@ -56,6 +77,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      frontend-ssr:
+        condition: service_healthy
     environment:
       NODE_ENV: production
       HOST: ${HOST:-0.0.0.0}
@@ -75,6 +98,8 @@ services:
       ADMIN_EMAIL: ${ADMIN_EMAIL:-bootstrap-admin@example.invalid}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       ADMIN_NAME: ${ADMIN_NAME:-MindCalm Bootstrap}
+      FRONTEND_RENDER_MODE: ${FRONTEND_RENDER_MODE:-ssr}
+      FRONTEND_SSR_ORIGIN: http://frontend-ssr:3000
     volumes:
       - ./data/audio:/data/audio
       - ./data/hls:/data/hls
