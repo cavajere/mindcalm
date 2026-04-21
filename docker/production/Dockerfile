@@ -12,6 +12,7 @@ COPY packages/design-tokens/ ./packages/design-tokens/
 COPY backend/package*.json ./backend/
 COPY frontend/package*.json ./frontend/
 COPY admin/package*.json ./admin/
+COPY frontend-ssr/package*.json ./frontend-ssr/
 COPY backend/prisma/schema.prisma ./backend/prisma/
 
 RUN npm ci
@@ -51,6 +52,7 @@ COPY packages/design-tokens/ ./packages/design-tokens/
 COPY backend/package.json ./backend/
 COPY frontend/package.json ./frontend/
 COPY admin/package.json ./admin/
+COPY frontend-ssr/package.json ./frontend-ssr/
 COPY backend/prisma/schema.prisma ./backend/prisma/
 
 # Installa solo dipendenze di produzione del backend

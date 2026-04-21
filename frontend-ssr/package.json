@@ -1,0 +1,14 @@
+{
+  "name": "mindcalm-frontend-ssr",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev --port 5573",
+    "build": "nuxt build",
+    "preview": "nuxt preview --port 5573"
+  },
+  "dependencies": {
+    "nuxt": "^3.17.0"
+  }
+}

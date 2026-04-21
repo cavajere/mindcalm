@@ -82,6 +82,11 @@ export const config = {
     trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
   },
 
+
+  frontend: {
+    renderMode: (process.env.FRONTEND_RENDER_MODE?.trim().toLowerCase() || 'spa') as 'spa' | 'ssr',
+    ssrOrigin: process.env.FRONTEND_SSR_ORIGIN?.trim() || 'http://localhost:5573',
+  },
   appUrls: {
     public: process.env.PUBLIC_APP_URL?.trim() || 'http://localhost:5473',
     admin: process.env.ADMIN_APP_URL?.trim() || 'http://localhost:5474/admin',

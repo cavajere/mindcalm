@@ -63,8 +63,8 @@ die() {
 }
 
 show_recent_logs() {
-  log "Ultimi log di api e postgres"
-  compose logs --tail=120 api postgres || true
+  log "Ultimi log di api, frontend-ssr e postgres"
+  compose logs --tail=120 api frontend-ssr postgres || true
 }
 
 show_runtime_status() {
@@ -172,6 +172,18 @@ load_env_file() {
   fi
 }
 
+
+validate_frontend_mode_config() {
+  case "${FRONTEND_RENDER_MODE:-ssr}" in
+    ssr|spa) ;;
+    *) die "FRONTEND_RENDER_MODE non valido: ${FRONTEND_RENDER_MODE}. Valori ammessi: ssr | spa" ;;
+  esac
+
+  if [[ "${FRONTEND_RENDER_MODE:-ssr}" == "ssr" ]]; then
+    [[ -n "${PUBLIC_SITE_URL:-}" ]] || die "PUBLIC_SITE_URL e' obbligatorio quando FRONTEND_RENDER_MODE=ssr"
+  fi
+}
+
 check_git_worktree() {
   local tracked_changes
   tracked_changes="$(git -C "${REPO_ROOT}" status --porcelain --untracked-files=no)"
@@ -192,6 +204,10 @@ print_mode_summary() {
   log "Branch locale corrente: ${current_branch:-detached}"
   log "Branch target deploy: ${DEPLOY_BRANCH}"
   log "Commit locale: $(git -C "${REPO_ROOT}" rev-parse --short HEAD) $(git -C "${REPO_ROOT}" log -1 --pretty=%s)"
+  log "Frontend mode: ${FRONTEND_RENDER_MODE:-ssr}"
+  if [[ "${FRONTEND_RENDER_MODE:-ssr}" == "ssr" ]]; then
+    log "Public site URL: ${PUBLIC_SITE_URL}"
+  fi
 
   if [[ "${KEEP_DATA}" == "true" ]]; then
     log "Modalita': aggiornamento conservativo con preservazione dati"
@@ -292,6 +308,42 @@ deploy_stack() {
   compose up -d --remove-orphans
 }
 
+
+show_frontend_ssr_diagnostics() {
+  local frontend_container_id
+  frontend_container_id="$(compose ps -q frontend-ssr 2>/dev/null || true)"
+
+  log "Diagnostica frontend-ssr"
+  compose ps frontend-ssr || true
+
+  if [[ -z "${frontend_container_id}" ]]; then
+    log "Container frontend-ssr non trovato"
+    return 0
+  fi
+
+  log "Health status Docker (frontend-ssr)"
+  docker inspect --format '{{json .State.Health}}' "${frontend_container_id}" || true
+
+  log "Verifica HTTP interna frontend-ssr"
+  docker exec "${frontend_container_id}" sh -lc 'node -e "require(\"http\").get(\"http://127.0.0.1:3000/healthz\", (r) => { console.log(r.statusCode); process.exit(r.statusCode === 200 ? 0 : 1) }).on(\"error\", (err) => { console.error(err.message); process.exit(1) })"' || true
+
+  log "Ultimi log frontend-ssr"
+  compose logs --tail=150 frontend-ssr || true
+}
+
+verify_ssr_upstream_from_api() {
+  local api_container_id
+  api_container_id="$(compose ps -q api 2>/dev/null || true)"
+
+  if [[ -z "${api_container_id}" ]]; then
+    log "Container API non trovato per verifica upstream SSR"
+    return 1
+  fi
+
+  log "Verifica reachability SSR upstream da API container"
+  docker exec "${api_container_id}" sh -lc 'node -e "require(\"http\").get(\"http://frontend-ssr:3000/healthz\", (r) => { console.log(r.statusCode); process.exit(r.statusCode === 200 ? 0 : 1) }).on(\"error\", (err) => { console.error(err.message); process.exit(1) })"'
+}
+
 show_api_diagnostics() {
   local api_container_id
   api_container_id="$(compose ps -q api 2>/dev/null || true)"
@@ -343,15 +395,33 @@ wait_for_http_status() {
     show_api_diagnostics
   fi
 
+  if [[ "${description}" == "Health check frontend-ssr" ]]; then
+    show_frontend_ssr_diagnostics
+  fi
+
   die "${description} non raggiungibile su ${url} (ultimo status: ${status:-000})"
 }
 
 show_post_deploy_status() {
   show_runtime_status
   wait_for_http_status "http://127.0.0.1:${API_PORT}/api/health" "Health check API" 200
-  wait_for_http_status "http://127.0.0.1:${API_PORT}/" "Frontend root" 200
+
+  if [[ "${FRONTEND_RENDER_MODE:-ssr}" == "ssr" ]]; then
+    wait_for_http_status "http://127.0.0.1:${API_PORT}/" "Frontend root (SSR proxy)" 200
+    wait_for_http_status "http://127.0.0.1:${API_PORT}/robots.txt" "Robots SSR" 200
+    wait_for_http_status "http://127.0.0.1:${API_PORT}/sitemap.xml" "Sitemap SSR" 200
+    verify_ssr_upstream_from_api || show_frontend_ssr_diagnostics
+  else
+    wait_for_http_status "http://127.0.0.1:${API_PORT}/" "Frontend root (SPA fallback)" 200
+  fi
+
   wait_for_http_status "http://127.0.0.1:${API_PORT}/admin/" "Admin root" 200 302
   wait_for_http_status "http://127.0.0.1:${API_PORT}/admin/login" "Admin login" 200
+
+  if [[ -x "${COMPOSE_DIR}/smoke-check.sh" ]]; then
+    log "Eseguo smoke-check post deploy"
+    "${COMPOSE_DIR}/smoke-check.sh"
+  fi
 
   log "Deploy completato"
 }
@@ -361,6 +431,7 @@ main() {
   check_prerequisites
   ensure_env_file
   load_env_file
+  validate_frontend_mode_config
   check_git_worktree
   print_mode_summary
 

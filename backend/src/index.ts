@@ -34,6 +34,7 @@ import { startBackupScheduler } from './services/backupService'
 import { ensureDatabaseReady } from './services/startupService'
 import { asyncHandler } from './utils/asyncRouter'
 import { startNotificationPipeline } from './services/notificationService'
+import { createSsrProxyMiddleware } from './middleware/ssrProxy'
 
 const app = express()
 
@@ -150,12 +151,16 @@ if (config.isProduction) {
     res.sendFile(path.join(adminDir, 'index.html'))
   }))
 
-  // Frontend PWA
-  app.use(express.static(publicDir, { index: 'index.html' }))
-  app.get('*', (_req, res, next) => {
-    if (_req.path.startsWith('/api/')) return next()
-    res.sendFile(path.join(publicDir, 'index.html'))
-  })
+  if (config.frontend.renderMode === 'ssr') {
+    app.use(createSsrProxyMiddleware(config.frontend.ssrOrigin))
+  } else {
+    // Frontend PWA SPA fallback
+    app.use(express.static(publicDir, { index: 'index.html' }))
+    app.get('*', (_req, res, next) => {
+      if (_req.path.startsWith('/api/')) return next()
+      res.sendFile(path.join(publicDir, 'index.html'))
+    })
+  }
 }
 
 // Error handler

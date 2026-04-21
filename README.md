@@ -53,6 +53,42 @@ mindcalm/
 
 ---
 
+
+## Frontend SSR (nuovo)
+
+Per la migrazione SEO-first e' stato aggiunto il workspace `frontend-ssr` basato su Nuxt 3 (SSR).
+
+Comandi principali:
+
+```bash
+# sviluppo SSR
+npm run dev:frontend:ssr
+
+# build SSR
+npm run build:frontend:ssr
+
+# preview SSR
+npm run preview:frontend:ssr
+```
+
+Variabili utili:
+- `NUXT_PUBLIC_API_BASE` (default `http://localhost:3300`)
+- `NUXT_PUBLIC_SITE_URL` (default `http://localhost:5573`)
+
+Endpoint SEO forniti da Nuxt:
+- `/robots.txt`
+- `/sitemap.xml`
+
+
+Per abilitare il proxy SSR in produzione dal backend Express:
+
+- `FRONTEND_RENDER_MODE=ssr`
+- `FRONTEND_SSR_ORIGIN=http://frontend-ssr:5573` (o host/porta reale del container Nuxt)
+
+Con `FRONTEND_RENDER_MODE=spa` (default) il backend continua a servire il vecchio frontend statico con fallback `index.html`.
+
+---
+
 ## Sviluppo locale
 
 ### Prerequisiti
@@ -135,8 +171,11 @@ Le porte sono scelte per non andare in conflitto con nessun altro progetto nella
 ### Comandi utili
 
 ```bash
-# Avvia tutto (consigliato)
+# Avvia tutto (consigliato, frontend SPA)
 npm run dev:start
+
+# Avvia tutto in modalita SSR Nuxt
+npm run dev:start:ssr
 
 # Avvia i singoli servizi separatamente
 npm run dev:backend
