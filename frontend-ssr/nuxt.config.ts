@@ -13,9 +13,11 @@ export default defineNuxtConfig({
     },
   },
   runtimeConfig: {
+    ssrInternalToken: process.env.SSR_INTERNAL_TOKEN || '',
     public: {
       apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:3300',
       siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:5573',
+      allowIndexing: process.env.NUXT_PUBLIC_ALLOW_INDEXING !== 'false',
     },
   },
   routeRules: {

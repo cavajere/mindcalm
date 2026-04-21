@@ -10,11 +10,19 @@ function getIpKey(req: Request) {
   return req.ip ?? 'anonymous'
 }
 
+function isTrustedInternalSsrRequest(req: Request) {
+  const expected = config.frontend.ssrInternalToken
+  if (!expected) return false
+  const provided = req.headers['x-internal-ssr-token']
+  return typeof provided === 'string' && provided === expected
+}
+
 export const publicRateLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: config.rateLimit.public,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: isTrustedInternalSsrRequest,
   message: { code: 'RATE_LIMITED', error: 'Troppe richieste, riprova tra poco' },
 })
 

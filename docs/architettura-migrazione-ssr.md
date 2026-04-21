@@ -83,11 +83,35 @@ Portare la parte pubblica di MindCalm da SPA a un modello SEO-first SSR, mantene
 
 ---
 
+## Hardening SEO post-migrazione
+
+Layer aggiuntivi implementati sopra il baseline SSR iniziale:
+
+- `<html lang="it">` via `app.head.htmlAttrs`.
+- `titleTemplate` intelligente in `app.vue` per evitare titoli duplicati ("MindCalm · MindCalm").
+- Composable `useSeoDefaults` che imposta canonical, `og:url`, `og:image`, `og:site_name`, `twitter:card` in modo uniforme. Le pagine di dettaglio usano la cover del contenuto come OG image, le altre cadono sul favicon.
+- Sitemap paginata sull'intero catalogo (`/api/posts`, `/api/audio`, `/api/events`) con `<lastmod>` e cache header.
+- `robots.txt` e meta `robots` condizionati dal flag `NUXT_PUBLIC_ALLOW_INDEXING` (impostare a `false` in staging/preview).
+- HTML dei contenuti (`body` di post ed eventi, privacy, termini) passa da `sanitize-html` prima di essere iniettato via `v-html`.
+- Backend: `publicRateLimiter` accetta un token interno (`SSR_INTERNAL_TOKEN`) che il container Nuxt inietta come `x-internal-ssr-token` sulle chiamate server-to-server; evita il falso-positivo di rate limit quando tutto il traffico SSR arriva dall'IP del container frontend.
+- `deploy.sh`: oltre a verificare lo status, effettua un check di contenuto sul body di `/`, `/robots.txt` e `/sitemap.xml` per intercettare shell vuote che rispondono 200.
+
+## Deliberatamente non adottato: moduli `@nuxtjs/sitemap` / `@nuxtjs/robots`
+
+I moduli ufficiali offrono funzionalità utili (multi-sitemap index, image/news sitemap, hreflang, generatori dinamici). Per lo stato attuale di MindCalm (sito monolingua italiano, catalogo sotto i 10k URL, niente `hreflang` né sitemap immagini per ora) l'implementazione a mano sotto `server/routes/` è più semplice e più esplicita. Il passaggio ai moduli ufficiali resta una opzione raccomandata quando si verificherà almeno una delle seguenti condizioni:
+
+- introduzione di multilingua con `hreflang`;
+- superamento dei 10k URL indicizzati (split in sitemap index);
+- necessità di image sitemap dedicate per le cover;
+- esigenza di route discovery automatica basata sul filesystem Nuxt.
+
 ## Stato
 Migrazione architetturale SSR **implementata** per:
 - runtime applicativo,
 - toggle SSR/SPA,
 - deploy notraefik,
-- healthcheck e smoke checks,
+- healthcheck e smoke checks (status + content),
+- hardening SEO (canonical, OG, sitemap paginata, robots env-driven, sanitize HTML),
+- rate limit bypass per traffico interno SSR,
 - documentazione operativa.
 

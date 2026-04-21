@@ -3,6 +3,7 @@ const route = useRoute()
 const slug = computed(() => String(route.params.slug || ''))
 
 const post = await fetchPostDetail(slug.value)
+const sanitizedBody = computed(() => sanitizeContentHtml(post?.body))
 
 useSeoDefaults({
   title: post?.title || 'Articolo',
@@ -31,6 +32,6 @@ useHead({
   <article v-if="post" class="card">
     <h1>{{ post.title }}</h1>
     <p>{{ post.excerpt }}</p>
-    <div v-if="post.body" v-html="post.body" />
+    <div v-if="sanitizedBody" v-html="sanitizedBody" />
   </article>
 </template>

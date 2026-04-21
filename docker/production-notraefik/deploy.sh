@@ -402,6 +402,25 @@ wait_for_http_status() {
   die "${description} non raggiungibile su ${url} (ultimo status: ${status:-000})"
 }
 
+verify_ssr_body_contains() {
+  local url="$1"
+  local expected_substring="$2"
+  local description="$3"
+
+  local body
+  body="$(curl --silent --show-error --connect-timeout 2 --max-time 8 "${url}" || true)"
+
+  if [[ "${body}" == *"${expected_substring}"* ]]; then
+    log "${description} OK (body contiene '${expected_substring}')"
+    return 0
+  fi
+
+  log "${description} FAIL: body non contiene '${expected_substring}' (primi 300 char)"
+  printf '%.300s\n' "${body}" >&2
+  show_frontend_ssr_diagnostics
+  die "${description} verifica contenuto fallita su ${url}"
+}
+
 show_post_deploy_status() {
   show_runtime_status
   wait_for_http_status "http://127.0.0.1:${API_PORT}/api/health" "Health check API" 200
@@ -411,6 +430,9 @@ show_post_deploy_status() {
     wait_for_http_status "http://127.0.0.1:${API_PORT}/robots.txt" "Robots SSR" 200
     wait_for_http_status "http://127.0.0.1:${API_PORT}/sitemap.xml" "Sitemap SSR" 200
     verify_ssr_upstream_from_api || show_frontend_ssr_diagnostics
+    verify_ssr_body_contains "http://127.0.0.1:${API_PORT}/" "MindCalm" "Frontend SSR body"
+    verify_ssr_body_contains "http://127.0.0.1:${API_PORT}/robots.txt" "User-agent:" "Robots body"
+    verify_ssr_body_contains "http://127.0.0.1:${API_PORT}/sitemap.xml" "<urlset" "Sitemap body"
   else
     wait_for_http_status "http://127.0.0.1:${API_PORT}/" "Frontend root (SPA fallback)" 200
   fi

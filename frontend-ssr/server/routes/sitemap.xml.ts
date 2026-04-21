@@ -18,7 +18,12 @@ function toIsoDate(value: string | null | undefined) {
   return Number.isNaN(date.getTime()) ? null : date.toISOString()
 }
 
-async function fetchAll<T>(base: string, path: string, label: string): Promise<T[]> {
+async function fetchAll<T>(
+  base: string,
+  path: string,
+  label: string,
+  headers: Record<string, string>,
+): Promise<T[]> {
   const items: T[] = []
   let page = 1
 
@@ -27,6 +32,7 @@ async function fetchAll<T>(base: string, path: string, label: string): Promise<T
       const response = await $fetch<PaginatedResponse<T>>(path, {
         baseURL: base,
         query: { page, limit: PAGE_SIZE },
+        headers,
       })
       const batch = response?.data ?? []
       items.push(...batch)
@@ -52,11 +58,15 @@ export default defineEventHandler(async () => {
   const config = useRuntimeConfig()
   const base = String(config.public.siteUrl || '').replace(/\/+$/, '')
   const api = String(config.public.apiBase || '')
+  const headers: Record<string, string> = {}
+  if (config.ssrInternalToken) {
+    headers['x-internal-ssr-token'] = String(config.ssrInternalToken)
+  }
 
   const [posts, audio, events] = await Promise.all([
-    fetchAll<PublicPost>(api, '/api/posts', 'posts'),
-    fetchAll<PublicAudio>(api, '/api/audio', 'audio'),
-    fetchAll<PublicEvent>(api, '/api/events', 'events'),
+    fetchAll<PublicPost>(api, '/api/posts', 'posts', headers),
+    fetchAll<PublicAudio>(api, '/api/audio', 'audio', headers),
+    fetchAll<PublicEvent>(api, '/api/events', 'events', headers),
   ])
 
   const staticEntries: SitemapEntry[] = [

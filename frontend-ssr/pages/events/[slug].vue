@@ -3,6 +3,7 @@ const route = useRoute()
 const slug = computed(() => String(route.params.slug || ''))
 
 const event = await fetchEventDetail(slug.value)
+const sanitizedBody = computed(() => sanitizeContentHtml(event?.body))
 
 useSeoDefaults({
   title: event?.title || 'Evento',
@@ -18,6 +19,6 @@ useSeoDefaults({
     <p>{{ event.excerpt }}</p>
     <p v-if="event.city">{{ event.city }}<span v-if="event.venue"> · {{ event.venue }}</span></p>
     <p v-if="event.startsAt">Data: {{ event.startsAt }}</p>
-    <div v-if="event.body" v-html="event.body" />
+    <div v-if="sanitizedBody" v-html="sanitizedBody" />
   </article>
 </template>

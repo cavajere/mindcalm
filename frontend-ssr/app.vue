@@ -1,7 +1,13 @@
 <script setup lang="ts">
+const runtimeConfig = useRuntimeConfig()
+const allowIndexing = runtimeConfig.public.allowIndexing !== false
+
 useHead({
   titleTemplate: (titleChunk?: string) =>
     titleChunk && titleChunk !== 'MindCalm' ? `${titleChunk} · MindCalm` : 'MindCalm',
+  meta: allowIndexing
+    ? []
+    : [{ name: 'robots', content: 'noindex, nofollow' }],
 })
 </script>
 
