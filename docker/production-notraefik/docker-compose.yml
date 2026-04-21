@@ -80,7 +80,11 @@ services:
       postgres:
         condition: service_healthy
       frontend-ssr:
-        condition: service_healthy
+        # service_started (not service_healthy) so an unhealthy SSR container
+        # does not block API startup. This preserves the documented SSR->SPA
+        # rollback path (FRONTEND_RENDER_MODE=spa): when SSR is broken, the API
+        # must still come up to serve the static SPA fallback.
+        condition: service_started
     environment:
       NODE_ENV: production
       HOST: ${HOST:-0.0.0.0}
